@@ -76,8 +76,9 @@
         /* Nowy Ekran Powitalny na cały ekran */
         #introScreen {
             background-image: url('Brawl_Tanks.jpg');
-            background-size: cover;
-            background-position: center;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: top center;
             width: 100vw;
             max-width: 100vw;
             height: 100vh;
@@ -87,7 +88,7 @@
             justify-content: flex-end;
             padding-bottom: 12vh;
             box-sizing: border-box;
-            background-color: #1a1a2e; /* Fallback */
+            background-color: #1a1a2e;
         }
 
         h1 {
@@ -97,7 +98,6 @@
             text-transform: uppercase;
             text-shadow: 4px 4px 0 #000, 8px 8px 0 rgba(0,0,0,0.2);
             -webkit-text-stroke: 3px #000;
-            transform: rotate(-2deg);
             letter-spacing: 3px;
         }
 
@@ -111,7 +111,6 @@
             box-shadow: 4px 4px 0 #2c3e50;
             text-transform: uppercase;
             margin: 20px 0 15px 0;
-            transform: rotate(1deg);
         }
 
         /* Konfiguratory Grid */
@@ -296,7 +295,10 @@
     
     <!-- Odtwarzacz Muzyki -->
     <audio id="bgMusic" loop>
-        <source src="The-Voyage-Begins.ogg" type="audio/ogg">
+        <source src="menu.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="gameMusic" loop>
+        <source src="" type="audio/mpeg">
     </audio>
 
     <div id="welcomeScreenWrapper"></div>
@@ -324,19 +326,19 @@
         
         <!-- MENU WYBORU -->
         <div id="welcomeScreen" class="screen">
-            <h1>Ekstra Tanks</h1>
+            <h1>Menu Główne</h1>
             
-            <h2>Wybierz Zadymiarza</h2>
+            <h2>Wybierz swój czołg</h2>
             <div class="grid-container char-grid" id="charGrid"></div>
 
-            <h2>Poziom Trudności</h2>
+            <h2>Poziom trudu</h2>
             <div class="grid-container diff-grid" id="diffGrid">
                 <div class="select-card diff-card" style="background:#2ecc71;" data-diff="easy">Trening</div>
                 <div class="select-card diff-card selected" style="background:#f39c12;" data-diff="normal">Standard</div>
                 <div class="select-card diff-card" style="background:#e74c3c;" data-diff="hard">Rój!</div>
             </div>
 
-            <h2>Wybierz Mapę</h2>
+            <h2>Wybierz otoczenie</h2>
             <div class="grid-container map-grid" id="mapGrid"></div>
 
             <button class="brawl-btn" id="startBtn">Graj!</button>
@@ -372,10 +374,10 @@
         ];
 
         const MAPS = [
-            { id: 'desert', name: 'Oaza', bg: '#e8d4a2', wall: '#d35400', bush: '#2ecc71', density: 0.08 },
-            { id: 'forest', name: 'Las', bg: '#27ae60', wall: '#7f8c8d', bush: '#1e8449', density: 0.12 },
-            { id: 'ice', name: 'Lód', bg: '#d4e6f1', wall: '#85c1e9', bush: '#ecf0f1', density: 0.06 },
-            { id: 'city', name: 'Miasto', bg: '#2c3e50', wall: '#95a5a6', bush: '#ff00ff', density: 0.10 }
+            { id: 'desert', name: '🏜️ PIASKI PUSTYNI', bg: '#e8d4a2', wall: '#d35400', bush: '#2ecc71', density: 0.08, music: 'pustynia.mp3' },
+            { id: 'forest', name: '🌴 TROPIKALNE LASY', bg: '#27ae60', wall: '#7f8c8d', bush: '#1e8449', density: 0.12, music: 'las.mp3' },
+            { id: 'ice', name: '❄️ ZIMNA ARKTYKA', bg: '#d4e6f1', wall: '#85c1e9', bush: '#ecf0f1', density: 0.06, music: 'arktyka.mp3' },
+            { id: 'city', name: '🏙️ MIASTO CYBERPUNK', bg: '#2c3e50', wall: '#95a5a6', bush: '#ff00ff', density: 0.10, music: 'miasto.mp3' }
         ];
 
         let selectedBrawler = BRAWLERS[0];
@@ -387,7 +389,7 @@
             let div = document.createElement('div');
             div.className = `select-card ${b.id === selectedBrawler.id ? 'selected' : ''}`;
             div.innerHTML = `
-                <div style="width: 100%; padding-top: 100%; position: relative; margin-bottom: 8px;">
+                <div style="width: 100%; padding-top: 100%; position: relative; margin-top: 25px; margin-bottom: 25px;">
                     <img src="${b.icon}" alt="${b.name}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 3px solid #2c3e50; box-sizing: border-box; background: #fff;">
                 </div>
                 <div class="name" style="background:${b.colorMain}; border-radius:8px; padding:4px 2px; font-size:1.15rem; line-height:1.1;">${b.name}</div>
@@ -424,14 +426,19 @@
             mapGrid.appendChild(div);
         });
 
+        // Autoplay menu music on first interaction (browser requirement)
+        const bgMusic = document.getElementById('bgMusic');
+        bgMusic.volume = 0.4;
+        bgMusic.play().catch(() => {
+            document.addEventListener('click', () => { bgMusic.play().catch(e => console.log(e)); }, { once: true });
+        });
+
         document.getElementById('enterBtn').addEventListener('click', () => {
             document.getElementById('introScreen').classList.remove('active-screen');
             document.getElementById('welcomeScreen').classList.add('active-screen');
             document.getElementById('welcomeScreenWrapper').style.display = 'block';
             AudioSys.init();
-            const bgMusic = document.getElementById('bgMusic');
-            bgMusic.volume = 0.4;
-            bgMusic.play().catch(e => console.log("Audio blocked:", e));
+            bgMusic.play().catch(e => console.log(e));
         });
 
         const AudioSys = {
@@ -1023,6 +1030,13 @@
         }
 
         function initGame() {
+            const bgMusic = document.getElementById('bgMusic');
+            bgMusic.pause();
+            bgMusic.currentTime = 0;
+            const gameMusic = document.getElementById('gameMusic');
+            gameMusic.src = selectedMap.music;
+            gameMusic.volume = 0.4;
+            gameMusic.play().catch(e => console.log(e));
             AudioSys.init();
             player.applyBrawler(selectedBrawler);
             generateMap();
@@ -1045,6 +1059,11 @@
             document.getElementById('gameOverScreen').classList.remove('active-screen');
             document.getElementById('welcomeScreenWrapper').style.display = 'block';
             document.getElementById('welcomeScreen').classList.add('active-screen');
+            const gameMusic = document.getElementById('gameMusic');
+            gameMusic.pause();
+            gameMusic.currentTime = 0;
+            const bgMusic = document.getElementById('bgMusic');
+            bgMusic.play().catch(e => console.log(e));
         });
         
         document.getElementById('charGrid').children[0].classList.add('selected');
