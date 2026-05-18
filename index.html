@@ -341,22 +341,45 @@
             <h2>Wybierz otoczenie</h2>
             <div class="grid-container map-grid" id="mapGrid"></div>
 
+            <h2>Emotki w grze</h2>
+            <div style="display:flex;gap:10px;justify-content:center;margin-bottom:10px;">
+                <div class="select-card" style="pointer-events:none;flex:1;padding:10px;">
+                    <div style="font-size:2rem;">😂</div>
+                    <div class="stats" style="margin-top:4px;">Klawisz 1</div>
+                </div>
+                <div class="select-card" style="pointer-events:none;flex:1;padding:10px;">
+                    <div style="font-size:2rem;">😡</div>
+                    <div class="stats" style="margin-top:4px;">Klawisz 2</div>
+                </div>
+                <div class="select-card" style="pointer-events:none;flex:1;padding:10px;">
+                    <div style="font-size:2rem;">👍</div>
+                    <div class="stats" style="margin-top:4px;">Klawisz 3</div>
+                </div>
+                <div class="select-card" style="pointer-events:none;flex:1;padding:10px;">
+                    <div style="font-size:2rem;">👎</div>
+                    <div class="stats" style="margin-top:4px;">Klawisz 4</div>
+                </div>
+            </div>
+
             <button class="brawl-btn" id="startBtn">Graj!</button>
         </div>
 
         <!-- GAME OVER SCREEN -->
         <div id="gameOverScreen" class="screen">
-            <h1 id="gameOverTitle">Koniec Meczu!</h1>
-            <div style="font-size: 6rem; line-height: 1; filter: drop-shadow(0 10px 0 rgba(0,0,0,0.2));">🏆</div>
-            
+            <h1>Podsumowanie</h1>
+            <div id="starRating" style="font-size:3.5rem;line-height:1;margin:6px 0;"></div>
+            <div id="rankTitle" style="font-size:1.4rem;color:#e67e22;font-family:sans-serif;font-weight:bold;margin-bottom:12px;text-shadow:1px 1px 0 #000;"></div>
+
             <table class="stats-table">
-                <tr><td>Wynik końcowy (Gemy)</td><td id="statScore">0</td></tr>
-                <tr><td>Zniszczeni wrogowie</td><td id="statKills">0</td></tr>
-                <tr><td>Czas przetrwania</td><td id="statTime">0s</td></tr>
-                <tr><td>Ocena gracza</td><td id="statRank">Drewno</td></tr>
+                <tr><td>💎 Zebrane gemy</td><td id="statScore">0</td></tr>
+                <tr><td>💥 Zniszczeni wrogowie</td><td id="statKills">0</td></tr>
+                <tr><td>⏱️ Czas przetrwania</td><td id="statTime">0s</td></tr>
+                <tr><td>🎯 Celność strzałów</td><td id="statAccuracy">0%</td></tr>
+                <tr><td>💜 Supertrzały oddane</td><td id="statSupers">0</td></tr>
+                <tr><td>❤️ Apteczki zebrane</td><td id="statHearts">0</td></tr>
             </table>
 
-            <button class="brawl-btn" id="restartBtn">Wróć do Menu</button>
+            <button class="brawl-btn" id="restartBtn">Powrót do Menu Głównego</button>
         </div>
 
     </div>
@@ -377,7 +400,7 @@
             { id: 'desert', name: '🏜️ PIASKI PUSTYNI', bg: '#e8d4a2', wall: '#d35400', bush: '#2ecc71', density: 0.08, music: 'pustynia.mp3' },
             { id: 'forest', name: '🌴 TROPIKALNE LASY', bg: '#27ae60', wall: '#7f8c8d', bush: '#1e8449', density: 0.12, music: 'las.mp3' },
             { id: 'ice', name: '❄️ ZIMNA ARKTYKA', bg: '#d4e6f1', wall: '#85c1e9', bush: '#ecf0f1', density: 0.06, music: 'arktyka.mp3' },
-            { id: 'city', name: '🏙️ MIASTO CYBERPUNK', bg: '#2c3e50', wall: '#95a5a6', bush: '#ff00ff', density: 0.10, music: 'miasto.mp3' }
+            { id: 'city', name: '🏙️ MIASTO CYBERPUNK', bg: '#546778', wall: '#b0bec5', bush: '#ff6fd8', density: 0.10, music: 'miasto.mp3' }
         ];
 
         let selectedBrawler = BRAWLERS[0];
@@ -496,7 +519,7 @@
         let gameState = 'MENU'; 
         let gameTime = 0;
         let gameTimerInterval = null;
-        let stats = { kills: 0, score: 0 };
+        let stats = { kills: 0, score: 0, bulletsFired: 0, bulletsHit: 0, supersFired: 0, heartsCollected: 0 };
         let superCharges = 0;
         let gemsSinceLastSuper = 0;
 
@@ -552,6 +575,23 @@
             return (distX*distX + distY*distY) <= (cr*cr);
         }
 
+        function findSafeSpawn(preferX, preferY, radius) {
+            for(let r = 0; r < 600; r += 40) {
+                let steps = r === 0 ? 1 : Math.max(8, Math.floor(r / 20));
+                for(let i = 0; i < steps; i++) {
+                    let angle = (i / steps) * Math.PI * 2;
+                    let x = Math.max(radius+10, Math.min(WORLD_W-radius-10, preferX + Math.cos(angle)*r));
+                    let y = Math.max(radius+10, Math.min(WORLD_H-radius-10, preferY + Math.sin(angle)*r));
+                    let safe = true;
+                    for(let env of environment) {
+                        if(env.type === 'wall' && checkRectCollision(env.x, env.y, env.w, env.h, x, y, radius+5)) { safe = false; break; }
+                    }
+                    if(safe) return {x, y};
+                }
+            }
+            return {x: preferX, y: preferY};
+        }
+
         class Player {
             constructor() {
                 this.width = 46; this.height = 58;
@@ -566,7 +606,8 @@
                 this.maxHp = brawler.hp; this.hp = brawler.hp;
                 this.speed = brawler.speed; this.shootCooldown = brawler.reload;
                 this.dmg = brawler.dmg; this.colorMain = brawler.colorMain;
-                this.x = WORLD_W / 2; this.y = WORLD_H / 2;
+                let spawn = findSafeSpawn(WORLD_W/2, WORLD_H/2, this.height/2.5);
+                this.x = spawn.x; this.y = spawn.y;
                 this.hullAngle = 0; this.turretAngle = 0;
                 this.lastShot = 0; this.isHidden = false;
             }
@@ -649,6 +690,8 @@
                         }
                     }
                     AudioSys.playShoot(this.brawler.type);
+                    if(isSuperShot) stats.supersFired++;
+                    stats.bulletsFired++;
                     this.isHidden = false;
                     this.bushTime = 0;
                 }
@@ -978,11 +1021,14 @@
                 else if (side === 1) { this.x = camera.x + screenW + 100; this.y = camera.y + Math.random() * screenH; }
                 else if (side === 2) { this.x = camera.x + Math.random() * screenW; this.y = camera.y + screenH + 100; }
                 else { this.x = camera.x - 100; this.y = camera.y + Math.random() * screenH; }
-                this.x = Math.max(50, Math.min(WORLD_W-50, this.x));
-                this.y = Math.max(50, Math.min(WORLD_H-50, this.y));
+                this.x = Math.max(80, Math.min(WORLD_W-80, this.x));
+                this.y = Math.max(80, Math.min(WORLD_H-80, this.y));
                 this.isBoss = isBoss;
                 this.width = isBoss ? 80 : 40; 
                 this.height = isBoss ? 80 : 40;
+                // Fix: ensure spawn not inside a wall
+                let safe = findSafeSpawn(this.x, this.y, this.height/2 + 5);
+                this.x = safe.x; this.y = safe.y;
                 let diffMult = selectedDifficulty === 'easy' ? 0.6 : (selectedDifficulty === 'hard' ? 1.5 : 1.0);
                 let timeMult = 1 + (gameTime / 60); 
                 this.speed = (Math.random() * 1.5 + 1.5) * Math.min(2, timeMult) * (selectedDifficulty === 'hard' ? 1.2 : 1.0); 
@@ -1047,17 +1093,54 @@
             constructor(x, y) {
                 this.x = x || 50 + Math.random() * (WORLD_W - 100);
                 this.y = y || 50 + Math.random() * (WORLD_H - 100);
-                this.radius = 12; this.active = true; this.pulse = 0;
+                this.radius = 16; this.active = true; this.pulse = Math.random() * Math.PI * 2;
+                this.sparkTimer = Math.random() * 60;
             }
-            update() { this.pulse += 0.1; }
+            update() { this.pulse += 0.08; this.sparkTimer++; }
             draw() {
-                if(this.x < camera.x || this.x > camera.x+screenW || this.y < camera.y || this.y > camera.y+screenH) return;
-                ctx.save(); ctx.translate(this.x, this.y);
-                let sc = 1 + Math.sin(this.pulse) * 0.15; ctx.scale(sc, sc);
-                ctx.beginPath(); ctx.moveTo(0, -this.radius); ctx.lineTo(this.radius, 0); ctx.lineTo(0, this.radius); ctx.lineTo(-this.radius, 0);
-                ctx.fillStyle = '#2ecc71'; ctx.shadowColor = '#000'; ctx.shadowBlur = 5; ctx.fill();
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+                if(this.x < camera.x-30 || this.x > camera.x+screenW+30 || this.y < camera.y-30 || this.y > camera.y+screenH+30) return;
+                const x=this.x, y=this.y, r=this.radius;
+                const sc = 1 + Math.sin(this.pulse) * 0.12;
+                ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+                // Outer glow
+                ctx.globalAlpha = 0.25 + Math.sin(this.pulse)*0.08;
+                ctx.fillStyle = '#2ecc71';
+                ctx.beginPath(); ctx.arc(0,0,r+6,0,Math.PI*2); ctx.fill();
+                // Main gem shape - hexagonal diamond
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#27ae60';
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, -r);
+                ctx.lineTo(r*0.6, -r*0.3);
+                ctx.lineTo(r*0.6, r*0.3);
+                ctx.lineTo(0, r);
+                ctx.lineTo(-r*0.6, r*0.3);
+                ctx.lineTo(-r*0.6, -r*0.3);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                // Inner facets
+                ctx.fillStyle = '#2ecc71';
+                ctx.beginPath();
+                ctx.moveTo(0, -r*0.7);
+                ctx.lineTo(r*0.4, -r*0.1);
+                ctx.lineTo(0, r*0.3);
+                ctx.lineTo(-r*0.4, -r*0.1);
+                ctx.closePath(); ctx.fill();
+                // Highlight
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.beginPath(); ctx.ellipse(-r*0.15, -r*0.35, r*0.18, r*0.1, -0.5, 0, Math.PI*2); ctx.fill();
+                // Sparkle flash every ~90 frames
+                if(Math.sin(this.sparkTimer * 0.07) > 0.85) {
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.9;
+                    const sp = r * 1.4;
+                    for(let i=0;i<4;i++){
+                        const a = i*Math.PI/2 + this.sparkTimer*0.02;
+                        ctx.beginPath(); ctx.moveTo(Math.cos(a)*r*0.8, Math.sin(a)*r*0.8);
+                        ctx.lineTo(Math.cos(a)*sp, Math.sin(a)*sp); ctx.stroke();
+                    }
+                }
                 ctx.restore();
+                ctx.globalAlpha = 1;
             }
         }
 
@@ -1106,11 +1189,91 @@
         }
 
         const player = new Player();
-        let bullets = [], enemies = [], gems = [], hearts = [], particles = [], environment = [];
+        let bullets = [], enemies = [], gems = [], hearts = [], particles = [], environment = [], mapDecorations = [];
         let frames = 0;
 
+        function drawDecoration(d) {
+            if(d.x < camera.x-80 || d.x > camera.x+screenW+80 || d.y < camera.y-80 || d.y > camera.y+screenH+80) return;
+            ctx.save(); ctx.translate(d.x, d.y);
+            const s = d.seed;
+            if(d.mapId === 'desert') {
+                if(s < 0.5) {
+                    // Cactus
+                    ctx.fillStyle='#2d6a2d'; ctx.strokeStyle='#1a4a1a'; ctx.lineWidth=2;
+                    ctx.fillRect(-5, -30, 10, 34); ctx.strokeRect(-5,-30,10,34);
+                    ctx.fillRect(-18, -18, 13, 8); ctx.strokeRect(-18,-18,13,8);
+                    ctx.fillRect(5, -22, 13, 8); ctx.strokeRect(5,-22,13,8);
+                    ctx.fillRect(-18, -26, 5, 10); ctx.strokeRect(-18,-26,5,10);
+                    ctx.fillRect(14, -30, 5, 10); ctx.strokeRect(14,-30,5,10);
+                } else {
+                    // Rock
+                    ctx.fillStyle='#c8a882'; ctx.strokeStyle='#a07850'; ctx.lineWidth=1.5;
+                    ctx.beginPath(); ctx.ellipse(0,0,18+s*8,12+s*5,s*0.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle='rgba(255,255,255,0.2)';
+                    ctx.beginPath(); ctx.ellipse(-4,-3,8,4,0.3,0,Math.PI*2); ctx.fill();
+                }
+            } else if(d.mapId === 'forest') {
+                if(s < 0.55) {
+                    // Tree
+                    ctx.fillStyle='#6d4c1f'; ctx.fillRect(-5,-5,10,20);
+                    ctx.fillStyle='#1a6b1a'; ctx.strokeStyle='#0a4a0a'; ctx.lineWidth=2;
+                    ctx.beginPath(); ctx.arc(0,-20,22,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle='rgba(255,255,255,0.12)';
+                    ctx.beginPath(); ctx.arc(-6,-27,7,0,Math.PI*2); ctx.fill();
+                } else {
+                    // Mushroom
+                    ctx.fillStyle='#e8e8e8'; ctx.fillRect(-5,0,10,16);
+                    ctx.fillStyle='#c0392b'; ctx.strokeStyle='#922b21'; ctx.lineWidth=2;
+                    ctx.beginPath(); ctx.arc(0,-2,18,Math.PI,0); ctx.closePath(); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle='rgba(255,255,255,0.7)';
+                    [[-8,-5],[2,-10],[8,-4]].forEach(([px,py])=>{ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fill();});
+                }
+            } else if(d.mapId === 'ice') {
+                if(s < 0.5) {
+                    // Ice crystal
+                    ctx.strokeStyle='rgba(173,216,230,0.85)'; ctx.lineWidth=2;
+                    const h=28+s*12;
+                    ctx.beginPath(); ctx.moveTo(0,-h); ctx.lineTo(0,h); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-h*0.6,-h*0.2); ctx.lineTo(h*0.6,h*0.2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-h*0.6,h*0.2); ctx.lineTo(h*0.6,-h*0.2); ctx.stroke();
+                    ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=1;
+                    ctx.beginPath(); ctx.moveTo(-8,-h+4); ctx.lineTo(0,-h); ctx.lineTo(8,-h+4); ctx.stroke();
+                } else {
+                    // Frozen crack
+                    ctx.strokeStyle='rgba(150,200,230,0.5)'; ctx.lineWidth=1.5;
+                    ctx.beginPath(); ctx.moveTo(-25,0); ctx.lineTo(-8,-5); ctx.lineTo(5,8); ctx.lineTo(20,-3); ctx.lineTo(30,4); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-8,-5); ctx.lineTo(-15,-18); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(5,8); ctx.lineTo(10,22); ctx.stroke();
+                }
+            } else if(d.mapId === 'city') {
+                if(s < 0.35) {
+                    // Manhole
+                    ctx.strokeStyle='#78909c'; ctx.lineWidth=3;
+                    ctx.beginPath(); ctx.arc(0,0,18,0,Math.PI*2); ctx.stroke();
+                    ctx.lineWidth=1.5;
+                    ctx.beginPath(); ctx.moveTo(-18,0); ctx.lineTo(18,0); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(0,18); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(0,0,6,0,Math.PI*2); ctx.stroke();
+                } else if(s < 0.65) {
+                    // Road stripe
+                    ctx.fillStyle='rgba(255,255,255,0.35)';
+                    ctx.fillRect(-3,-22,6,14); ctx.fillRect(-3,0,6,14);
+                } else {
+                    // Street light
+                    ctx.strokeStyle='#78909c'; ctx.lineWidth=3;
+                    ctx.beginPath(); ctx.moveTo(0,20); ctx.lineTo(0,-25); ctx.lineTo(15,-25); ctx.stroke();
+                    ctx.fillStyle='#fff9c4'; ctx.globalAlpha=0.8;
+                    ctx.beginPath(); ctx.arc(15,-25,5,0,Math.PI*2); ctx.fill();
+                    ctx.globalAlpha=0.15; ctx.fillStyle='#fff9c4';
+                    ctx.beginPath(); ctx.arc(15,-25,14,0,Math.PI*2); ctx.fill();
+                }
+            }
+            ctx.restore();
+            ctx.globalAlpha=1;
+        }
+
         function generateMap() {
-            environment = [];
+            environment = []; mapDecorations = [];
             let numBlocks = Math.floor((WORLD_W * WORLD_H) / 15000 * selectedMap.density);
             for(let i=0; i<numBlocks; i++) {
                 let w = 100 + Math.random() * 150;
@@ -1121,6 +1284,19 @@
                 let type = Math.random() > 0.5 ? 'wall' : 'bush';
                 let color = type === 'wall' ? selectedMap.wall : selectedMap.bush;
                 environment.push(new EnvironmentBlock(x, y, w, h, type, color));
+            }
+            // Generate decorations (purely visual, no collision)
+            const decCount = 120;
+            for(let i=0; i<decCount; i++) {
+                let x = 60 + Math.random() * (WORLD_W - 120);
+                let y = 60 + Math.random() * (WORLD_H - 120);
+                if(Math.abs(x-WORLD_W/2)<180 && Math.abs(y-WORLD_H/2)<180) continue;
+                // Don't place inside walls
+                let inWall = false;
+                for(let env of environment) {
+                    if(env.type==='wall' && x>env.x-30 && x<env.x+env.w+30 && y>env.y-30 && y<env.y+env.h+30) { inWall=true; break; }
+                }
+                if(!inWall) mapDecorations.push({x, y, mapId: selectedMap.id, seed: Math.random()});
             }
         }
 
@@ -1135,15 +1311,35 @@
             document.getElementById('hud').style.display = 'none';
             document.getElementById('controlsHelper').style.display = 'none';
             document.getElementById('gameOverScreen').classList.add('active-screen');
+
+            const accuracy = stats.bulletsFired > 0 ? Math.round(stats.bulletsHit / stats.bulletsFired * 100) : 0;
+
             document.getElementById('statScore').innerText = stats.score;
             document.getElementById('statKills').innerText = stats.kills;
-            document.getElementById('statTime').innerText = gameTime + "s";
-            let rank = "Drewno";
-            if(stats.score > 10) rank = "Brąz";
-            if(stats.score > 30) rank = "Srebro";
-            if(stats.score > 60) rank = "Złoto";
-            if(stats.score > 100) rank = "BRAWL STAR ⭐";
-            document.getElementById('statRank').innerText = rank;
+            document.getElementById('statTime').innerText = gameTime + 's';
+            document.getElementById('statAccuracy').innerText = accuracy + '%';
+            document.getElementById('statSupers').innerText = stats.supersFired;
+            document.getElementById('statHearts').innerText = stats.heartsCollected;
+
+            // Star rating formula (0-100 points):
+            // Przetrwanie: 1 pkt co 8s, maks 25
+            // Zniszczeni: 2 pkt za kill, maks 25
+            // Gemy: 1 pkt za gem, maks 25
+            // Celność: celność% * 0.15, maks 15
+            // Supertrzały: 2 pkt za super, maks 10
+            let pts = 0;
+            pts += Math.min(25, Math.floor(gameTime / 8));
+            pts += Math.min(25, stats.kills * 2);
+            pts += Math.min(25, stats.score);
+            pts += Math.min(15, Math.floor(accuracy * 0.15));
+            pts += Math.min(10, stats.supersFired * 2);
+
+            const stars = pts >= 81 ? 5 : pts >= 61 ? 4 : pts >= 41 ? 3 : pts >= 21 ? 2 : 1;
+            const starStr = '⭐'.repeat(stars) + '☆'.repeat(5 - stars);
+            const titles = ['', '🌱 Debiutant', '🪖 Świeży Żołnierz', '🎯 Obiecujący Rekrut', '💪 Doświadczony Bojownik', '🏆 Legendarny Tankista'];
+
+            document.getElementById('starRating').innerText = starStr;
+            document.getElementById('rankTitle').innerText = titles[stars];
         }
 
         function updateHUD() {
@@ -1168,6 +1364,7 @@
                     for(let e of enemies) {
                         if(e.active && Math.hypot(b.x - e.x, b.y - e.y) < e.height/2 + b.radius) {
                             b.active = false; e.hp -= b.dmg;
+                            stats.bulletsHit++;
                             createExplosion(b.x, b.y, b.color, 5); 
                             if(e.hp <= 0) {
                                 e.active = false; stats.kills++;
@@ -1214,7 +1411,8 @@
             for(let h of hearts) {
                 if(h.active && Math.hypot(player.x - h.x, player.y - h.y) < player.height/2 + h.radius) {
                     h.active = false;
-                    player.hp = Math.min(player.maxHp + 2, player.hp + 1); 
+                    player.hp = Math.min(player.maxHp + 2, player.hp + 1);
+                    stats.heartsCollected++;
                     createExplosion(player.x, player.y, '#e74c3c', 10);
                     AudioSys.playGem(); updateHUD();
                 }
@@ -1262,6 +1460,9 @@
             for(let x=startX; x<camera.x+screenW; x+=100) { ctx.beginPath(); ctx.moveTo(x, camera.y); ctx.lineTo(x, camera.y+screenH); ctx.stroke(); }
             for(let y=startY; y<camera.y+screenH; y+=100) { ctx.beginPath(); ctx.moveTo(camera.x, y); ctx.lineTo(camera.x+screenW, y); ctx.stroke(); }
 
+            // Map decorations (below everything)
+            mapDecorations.forEach(d => drawDecoration(d));
+
             environment.forEach(env => { if(env.type === 'wall') env.draw(); }); 
             gems.forEach(g => g.draw());
             hearts.forEach(h => h.draw());
@@ -1272,6 +1473,40 @@
 
             ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
             ctx.restore();
+
+            // Super charge widget — screen coords (HUD layer on canvas)
+            const progress = gemsSinceLastSuper / 10;
+            const wx = screenW / 2, wy = screenH - 52;
+            const bw = 180, bh = 22, br = 11;
+            // Background bar
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
+            ctx.beginPath(); ctx.roundRect(wx - bw/2 - 6, wy - bh/2 - 8, bw + 12, bh + 16, 16); ctx.fill();
+            // Track
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw, bh, br); ctx.fill();
+            // Fill
+            if(progress > 0) {
+                ctx.fillStyle = superCharges > 0 ? '#9b59b6' : '#8e44ad';
+                ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw * Math.min(progress,1), bh, br); ctx.fill();
+            }
+            // Pulsing glow when full
+            if(superCharges > 0) {
+                ctx.strokeStyle = '#d98ff0';
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.6 + Math.sin(frames * 0.15) * 0.4;
+                ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw, bh, br); ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+            // Label
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            if(superCharges > 0) {
+                ctx.fillText(`💜 SUPER GOTOWE x${superCharges}`, wx, wy);
+            } else {
+                ctx.fillText(`💎 ${gemsSinceLastSuper}/10 do Super`, wx, wy);
+            }
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         }
 
         function initGame() {
@@ -1286,7 +1521,7 @@
             player.applyBrawler(selectedBrawler);
             generateMap();
             bullets = []; enemies = []; gems = []; hearts = []; particles = [];
-            frames = 0; gameTime = 0; stats = { kills: 0, score: 0 };
+            frames = 0; gameTime = 0; stats = { kills: 0, score: 0, bulletsFired: 0, bulletsHit: 0, supersFired: 0, heartsCollected: 0 };
             superCharges = 0; gemsSinceLastSuper = 0;
             for(let i=0; i<15; i++) gems.push(new Gem());
             gameState = 'PLAYING';
