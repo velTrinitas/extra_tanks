@@ -361,7 +361,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v1.9
+        Game version: v2.0
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -660,6 +660,18 @@
         let superActive = false, superEndTime = 0;
         let gemsSinceLastSuper = 0;
         let repairHangars = [], powerWells = [], quicksandZones = [], trackMarks = [];
+        // Super powers
+        const SUPER_POWERS = [
+            {id:'aura',  name:'AURA',      col:'#f1c40f', COOLDOWN:30000, DURATION:5000},
+            {id:'bomb',  name:'MEGA BOMB', col:'#ff7c47', COOLDOWN:20000},
+            {id:'freeze',name:'FREEZE',    col:'#70ccff', COOLDOWN:25000, DURATION:5000},
+        ];
+        let selectedPower = 0;
+        let powerCooldowns = [0, 0, 0]; // Date.now() when cooldown expires
+        let auraActive = false, auraEndTime = 0;
+        let freezeActive = false, freezeEndTime = 0;
+        let bombExplosion = null;
+        let shakeX = 0, shakeY = 0, shakeTimer = 0;
 
         const keys = { w: false, a: false, s: false, d: false };
         const mouse = { screenX: screenW/2, screenY: screenH/2, worldX: 0, worldY: 0, isDown: false };
@@ -678,8 +690,10 @@
             if(e.code==='Space') mouse.isDown=false; 
         });
         window.addEventListener('mousemove', e => { mouse.screenX = e.clientX; mouse.screenY = e.clientY; });
-        window.addEventListener('mousedown', () => mouse.isDown = true);
-        window.addEventListener('mouseup', () => mouse.isDown = false);
+        window.addEventListener('mousedown', (e) => { if(e.button===0) mouse.isDown = true; });
+        window.addEventListener('mouseup', (e) => { if(e.button===0) mouse.isDown = false; });
+        canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); activateSuperPower(); });
+        canvas.addEventListener('wheel', (e) => { e.preventDefault(); selectedPower=(selectedPower+(e.deltaY>0?1:-1)+3)%3; }, {passive:false});
 
         class EnvironmentBlock {
             constructor(x, y, w, h, type, color) {
@@ -1232,6 +1246,8 @@
                 const maxT = Math.ceil((trailLens[this.brawlerStyle] || 0) * (this.isSuper ? 1.5 : 1));
                 if(this.trail.length > maxT) this.trail.shift();
                 this.age++;
+                // Enemy bullets freeze during FREEZE power
+                if(!this.isPlayer && freezeActive && Date.now() < freezeEndTime) return;
                 this.x += Math.cos(this.angle) * this.speed;
                 this.y += Math.sin(this.angle) * this.speed;
                 if(this.x < 0 || this.x > WORLD_W || this.y < 0 || this.y > WORLD_H) this.active = false;
@@ -1508,6 +1524,7 @@
                 this.serial = isBoss ? 'B-00' : `E-${Math.floor(Math.random()*90+10)}`;
             }
             update() {
+                if(freezeActive && Date.now() < freezeEndTime) { this.age++; return; }
                 if(player.isHidden) {
                     this.angle += 0.05;
                 } else {
@@ -2214,6 +2231,141 @@
             ctx.globalAlpha=1;
         }
 
+        function drawPowerIcon(ctx, type, cx, cy, r, alpha) {
+            ctx.save(); ctx.globalAlpha=alpha; ctx.translate(cx,cy);
+            if(type==='aura'){
+                for(let i=0;i<3;i++){
+                    const ir=(i+1)*r/3.5;
+                    ctx.strokeStyle=i===0?'#f1c40f':i===1?'#e67e22':'#d35400';
+                    ctx.lineWidth=1.5; ctx.globalAlpha=alpha*(1-i*0.14);
+                    ctx.beginPath(); ctx.arc(0,0,ir,0,Math.PI*2); ctx.stroke();
+                }
+                ctx.globalAlpha=alpha;
+                ctx.fillStyle='#ffd070';
+                ctx.fillRect(-3,-2,6,4);
+                ctx.strokeStyle='#f1c40f'; ctx.lineWidth=1.2;
+                for(let i=0;i<4;i++){
+                    const a=i*Math.PI/2+Math.PI/4;
+                    ctx.beginPath(); ctx.moveTo(Math.cos(a)*r*0.45,Math.sin(a)*r*0.45);
+                    ctx.lineTo(Math.cos(a)*r*0.8,Math.sin(a)*r*0.8); ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(a)*r*0.8-Math.cos(a-0.4)*4,Math.sin(a)*r*0.8-Math.sin(a-0.4)*4);
+                    ctx.lineTo(Math.cos(a)*r*0.8,Math.sin(a)*r*0.8);
+                    ctx.lineTo(Math.cos(a)*r*0.8-Math.cos(a+0.4)*4,Math.sin(a)*r*0.8-Math.sin(a+0.4)*4);
+                    ctx.stroke();
+                }
+            } else if(type==='bomb'){
+                ctx.strokeStyle='#ff7c47'; ctx.lineWidth=2;
+                for(let i=0;i<8;i++){
+                    const a=i*Math.PI/4;
+                    ctx.beginPath(); ctx.moveTo(Math.cos(a)*r*0.38,Math.sin(a)*r*0.38);
+                    ctx.lineTo(Math.cos(a)*r*0.85,Math.sin(a)*r*0.85); ctx.stroke();
+                }
+                ctx.fillStyle='#ff5500';
+                ctx.beginPath(); ctx.arc(0,0,r*0.3,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#fff8e0'; ctx.globalAlpha=alpha*0.9;
+                ctx.beginPath(); ctx.arc(0,0,r*0.13,0,Math.PI*2); ctx.fill();
+                ctx.globalAlpha=alpha;
+                ctx.strokeStyle='rgba(255,140,0,0.5)'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.arc(0,0,r*0.54,0,Math.PI*2); ctx.stroke();
+            } else if(type==='freeze'){
+                ctx.strokeStyle='#70ccff'; ctx.lineWidth=1.5;
+                for(let i=0;i<6;i++){
+                    const a=i*Math.PI/3;
+                    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*r*0.8,Math.sin(a)*r*0.8); ctx.stroke();
+                    const bx=Math.cos(a)*r*0.44, by=Math.sin(a)*r*0.44, ba=a+Math.PI/2;
+                    ctx.beginPath();
+                    ctx.moveTo(bx+Math.cos(ba)*r*0.16,by+Math.sin(ba)*r*0.16);
+                    ctx.lineTo(bx-Math.cos(ba)*r*0.16,by-Math.sin(ba)*r*0.16); ctx.stroke();
+                }
+                ctx.fillStyle='#b0e8ff';
+                ctx.beginPath(); ctx.arc(0,0,r*0.2,0,Math.PI*2); ctx.fill();
+            }
+            ctx.restore(); ctx.globalAlpha=1;
+        }
+
+        function drawSuperPowerHUD() {
+            const SW=64, SH=45, gap=8;
+            const totalW=SW*3+gap*2;
+            const startX=screenW/2-totalW/2;
+            const sy=screenH-126;
+            const now=Date.now();
+            SUPER_POWERS.forEach((p,i)=>{
+                const bx=startX+i*(SW+gap), by=sy;
+                const onCD=now<powerCooldowns[i];
+                const cdLeft=onCD?Math.ceil((powerCooldowns[i]-now)/1000):0;
+                const isSelected=i===selectedPower;
+                const alpha=onCD?0.2:1;
+                // Slot bg
+                ctx.globalAlpha=alpha*(isSelected?0.88:0.65);
+                ctx.fillStyle='#0a0a16';
+                ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,6); ctx.fill();
+                // Border
+                ctx.strokeStyle=isSelected&&!onCD?p.col:'rgba(255,255,255,0.2)';
+                ctx.lineWidth=isSelected&&!onCD?2:0.8;
+                ctx.globalAlpha=alpha;
+                ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,6); ctx.stroke();
+                ctx.globalAlpha=1;
+                // Icon
+                drawPowerIcon(ctx,p.id,bx+SW/2,by+SH*0.43,13,alpha);
+                // Name label
+                ctx.globalAlpha=alpha;
+                ctx.fillStyle=p.col;
+                ctx.font='bold 6px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+                ctx.fillText(p.name,bx+SW/2,by+SH-5);
+                ctx.globalAlpha=1;
+                // CD overlay + countdown
+                if(onCD){
+                    ctx.fillStyle='rgba(0,0,0,0.55)';
+                    ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,6); ctx.fill();
+                    ctx.fillStyle='rgba(255,255,255,0.5)';
+                    ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText(cdLeft+'s',bx+SW/2,by+SH/2);
+                    ctx.globalAlpha=1;
+                }
+                // Selection arrow
+                if(isSelected&&!onCD){
+                    ctx.fillStyle=p.col; ctx.globalAlpha=0.9;
+                    ctx.beginPath();
+                    ctx.moveTo(bx+SW/2-4,by-2); ctx.lineTo(bx+SW/2+4,by-2); ctx.lineTo(bx+SW/2,by+4);
+                    ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
+                }
+            });
+            // Scroll hint
+            ctx.fillStyle='rgba(255,255,255,0.22)';
+            ctx.font='7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+            ctx.fillText('scroll ← →   PPM = użyj', screenW/2, sy-5);
+            ctx.textAlign='left';
+        }
+
+        function activateSuperPower() {
+            if(gameState!=='PLAYING') return;
+            const now=Date.now();
+            const p=SUPER_POWERS[selectedPower];
+            if(now<powerCooldowns[selectedPower]) return;
+            powerCooldowns[selectedPower]=now+p.COOLDOWN;
+            if(selectedPower===0){ // AURA
+                auraActive=true; auraEndTime=now+5000;
+                floatingTexts.push(new FloatingText(player.x,player.y-55,'⚡ AURA!','#f1c40f'));
+            } else if(selectedPower===1){ // MEGA BOMB
+                bombExplosion={x:player.x,y:player.y,r:0,maxR:230};
+                shakeTimer=40;
+                let killed=0;
+                enemies.forEach(e=>{
+                    if(e.active&&Math.hypot(e.x-player.x,e.y-player.y)<230){
+                        e.active=false; stats.kills++; killed++;
+                        createExplosion(e.x,e.y,'#ff6b00',30);
+                    }
+                });
+                bullets.forEach(b=>{ if(!b.isPlayer&&Math.hypot(b.x-player.x,b.y-player.y)<230) b.active=false; });
+                const msg=killed>0?`💥 MEGA BOMB ×${killed}!`:'💥 MEGA BOMB!';
+                floatingTexts.push(new FloatingText(player.x,player.y-65,msg,'#ff8c00'));
+            } else { // FREEZE
+                freezeActive=true; freezeEndTime=now+5000;
+                floatingTexts.push(new FloatingText(player.x,player.y-55,'❄ FREEZE!','#70ccff'));
+            }
+        }
+
         function generateMap() {
             environment = []; mapDecorations = [];
             quicksandZones = []; repairHangars = []; powerWells = [];
@@ -2388,20 +2540,31 @@
                     }
                 } else {
                     if(Math.hypot(b.x - player.x, b.y - player.y) < player.height/2.5 + b.radius) {
-                        b.active = false; player.hp -= b.dmg;
-                        createExplosion(player.x, player.y, '#e67e22', 8);
-                        updateHUD();
-                        if(player.hp <= 0) triggerGameOver();
+                        b.active = false;
+                        if(auraActive && Date.now() < auraEndTime) {
+                            // AURA deflects bullet — no damage
+                            createExplosion(b.x, b.y, '#f1c40f', 6);
+                        } else {
+                            player.hp -= b.dmg;
+                            createExplosion(player.x, player.y, '#e67e22', 8);
+                            updateHUD();
+                            if(player.hp <= 0) triggerGameOver();
+                        }
                     }
                 }
             }
 
             for(let e of enemies) {
                 if(e.active && Math.hypot(player.x - e.x, player.y - e.y) < player.height/2.5 + e.height/2.5) {
-                    e.active = false; player.hp -= 1;
-                    createExplosion(player.x, player.y, '#e67e22');
-                    updateHUD();
-                    if(player.hp <= 0) triggerGameOver();
+                    e.active = false;
+                    if(!(auraActive && Date.now() < auraEndTime)) {
+                        player.hp -= 1;
+                        createExplosion(player.x, player.y, '#e67e22');
+                        updateHUD();
+                        if(player.hp <= 0) triggerGameOver();
+                    } else {
+                        createExplosion(e.x, e.y, '#f1c40f', 10);
+                    }
                 }
             }
 
@@ -2468,6 +2631,10 @@
             quicksandZones.forEach(qs => qs.update());
             powerWells.forEach(pw => pw.update());
             trackMarks.forEach(tm => tm.update());
+            // Power state timers
+            if(auraActive && Date.now() > auraEndTime) { auraActive=false; floatingTexts.push(new FloatingText(player.x,player.y-40,'AURA wygasła','#e67e22')); }
+            if(freezeActive && Date.now() > freezeEndTime) { freezeActive=false; }
+            if(shakeTimer>0){ shakeX=(Math.random()-0.5)*10; shakeY=(Math.random()-0.5)*10; shakeTimer--; } else { shakeX=0; shakeY=0; }
             
             checkCollisions();
 
@@ -2483,7 +2650,7 @@
             ctx.fillRect(0, 0, screenW, screenH);
             
             ctx.save();
-            ctx.translate(-camera.x, -camera.y);
+            ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
 
             ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.lineWidth = 2;
             let startX = Math.floor(camera.x / 100) * 100;
@@ -2506,6 +2673,51 @@
             repairHangars.forEach(rh => rh.draw());
             powerWells.forEach(pw => pw.draw());
             if(player.hp > 0) player.draw();
+            // AURA visual (world space, around player)
+            if(auraActive && Date.now() < auraEndTime) {
+                const ax=player.x, ay=player.y, t=frames*0.09;
+                for(let w=0;w<5;w++){
+                    const phase=(t-w*0.65)%(Math.PI*2);
+                    const r=32+phase*22; if(r>200) continue;
+                    const alpha=Math.max(0,0.6-r/170);
+                    ctx.strokeStyle=w%2===0?'#f1c40f':'#e67e22';
+                    ctx.lineWidth=2; ctx.globalAlpha=alpha;
+                    ctx.beginPath(); ctx.arc(ax,ay,r,0,Math.PI*2); ctx.stroke();
+                    if(w===0){
+                        ctx.strokeStyle='#ffd070'; ctx.lineWidth=1.2;
+                        ctx.beginPath();
+                        for(let ang=0;ang<=Math.PI*2+0.1;ang+=0.07){
+                            const bump=2.5*Math.sin(ang*8+t*3);
+                            const rx=ax+Math.cos(ang)*(r+bump);
+                            const ry=ay+Math.sin(ang)*(r+bump);
+                            ang<0.01?ctx.moveTo(rx,ry):ctx.lineTo(rx,ry);
+                        }
+                        ctx.globalAlpha=alpha*0.45; ctx.stroke();
+                    }
+                }
+                ctx.globalAlpha=1;
+                // Timer arc
+                const pct=(auraEndTime-Date.now())/5000;
+                ctx.strokeStyle='rgba(241,196,15,0.85)'; ctx.lineWidth=4;
+                ctx.beginPath(); ctx.arc(ax,ay,52,-Math.PI/2,-Math.PI/2+Math.PI*2*pct); ctx.stroke();
+                ctx.globalAlpha=1;
+            }
+            // Bomb explosion (world space)
+            if(bombExplosion){
+                bombExplosion.r = Math.min(bombExplosion.r+9, bombExplosion.maxR);
+                const {x:bx,y:by,r:br,maxR}=bombExplosion;
+                const a=Math.max(0,0.75*(1-br/maxR));
+                ctx.globalAlpha=a*0.65; ctx.fillStyle='#ff8c00';
+                ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fill();
+                ctx.globalAlpha=a*0.4; ctx.fillStyle='#fff';
+                ctx.beginPath(); ctx.arc(bx,by,br*0.32,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle='rgba(255,150,0,0.85)'; ctx.lineWidth=4; ctx.globalAlpha=a;
+                ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.stroke();
+                ctx.strokeStyle='rgba(255,200,0,0.3)'; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.arc(bx,by,maxR,0,Math.PI*2); ctx.stroke();
+                ctx.globalAlpha=1;
+                if(br>=maxR) bombExplosion=null;
+            }
             enemies.forEach(e => e.draw());
             environment.forEach(env => { if(env.type === 'bush') env.draw(); }); 
             bullets.forEach(b => b.draw()); particles.forEach(p => p.draw());
@@ -2513,6 +2725,41 @@
 
             ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
             ctx.restore();
+
+            // FREEZE countdown (screen space)
+            if(freezeActive && Date.now() < freezeEndTime) {
+                const timeLeft=Math.max(0,freezeEndTime-Date.now());
+                const sec=Math.ceil(timeLeft/1000);
+                const pulse=1+Math.sin(frames*0.18)*0.1;
+                ctx.fillStyle='rgba(100,200,255,0.06)'; ctx.fillRect(0,0,screenW,screenH);
+                // Ice crystals at corners
+                ctx.strokeStyle='rgba(180,230,255,0.22)'; ctx.lineWidth=1.5;
+                [[12,12],[screenW-12,12],[12,screenH-12],[screenW-12,screenH-12]].forEach(([cx2,cy2])=>{
+                    for(let i=0;i<6;i++){const a=i*Math.PI/3; ctx.beginPath(); ctx.moveTo(cx2,cy2); ctx.lineTo(cx2+Math.cos(a)*20,cy2+Math.sin(a)*20); ctx.stroke();}
+                });
+                const cx=screenW/2, cy=screenH/2-15, cr=56*pulse;
+                ctx.fillStyle='rgba(0,20,50,0.72)';
+                ctx.beginPath(); ctx.arc(cx,cy,cr+10,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle='rgba(100,180,255,0.2)'; ctx.lineWidth=7;
+                ctx.beginPath(); ctx.arc(cx,cy,cr,-Math.PI/2,Math.PI*3/2); ctx.stroke();
+                const fpct=timeLeft/5000;
+                ctx.strokeStyle='#4fc3f7'; ctx.lineWidth=7;
+                ctx.beginPath(); ctx.arc(cx,cy,cr,-Math.PI/2,-Math.PI/2+Math.PI*2*fpct); ctx.stroke();
+                ctx.strokeStyle='rgba(150,220,255,0.28)'; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.arc(cx,cy,cr+12,0,Math.PI*2); ctx.stroke();
+                const fs=Math.round(52*pulse);
+                ctx.font=`bold ${fs}px "Lilita One", cursive`;
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.strokeStyle='rgba(0,80,150,0.7)'; ctx.lineWidth=5;
+                ctx.strokeText(sec,cx+2,cy+2);
+                ctx.fillStyle='#e0f7ff'; ctx.fillText(sec,cx,cy);
+                ctx.font='bold 12px sans-serif'; ctx.fillStyle='#4fc3f7';
+                ctx.textBaseline='alphabetic'; ctx.fillText('❄  FREEZE  ❄',cx,cy+cr+24);
+                ctx.globalAlpha=1; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+            }
+
+            // Super powers HUD slots
+            drawSuperPowerHUD();
 
             // SCORE display — top center
             ctx.save();
@@ -2581,9 +2828,11 @@
             player.applyBrawler(selectedBrawler);
             generateMap();
             bullets = []; enemies = []; gems = []; hearts = []; particles = []; powerCubes = []; floatingTexts = [];
-            trackMarks = [];
+            trackMarks = []; bombExplosion = null;
             frames = 0; gameTime = 0; stats = { kills: 0, score: 0, bulletsFired: 0, bulletsHit: 0, supersFired: 0, heartsCollected: 0, dmgBonus: 0, cubesTotal: 0 };
             superCharges = 0; superActive = false; superEndTime = 0; gemsSinceLastSuper = 0;
+            auraActive = false; auraEndTime = 0; freezeActive = false; freezeEndTime = 0;
+            powerCooldowns = [0, 0, 0]; selectedPower = 0; shakeX = 0; shakeY = 0; shakeTimer = 0;
             player.speedBoostMult = 1; player.speedBoostEnd = 0;
             for(let i=0; i<15; i++) gems.push(new Gem());
             gameState = 'PLAYING';
