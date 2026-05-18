@@ -361,7 +361,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v1.8
+        Game version: v1.9
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1504,7 +1504,8 @@
                 if(isBoss) this.hp *= 10;
                 if(this.hp < 1) this.hp = 1;
                 this.maxHp = this.hp;
-                this.angle = 0; this.active = true; this.lastShot = Date.now();
+                this.angle = 0; this.active = true; this.lastShot = Date.now(); this.age = 0;
+                this.serial = isBoss ? 'B-00' : `E-${Math.floor(Math.random()*90+10)}`;
             }
             update() {
                 if(player.isHidden) {
@@ -1561,25 +1562,166 @@
                     }
                     }
                 }
+                this.age++;
             }
             draw() {
-                if(this.x < camera.x-100 || this.x > camera.x+screenW+100 || this.y < camera.y-100 || this.y > camera.y+screenH+100) return;
-                ctx.save(); ctx.translate(this.x, this.y);
-                let hpBarW = this.isBoss ? 80 : 40;
-                let hpBarY = this.isBoss ? -50 : -30;
-                ctx.fillStyle = '#c0392b'; ctx.fillRect(-hpBarW/2, hpBarY, hpBarW, 8);
-                ctx.fillStyle = '#2ecc71'; ctx.fillRect(-hpBarW/2, hpBarY, hpBarW * (this.hp/this.maxHp), 8);
-                ctx.strokeStyle = '#000'; ctx.lineWidth=2; ctx.strokeRect(-hpBarW/2, hpBarY, hpBarW, 8);
+                if(this.x < camera.x-120 || this.x > camera.x+screenW+120 || this.y < camera.y-120 || this.y > camera.y+screenH+120) return;
+                const boss = this.isBoss;
+                const age = this.age;
+                const sc = boss ? 1.45 : 1.0;
+                const HL=52*sc, HW=26*sc, TRK=5*sc;
+                const hhl=HL/2, hhw=HW/2;
+                const col  = boss ? '#7d3c98' : '#c0392b';
+                const colL = boss ? '#a569bd' : '#e74c3c';
+                const colD = boss ? '#4a235a' : '#7b241c';
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // HP bar (screen-aligned, not rotated)
+                const hpBarW = boss ? 72 : 44;
+                const hpBarY = boss ? -(hhw+TRK+18) : -(hhw+TRK+14);
+                ctx.fillStyle='#c0392b'; ctx.fillRect(-hpBarW/2,hpBarY,hpBarW,7);
+                ctx.fillStyle='#2ecc71'; ctx.fillRect(-hpBarW/2,hpBarY,hpBarW*(this.hp/this.maxHp),7);
+                ctx.strokeStyle='#000'; ctx.lineWidth=1.5; ctx.strokeRect(-hpBarW/2,hpBarY,hpBarW,7);
+                if(boss){
+                    ctx.fillStyle='#fff'; ctx.font='bold 8px sans-serif';
+                    ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText('BOSS',0,hpBarY+3.5);
+                }
+
+                // Hull + turret rotate together (enemy has no independent turret)
                 ctx.rotate(this.angle);
-                ctx.fillStyle = this.isBoss ? '#8e44ad' : '#e74c3c'; 
-                ctx.strokeStyle = '#000'; ctx.lineWidth = this.isBoss ? 4 : 3;
-                let rX = this.isBoss ? -30 : -15;
-                let rSize = this.isBoss ? 60 : 30;
-                ctx.beginPath(); ctx.roundRect(rX, rX, rSize, rSize, 8); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = '#333'; 
-                let barrelL = this.isBoss ? 40 : 25;
-                let barrelW = this.isBoss ? 12 : 8;
-                ctx.fillRect(0, -barrelW/2, barrelL, barrelW); ctx.strokeRect(0, -barrelW/2, barrelL, barrelW);
+
+                // ── TRACKS ──
+                const drawETrack = (sy) => {
+                    ctx.fillStyle='#1c1c1c'; ctx.strokeStyle='#2e2e2e'; ctx.lineWidth=0.8;
+                    ctx.beginPath(); ctx.roundRect(-hhl,sy-TRK/2,HL,TRK,2); ctx.fill(); ctx.stroke();
+                    ctx.strokeStyle='#383838'; ctx.lineWidth=0.6;
+                    const step=7*sc, tOff=((age*0.9)%step+step)%step;
+                    for(let i=0;i<=Math.ceil(HL/step)+1;i++){
+                        const lx=-hhl+i*step-tOff;
+                        if(lx>-hhl+0.5&&lx<hhl-0.5){ctx.beginPath();ctx.moveTo(lx,sy-TRK/2+sc);ctx.lineTo(lx,sy+TRK/2-sc);ctx.stroke();}
+                    }
+                    ctx.fillStyle='#252525'; ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=0.6;
+                    [-hhl+3.5*sc,-hhl/2,0,hhl/2,hhl-3.5*sc].forEach(wx=>{
+                        ctx.beginPath(); ctx.arc(wx,sy,3.2*sc,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                        ctx.fillStyle='#383838'; ctx.beginPath(); ctx.arc(wx,sy,1.3*sc,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#252525';
+                    });
+                };
+                drawETrack(-(hhw+TRK/2+0.5));
+                drawETrack(hhw+TRK/2+0.5);
+
+                // ── HULL BASE ──
+                ctx.lineWidth=1.5*sc; ctx.strokeStyle='#000';
+                ctx.fillStyle=col; ctx.beginPath(); ctx.roundRect(-hhl,-hhw,HL,HW,3*sc); ctx.fill(); ctx.stroke();
+                // Front tone
+                ctx.fillStyle=colL; ctx.globalAlpha=0.28; ctx.beginPath(); ctx.roundRect(-hhl,-hhw,HL*0.2,HW,3*sc); ctx.fill(); ctx.globalAlpha=1;
+                // Rear engine deck
+                ctx.fillStyle=colD; ctx.globalAlpha=0.42; ctx.beginPath(); ctx.roundRect(hhl-HL*0.28,-hhw,HL*0.28,HW,3*sc); ctx.fill(); ctx.globalAlpha=1;
+
+                // ── HULL DETAILS ──
+                // Engine grilles (rear)
+                ctx.fillStyle=colD; ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=0.8*sc;
+                for(let i=0;i<3;i++){
+                    ctx.beginPath();
+                    ctx.roundRect(hhl-HL*0.22+sc, -hhw+4*sc+i*((HW-8*sc)/3), HL*0.18, (HW-8*sc)/3-1.5*sc, sc);
+                    ctx.fill(); ctx.stroke();
+                }
+                // Driver hatch (front-left)
+                ctx.fillStyle=colL; ctx.strokeStyle='#000'; ctx.lineWidth=sc;
+                ctx.beginPath(); ctx.ellipse(-hhl+HL*0.19,-hhw*0.42,4.5*sc,3.5*sc,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.strokeStyle=colD; ctx.lineWidth=0.7*sc;
+                ctx.beginPath(); ctx.moveTo(-hhl+HL*0.13,-hhw*0.42); ctx.lineTo(-hhl+HL*0.25,-hhw*0.42); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-hhl+HL*0.19,-hhw*0.68); ctx.lineTo(-hhl+HL*0.19,-hhw*0.16); ctx.stroke();
+                // Tow hooks (front corners)
+                ctx.strokeStyle=colD; ctx.lineWidth=1.2*sc;
+                ctx.beginPath(); ctx.arc(-hhl+3*sc,-hhw+2.5*sc,2.5*sc,Math.PI,0); ctx.stroke();
+                ctx.beginPath(); ctx.arc(-hhl+3*sc,hhw-2.5*sc,2.5*sc,0,Math.PI); ctx.stroke();
+                // Serial number
+                ctx.font=`bold ${Math.round(5.5*sc)}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillText(this.serial,-HL*0.04,0);
+
+                // Boss-specific extras
+                if(boss){
+                    // Armor plate bolts along edges
+                    ctx.fillStyle=colL; ctx.strokeStyle='#000'; ctx.lineWidth=0.6;
+                    for(let x=-hhl+8*sc;x<hhl-6*sc;x+=12*sc){
+                        ctx.beginPath(); ctx.arc(x,-hhw+2.5*sc,1.8*sc,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(x,hhw-2.5*sc,1.8*sc,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                    }
+                    // Side armor plates
+                    ctx.fillStyle=colL; ctx.globalAlpha=0.4; ctx.lineWidth=sc; ctx.strokeStyle='rgba(0,0,0,0.4)';
+                    ctx.beginPath(); ctx.roundRect(-hhl+HL*0.12,-hhw,HL*0.62,3.5*sc,sc); ctx.fill(); ctx.stroke();
+                    ctx.beginPath(); ctx.roundRect(-hhl+HL*0.12,hhw-3.5*sc,HL*0.62,3.5*sc,sc); ctx.fill(); ctx.stroke();
+                    ctx.globalAlpha=1;
+                    // Warning stripes
+                    ctx.save(); ctx.beginPath(); ctx.roundRect(-hhl,-hhw,HL,HW,3*sc); ctx.clip();
+                    ctx.globalAlpha=0.1; ctx.fillStyle='#1a0a00';
+                    for(let i=-4;i<12;i++) ctx.fillRect(-hhl+i*14*sc,-hhw,7*sc,HW);
+                    ctx.globalAlpha=1; ctx.restore();
+                } else {
+                    // Normal enemy: skull icon
+                    ctx.font=`bold ${Math.round(9*sc)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillText('☠',-HL*0.05,hhw*0.5);
+                }
+
+                // Exhaust smoke (rear)
+                const ex=-hhl+3*sc, ey=hhw*0.38;
+                [0,0.38,0.72].forEach(off=>{
+                    const a=(age*0.022+off)%1;
+                    ctx.globalAlpha=(1-a)*0.2; ctx.fillStyle=boss?'#9b59b6':'#999';
+                    ctx.beginPath(); ctx.arc(ex-a*10*sc,ey-a*6*sc,(2+a*4.5)*sc,0,Math.PI*2); ctx.fill();
+                });
+                ctx.globalAlpha=1;
+
+                // ── TURRET RING ──
+                const tr=(boss?15:12)*sc;
+                ctx.fillStyle=lerpHex(col,-18); ctx.strokeStyle='#000'; ctx.lineWidth=1.5*sc;
+                ctx.beginPath(); ctx.arc(0,0,tr+2*sc,0,Math.PI*2); ctx.fill(); ctx.stroke();
+
+                // ── TURRET BODY ──
+                ctx.fillStyle=colD; ctx.strokeStyle='#000'; ctx.lineWidth=1.5*sc;
+                if(boss){
+                    // Wider rectangular turret for boss
+                    ctx.beginPath(); ctx.roundRect(-tr*0.72,-tr,tr*1.44,tr*2,3*sc); ctx.fill(); ctx.stroke();
+                    // Crown on boss turret
+                    ctx.strokeStyle='#d7bde2'; ctx.lineWidth=1.2*sc;
+                    ctx.beginPath();
+                    ctx.moveTo(-8*sc,-tr-sc); ctx.lineTo(-8*sc,-tr-6*sc);
+                    ctx.lineTo(-4*sc,-tr-3.5*sc); ctx.lineTo(0,-tr-7*sc);
+                    ctx.lineTo(4*sc,-tr-3.5*sc); ctx.lineTo(8*sc,-tr-6*sc); ctx.lineTo(8*sc,-tr-sc);
+                    ctx.stroke();
+                    // Gold turret trim
+                    ctx.strokeStyle='rgba(200,160,220,0.4)'; ctx.lineWidth=sc;
+                    ctx.beginPath(); ctx.roundRect(-tr*0.72+2*sc,-tr+2*sc,tr*1.44-4*sc,tr*2-4*sc,2*sc); ctx.stroke();
+                } else {
+                    ctx.beginPath(); ctx.arc(0,0,tr,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                }
+
+                // Turret hatch
+                ctx.fillStyle=colL; ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=0.8*sc;
+                ctx.beginPath(); ctx.ellipse(-2*sc,-1.5*sc,tr*0.34,tr*0.27,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.strokeStyle='rgba(0,0,0,0.38)'; ctx.lineWidth=0.7*sc;
+                ctx.beginPath(); ctx.moveTo(-5*sc,-1.5*sc); ctx.lineTo(sc,-1.5*sc); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-2*sc,-4*sc); ctx.lineTo(-2*sc,sc); ctx.stroke();
+
+                // Turret highlight
+                ctx.fillStyle='rgba(255,255,255,0.1)';
+                ctx.beginPath(); ctx.ellipse(-tr*0.28,-tr*0.28,tr*0.38,tr*0.22,-0.4,0,Math.PI*2); ctx.fill();
+
+                // ── BARREL ──
+                const bl=(boss?22:18)*sc, bw=(boss?7.5:6)*sc;
+                const bstart=boss?tr*0.5:tr*0.65;
+                ctx.fillStyle='#484848'; ctx.strokeStyle='#111'; ctx.lineWidth=1.5*sc;
+                if(boss){
+                    [-3.5*sc,3.5*sc].forEach(oy=>{
+                        ctx.beginPath(); ctx.roundRect(bstart,oy-bw/2.5,bl,bw/1.5,bw/4); ctx.fill(); ctx.stroke();
+                    });
+                } else {
+                    ctx.beginPath(); ctx.roundRect(bstart,-bw/2,bl,bw,bw*0.25); ctx.fill(); ctx.stroke();
+                }
+
                 ctx.restore();
             }
         }
