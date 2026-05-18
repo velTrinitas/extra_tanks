@@ -653,7 +653,9 @@
         let gameTimerInterval = null;
         let stats = { kills: 0, score: 0, bulletsFired: 0, bulletsHit: 0, supersFired: 0, heartsCollected: 0 };
         let superCharges = 0;
+        let superActive = false, superEndTime = 0;
         let gemsSinceLastSuper = 0;
+        let repairHangars = [], powerWells = [], quicksandZones = [], trackMarks = [];
 
         const keys = { w: false, a: false, s: false, d: false };
         const mouse = { screenX: screenW/2, screenY: screenH/2, worldX: 0, worldY: 0, isDown: false };
@@ -861,6 +863,17 @@
                 c.font='9px serif'; c.textAlign='center'; c.textBaseline='middle';
                 c.fillStyle='rgba(241,196,15,0.48)'; c.fillText('♛',-hhl+HL*0.14,0);
             }
+
+            // Exhaust smoke from rear (all tanks, subtle)
+            if(id!=='pyro'){
+                const ex=-hhl+3, ey=hhw*0.38;
+                [0,0.38,0.72].forEach(off=>{
+                    const a=(age*0.022+off)%1;
+                    c.globalAlpha=(1-a)*0.16; c.fillStyle='#999';
+                    c.beginPath(); c.arc(ex-a*10, ey-a*6, (2+a*4.5), 0, Math.PI*2); c.fill();
+                });
+                c.globalAlpha=1;
+            }
         }
 
         function drawTankTurret(c, brawler, colorMain, lastShot, shootCooldown) {
@@ -1018,10 +1031,10 @@
             constructor() {
                 this.width = 46; this.height = 58;
                 this.trackOffset = 0;
-                this.emote = null;
-                this.emoteTimer = 0;
-                this.bushTime = 0;
-                this.age = 0;
+                this.emote = null; this.emoteTimer = 0;
+                this.bushTime = 0; this.age = 0;
+                this.speedBoostMult = 1; this.speedBoostEnd = 0;
+                this.isMoving = false;
             }
 
             applyBrawler(brawler) {
@@ -1041,15 +1054,38 @@
             }
 
             update() {
+                // Speed boost timer
+                if(this.speedBoostMult > 1 && Date.now() > this.speedBoostEnd) {
+                    this.speedBoostMult = 1;
+                    updateHUD();
+                }
+                // Super active timer
+                if(superActive && Date.now() > superEndTime) {
+                    superActive = false;
+                    updateHUD();
+                }
+                // Repair hangars check
+                for(let rh of repairHangars) rh.tryRepair(this);
+                // Power well check
+                for(let pw of powerWells) pw.checkPlayer(this);
+
                 let dx = 0; let dy = 0;
                 if (keys.w) dy -= 1; if (keys.s) dy += 1;
                 if (keys.a) dx -= 1; if (keys.d) dx += 1;
 
-                if (dx !== 0 || dy !== 0) {
+                // Quicksand check
+                let inQuicksand = false;
+                for(let qs of quicksandZones) {
+                    if(qs.contains(this.x, this.y)) { inQuicksand = true; break; }
+                }
+                const actualSpeed = this.speed * this.speedBoostMult * (inQuicksand ? 0.5 : 1);
+
+                this.isMoving = (dx !== 0 || dy !== 0);
+                if (this.isMoving) {
                     let len = Math.sqrt(dx*dx + dy*dy);
                     dx /= len; dy /= len;
-                    let nextX = this.x + dx * this.speed;
-                    let nextY = this.y + dy * this.speed;
+                    let nextX = this.x + dx * actualSpeed;
+                    let nextY = this.y + dy * actualSpeed;
                     let canMoveX = true; let canMoveY = true;
                     for(let env of environment) {
                         if(env.type === 'wall') {
@@ -1061,7 +1097,14 @@
                     if(canMoveY) this.y = nextY;
                     if(canMoveX || canMoveY) {
                         this.hullAngle = Math.atan2(dy, dx);
-                        this.trackOffset -= this.speed * 0.8;
+                        this.trackOffset -= actualSpeed * 0.8;
+                        // Track marks every 5 frames
+                        if(this.age % 5 === 0) {
+                            const pa = this.hullAngle + Math.PI/2;
+                            const td = 14;
+                            trackMarks.push(new TrackMark(this.x+Math.cos(pa)*td, this.y+Math.sin(pa)*td, this.hullAngle));
+                            trackMarks.push(new TrackMark(this.x-Math.cos(pa)*td, this.y-Math.sin(pa)*td, this.hullAngle));
+                        }
                     }
                 }
 
@@ -1077,13 +1120,10 @@
                         this.isHidden = true; break;
                     }
                 }
-
                 if (this.isHidden) {
                     this.bushTime += 1/60;
                     if (this.bushTime > 10) this.isHidden = false;
-                } else {
-                    this.bushTime = 0;
-                }
+                } else { this.bushTime = 0; }
 
                 if(mouse.isDown) this.shoot();
                 this.age++;
@@ -1096,12 +1136,14 @@
                     const bLen = 35;
                     const bx = this.x + Math.cos(this.turretAngle) * bLen;
                     const by = this.y + Math.sin(this.turretAngle) * bLen;
-                    let isSuperShot = false;
-                    if(superCharges > 0) {
-                        isSuperShot = true;
+                    // Activate super for 5 seconds if charges available and not already active
+                    if(!superActive && superCharges > 0) {
+                        superActive = true;
+                        superEndTime = now + 5000;
                         superCharges--;
                         updateHUD();
                     }
+                    const isSuperShot = superActive;
                     if(this.brawler.type === 'spread') {
                         bullets.push(new Bullet(bx, by, this.turretAngle - 0.2, true, this.brawler, isSuperShot));
                         bullets.push(new Bullet(bx, by, this.turretAngle, true, this.brawler, isSuperShot));
@@ -1668,6 +1710,159 @@
             }
         }
 
+        class TrackMark {
+            constructor(x, y, angle) {
+                this.x=x; this.y=y; this.angle=angle; this.alpha=0.28; this.active=true;
+            }
+            update() { this.alpha-=0.0006; if(this.alpha<=0) this.active=false; }
+            draw() {
+                if(this.x<camera.x-20||this.x>camera.x+screenW+20||this.y<camera.y-20||this.y>camera.y+screenH+20) return;
+                ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.angle);
+                ctx.globalAlpha=this.alpha; ctx.fillStyle='rgba(0,0,0,0.8)';
+                ctx.fillRect(-5,-1.5,10,3);
+                ctx.restore(); ctx.globalAlpha=1;
+            }
+        }
+
+        class QuicksandZone {
+            constructor(x,y,w,h){ this.x=x; this.y=y; this.w=w; this.h=h; this.pulse=Math.random()*Math.PI*2; }
+            update(){ this.pulse+=0.03; }
+            contains(px,py){ return px>this.x&&px<this.x+this.w&&py>this.y&&py<this.y+this.h; }
+            draw(){
+                if(this.x+this.w<camera.x||this.x>camera.x+screenW||this.y+this.h<camera.y||this.y>camera.y+screenH) return;
+                ctx.save();
+                const alpha=0.35+Math.sin(this.pulse)*0.08;
+                ctx.globalAlpha=alpha; ctx.fillStyle='#c8a42a';
+                ctx.beginPath(); ctx.roundRect(this.x,this.y,this.w,this.h,8); ctx.fill();
+                // Ripple lines
+                ctx.strokeStyle='#a07820'; ctx.lineWidth=1.5;
+                for(let i=1;i<4;i++){
+                    const off=((this.pulse*12+i*18)%(this.h*0.7));
+                    ctx.globalAlpha=0.2*(1-off/(this.h*0.7));
+                    ctx.beginPath(); ctx.moveTo(this.x+8,this.y+off+12); ctx.lineTo(this.x+this.w-8,this.y+off+12); ctx.stroke();
+                }
+                ctx.globalAlpha=alpha*0.6;
+                ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillStyle='#7a5a00';
+                ctx.fillText('⚠ Ruchome piaski',this.x+this.w/2,this.y+14);
+                ctx.restore(); ctx.globalAlpha=1;
+            }
+        }
+
+        class RepairHangar {
+            constructor(x,y){ this.x=x; this.y=y; this.radius=55; this.cooldownEnd=-1; this.repairStartTime=-1; this.repairing=false; }
+            tryRepair(player){
+                if(gameState!=='PLAYING') return;
+                const now=Date.now();
+                if(now<this.cooldownEnd) return;
+                const dist=Math.hypot(player.x-this.x,player.y-this.y);
+                const moving=keys.w||keys.a||keys.s||keys.d;
+                if(dist<this.radius&&!moving){
+                    if(!this.repairing){ this.repairing=true; this.repairStartTime=now; }
+                    else if(now-this.repairStartTime>=3000){
+                        if(player.hp<player.brawler.hp){
+                            player.hp=Math.min(player.brawler.hp,player.hp+1);
+                            floatingTexts.push(new FloatingText(player.x,player.y-45,'🔧 +1 HP','#2ecc71'));
+                            AudioSys.playGem(); updateHUD();
+                        }
+                        this.repairing=false; this.cooldownEnd=now+60000;
+                    }
+                } else { this.repairing=false; }
+            }
+            draw(){
+                if(this.x<camera.x-100||this.x>camera.x+screenW+100||this.y<camera.y-100||this.y>camera.y+screenH+100) return;
+                const now=Date.now(); const onCD=now<this.cooldownEnd;
+                ctx.save(); ctx.translate(this.x,this.y);
+                // Zone circle
+                ctx.globalAlpha=0.12;
+                ctx.fillStyle=onCD?'#888':'#2ecc71';
+                ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle=onCD?'#888':'#2ecc71'; ctx.lineWidth=2; ctx.globalAlpha=0.5;
+                ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.stroke();
+                // Tent body
+                ctx.globalAlpha=1;
+                ctx.fillStyle=onCD?'#9e9e9e':'#c0392b'; ctx.strokeStyle='#000'; ctx.lineWidth=2;
+                ctx.beginPath();
+                ctx.moveTo(-32,8); ctx.lineTo(0,-28); ctx.lineTo(32,8);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.fillStyle=onCD?'#bbb':'#e74c3c';
+                ctx.beginPath();
+                ctx.moveTo(-22,8); ctx.lineTo(0,-16); ctx.lineTo(22,8);
+                ctx.closePath(); ctx.fill();
+                // Red cross
+                ctx.fillStyle='#fff'; ctx.strokeStyle='#c0392b'; ctx.lineWidth=1;
+                ctx.fillRect(-3,-8,6,16); ctx.fillRect(-8,-3,16,6);
+                ctx.strokeRect(-3,-8,6,16); ctx.strokeRect(-8,-3,16,6);
+                // Repair progress bar
+                if(this.repairing){
+                    const prog=Math.min(1,(now-this.repairStartTime)/3000);
+                    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.roundRect(-24,14,48,8,4); ctx.fill();
+                    ctx.fillStyle='#2ecc71'; ctx.beginPath(); ctx.roundRect(-24,14,48*prog,8,4); ctx.fill();
+                    ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText('Naprawiam...',0,18);
+                }
+                // Cooldown indicator
+                if(onCD){
+                    const cdLeft=Math.ceil((this.cooldownEnd-now)/1000);
+                    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.roundRect(-18,14,36,12,4); ctx.fill();
+                    ctx.fillStyle='#ffd'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText(`⏱ ${cdLeft}s`,0,20);
+                }
+                ctx.restore(); ctx.globalAlpha=1;
+            }
+        }
+
+        class PowerWell {
+            constructor(x,y){ this.x=x; this.y=y; this.radius=48; this.active=true; this.rechargeEnd=-1; this.pulse=0; }
+            update(){ this.pulse+=0.05; if(!this.active&&Date.now()>this.rechargeEnd) this.active=true; }
+            checkPlayer(player){
+                if(!this.active) return;
+                if(Math.hypot(player.x-this.x,player.y-this.y)<this.radius){
+                    this.active=false; this.rechargeEnd=Date.now()+45000;
+                    player.speedBoostMult=2.0; player.speedBoostEnd=Date.now()+8000;
+                    floatingTexts.push(new FloatingText(player.x,player.y-50,'⚡ TURBO ×2!','#f1c40f'));
+                    createExplosion(player.x,player.y,'#f1c40f',20); updateHUD();
+                }
+            }
+            draw(){
+                if(this.x<camera.x-80||this.x>camera.x+screenW+80||this.y<camera.y-80||this.y>camera.y+screenH+80) return;
+                ctx.save(); ctx.translate(this.x,this.y);
+                const now=Date.now(); const cdLeft=this.active?0:Math.ceil((this.rechargeEnd-now)/1000);
+                const baseAlpha=this.active?0.55:0.2;
+                const col=this.active?'#f1c40f':'#888';
+                // Outer ring pulse
+                if(this.active){
+                    ctx.globalAlpha=0.15+Math.sin(this.pulse)*0.08;
+                    ctx.fillStyle=col;
+                    ctx.beginPath(); ctx.arc(0,0,this.radius+8+Math.sin(this.pulse)*4,0,Math.PI*2); ctx.fill();
+                }
+                // Zone fill
+                ctx.globalAlpha=baseAlpha*0.35;
+                ctx.fillStyle=col;
+                ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle=col; ctx.lineWidth=3; ctx.globalAlpha=baseAlpha;
+                ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.stroke();
+                // Well structure
+                ctx.globalAlpha=1;
+                ctx.fillStyle=this.active?'#d4a017':'#888'; ctx.strokeStyle='#000'; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.ellipse(0,0,20,12,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle=this.active?'#f1c40f':'#bbb';
+                ctx.beginPath(); ctx.ellipse(0,0,14,8,0,0,Math.PI*2); ctx.fill();
+                // Lightning bolts
+                if(this.active){
+                    ctx.fillStyle='#fff'; ctx.globalAlpha=0.8+Math.sin(this.pulse*2)*0.2;
+                    ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText('⚡',0,0);
+                }
+                if(!this.active&&cdLeft>0){
+                    ctx.globalAlpha=0.8; ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.roundRect(-16,14,32,14,4); ctx.fill();
+                    ctx.fillStyle='#ffd'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText(`⏱ ${cdLeft}s`,0,21);
+                }
+                ctx.restore(); ctx.globalAlpha=1;
+            }
+        }
+
         class Heart {
             constructor() {
                 this.x = 100 + Math.random() * (WORLD_W - 200);
@@ -1717,9 +1912,86 @@
         let frames = 0;
 
         function drawDecoration(d) {
-            if(d.x < camera.x-80 || d.x > camera.x+screenW+80 || d.y < camera.y-80 || d.y > camera.y+screenH+80) return;
+            if(d.x < camera.x-100 || d.x > camera.x+screenW+100 || d.y < camera.y-100 || d.y > camera.y+screenH+100) return;
             ctx.save(); ctx.translate(d.x, d.y);
             const s = d.seed;
+
+            // Desert palm (oasis)
+            if(d.mapId === 'desert_palm') {
+                const v = d.variant||0;
+                const h = 22+v*4;
+                ctx.fillStyle='#6d4c1f'; ctx.strokeStyle='#4a3010'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.roundRect(-3,-h,6,h,2); ctx.fill(); ctx.stroke();
+                // Fronds (different per variant)
+                const frondColors=['#1a7a1a','#228b22','#2d8b2d','#3a9a3a'];
+                ctx.fillStyle=frondColors[v]; ctx.strokeStyle='#0a5a0a'; ctx.lineWidth=1;
+                const frondCount=4+v;
+                for(let i=0;i<frondCount;i++){
+                    const a=(i/frondCount)*Math.PI*2;
+                    const len=14+v*2;
+                    ctx.beginPath();
+                    ctx.moveTo(0,-h);
+                    ctx.quadraticCurveTo(Math.cos(a)*len*0.5,-h-6+Math.sin(a)*4,Math.cos(a)*len,-h+Math.sin(a)*8+4);
+                    ctx.lineWidth=2.5; ctx.strokeStyle=frondColors[v]; ctx.stroke();
+                    // Frond leaves
+                    ctx.lineWidth=1; ctx.strokeStyle='#0a5a0a';
+                    for(let j=1;j<3;j++){
+                        const t=j/3;
+                        const lx=Math.cos(a)*len*t*0.6, ly=-h+Math.sin(a)*8*t+4*t;
+                        const na=a+Math.PI/2;
+                        ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx+Math.cos(na)*6,ly+Math.sin(na)*6); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx-Math.cos(na)*6,ly-Math.sin(na)*6); ctx.stroke();
+                    }
+                }
+                if(v>=2){ctx.fillStyle='#c8a230'; ctx.beginPath(); ctx.arc(0,-h-1,3,0,Math.PI*2); ctx.fill();}
+                ctx.restore(); ctx.globalAlpha=1; return;
+            }
+
+            // Desert ruin
+            if(d.mapId === 'desert_ruin') {
+                const w=d.w||40, h=d.h||30;
+                ctx.fillStyle='#c4a77d'; ctx.strokeStyle='#8b6914'; ctx.lineWidth=1.5;
+                if(s<0.4){
+                    // Column stump
+                    ctx.beginPath(); ctx.roundRect(-8,-h/2,16,h,3); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle='#d4b88d'; ctx.fillRect(-10,-h/2,20,6); ctx.fillRect(-10,h/2-6,20,6);
+                } else if(s<0.7){
+                    // Wall fragment
+                    ctx.beginPath(); ctx.roundRect(-w/2,-h/2,w,h,2); ctx.fill(); ctx.stroke();
+                    // Stone texture lines
+                    ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.lineWidth=0.8;
+                    for(let r=0;r<3;r++){ ctx.beginPath(); ctx.moveTo(-w/2+2,(-h/2+r*h/3)+3); ctx.lineTo(w/2-2,(-h/2+r*h/3)+3); ctx.stroke(); }
+                } else {
+                    // Arch remnant
+                    ctx.strokeStyle='#8b6914'; ctx.lineWidth=4;
+                    ctx.beginPath(); ctx.moveTo(-14,10); ctx.lineTo(-14,-10); ctx.arc(0,-10,14,Math.PI,0); ctx.lineTo(14,10); ctx.stroke();
+                }
+                ctx.restore(); ctx.globalAlpha=1; return;
+            }
+
+            // Desert wreck (burned tank)
+            if(d.mapId === 'desert_wreck') {
+                ctx.rotate(d.angle||0);
+                // Hull remains
+                ctx.fillStyle='#3a2a1a'; ctx.strokeStyle='#1a1008'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.roundRect(-24,-12,48,24,3); ctx.fill(); ctx.stroke();
+                // Rust patches
+                ctx.fillStyle='#7a3a1a'; ctx.globalAlpha=0.6;
+                ctx.beginPath(); ctx.arc(-10,-4,8,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(8,5,6,0,Math.PI*2); ctx.fill();
+                ctx.globalAlpha=1;
+                // Burned turret (damaged)
+                ctx.fillStyle='#2a1a0a'; ctx.strokeStyle='#1a1008'; ctx.lineWidth=1;
+                ctx.beginPath(); ctx.arc(-4,0,8,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                // Broken barrel
+                ctx.strokeStyle='#3a2a1a'; ctx.lineWidth=3;
+                ctx.beginPath(); ctx.moveTo(4,0); ctx.lineTo(18,-4); ctx.stroke();
+                // Char marks
+                ctx.fillStyle='#1a1a1a'; ctx.globalAlpha=0.4;
+                for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(-20+i*14,-8+Math.random()*16,2+Math.random()*3,0,Math.PI*2);ctx.fill();}
+                ctx.restore(); ctx.globalAlpha=1; return;
+            }
+
             if(d.mapId === 'desert') {
                 if(s < 0.5) {
                     // Cactus
@@ -1798,6 +2070,7 @@
 
         function generateMap() {
             environment = []; mapDecorations = [];
+            quicksandZones = []; repairHangars = []; powerWells = [];
             let numBlocks = Math.floor((WORLD_W * WORLD_H) / 15000 * selectedMap.density);
             for(let i=0; i<numBlocks; i++) {
                 let w = 100 + Math.random() * 150;
@@ -1809,18 +2082,59 @@
                 let color = type === 'wall' ? selectedMap.wall : selectedMap.bush;
                 environment.push(new EnvironmentBlock(x, y, w, h, type, color));
             }
-            // Generate decorations (purely visual, no collision)
+            // General decorations
             const decCount = 120;
             for(let i=0; i<decCount; i++) {
                 let x = 60 + Math.random() * (WORLD_W - 120);
                 let y = 60 + Math.random() * (WORLD_H - 120);
                 if(Math.abs(x-WORLD_W/2)<180 && Math.abs(y-WORLD_H/2)<180) continue;
-                // Don't place inside walls
                 let inWall = false;
                 for(let env of environment) {
                     if(env.type==='wall' && x>env.x-30 && x<env.x+env.w+30 && y>env.y-30 && y<env.y+env.h+30) { inWall=true; break; }
                 }
                 if(!inWall) mapDecorations.push({x, y, mapId: selectedMap.id, seed: Math.random()});
+            }
+
+            if(selectedMap.id === 'desert') {
+                // Oasis (large bush zone at center)
+                environment.push(new EnvironmentBlock(WORLD_W/2-110, WORLD_H/2-110, 220, 220, 'bush', selectedMap.bush));
+                // Palm trees around oasis
+                for(let i=0;i<10;i++){
+                    const ang=i*(Math.PI*2/10)+Math.random()*0.4;
+                    const r=55+Math.random()*65;
+                    mapDecorations.push({x:WORLD_W/2+Math.cos(ang)*r, y:WORLD_H/2+Math.sin(ang)*r, mapId:'desert_palm', seed:Math.random(), variant:Math.floor(Math.random()*4)});
+                }
+                // Inner oasis palms
+                for(let i=0;i<5;i++){
+                    const ang=i*(Math.PI*2/5);
+                    mapDecorations.push({x:WORLD_W/2+Math.cos(ang)*22, y:WORLD_H/2+Math.sin(ang)*22, mapId:'desert_palm', seed:Math.random(), variant:Math.floor(Math.random()*4)});
+                }
+                // Ruin clusters (3 groups)
+                [[WORLD_W*0.15,WORLD_H*0.18],[WORLD_W*0.82,WORLD_H*0.72],[WORLD_W*0.38,WORLD_H*0.82]].forEach(([rx,ry])=>{
+                    for(let i=0;i<5;i++){
+                        const x=rx+Math.random()*140-70, y=ry+Math.random()*140-70;
+                        const w=22+Math.random()*55, h=18+Math.random()*45;
+                        environment.push(new EnvironmentBlock(x,y,w,h,'wall','#c4a77d'));
+                        mapDecorations.push({x:x+w/2,y:y+h/2,mapId:'desert_ruin',seed:Math.random(),w,h});
+                    }
+                });
+                // Quicksand zones (4)
+                let qsPlaced=0;
+                while(qsPlaced<4){
+                    const x=200+Math.random()*(WORLD_W-400), y=200+Math.random()*(WORLD_H-400);
+                    if(Math.abs(x-WORLD_W/2)<300&&Math.abs(y-WORLD_H/2)<300) continue;
+                    quicksandZones.push(new QuicksandZone(x,y,155+Math.random()*80,115+Math.random()*75)); qsPlaced++;
+                }
+                // Wrecks (6 visual-only)
+                for(let i=0;i<6;i++){
+                    mapDecorations.push({x:120+Math.random()*(WORLD_W-240), y:120+Math.random()*(WORLD_H-240), mapId:'desert_wreck', seed:Math.random(), angle:Math.random()*Math.PI*2});
+                }
+                // Repair hangars (3 in different quadrants)
+                repairHangars.push(new RepairHangar(WORLD_W*0.18, WORLD_H*0.5));
+                repairHangars.push(new RepairHangar(WORLD_W*0.82, WORLD_H*0.28));
+                repairHangars.push(new RepairHangar(WORLD_W*0.52, WORLD_H*0.84));
+                // Power well (1)
+                powerWells.push(new PowerWell(WORLD_W*0.72, WORLD_H*0.62));
             }
         }
 
@@ -2005,6 +2319,9 @@
             enemies.forEach(e => e.update()); gems.forEach(g => g.update());
             hearts.forEach(h => h.update()); particles.forEach(p => p.update());
             powerCubes.forEach(pc => pc.update()); floatingTexts.forEach(ft => ft.update());
+            quicksandZones.forEach(qs => qs.update());
+            powerWells.forEach(pw => pw.update());
+            trackMarks.forEach(tm => tm.update());
             
             checkCollisions();
 
@@ -2012,6 +2329,7 @@
             gems = gems.filter(g => g.active); hearts = hearts.filter(h => h.active);
             particles = particles.filter(p => p.active);
             powerCubes = powerCubes.filter(pc => pc.active); floatingTexts = floatingTexts.filter(ft => ft.active);
+            trackMarks = trackMarks.filter(tm => tm.active);
 
             updateCamera();
 
@@ -2029,11 +2347,18 @@
 
             // Map decorations (below everything)
             mapDecorations.forEach(d => drawDecoration(d));
+            // Quicksand zones
+            quicksandZones.forEach(qs => qs.draw());
 
             environment.forEach(env => { if(env.type === 'wall') env.draw(); }); 
+            // Track marks (below entities)
+            trackMarks.forEach(tm => tm.draw());
             gems.forEach(g => g.draw());
             powerCubes.forEach(pc => pc.draw());
             hearts.forEach(h => h.draw());
+            // Repair hangars and power wells
+            repairHangars.forEach(rh => rh.draw());
+            powerWells.forEach(pw => pw.draw());
             if(player.hp > 0) player.draw();
             enemies.forEach(e => e.draw());
             environment.forEach(env => { if(env.type === 'bush') env.draw(); }); 
@@ -2043,35 +2368,55 @@
             ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
             ctx.restore();
 
-            // Super charge widget — screen coords (HUD layer on canvas)
+            // SCORE display — top center
+            ctx.save();
+            ctx.fillStyle='rgba(0,0,0,0.5)';
+            ctx.beginPath(); ctx.roundRect(screenW/2-70, 10, 140, 38, 12); ctx.fill();
+            ctx.fillStyle='#f1c40f';
+            ctx.font='bold 22px "Lilita One", cursive';
+            ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.strokeStyle='#000'; ctx.lineWidth=3;
+            ctx.strokeText(`💎 ${stats.score}`, screenW/2, 29);
+            ctx.fillText(`💎 ${stats.score}`, screenW/2, 29);
+            ctx.restore();
+
+            // Super charge widget — screen coords
             const progress = gemsSinceLastSuper / 10;
-            const wx = screenW / 2, wy = screenH - 52;
-            const bw = 180, bh = 22, br = 11;
-            // Background bar
-            ctx.fillStyle = 'rgba(0,0,0,0.45)';
-            ctx.beginPath(); ctx.roundRect(wx - bw/2 - 6, wy - bh/2 - 8, bw + 12, bh + 16, 16); ctx.fill();
-            // Track
+            const wx = screenW / 2, wy = screenH - 56;
+            const bw = 270, bh = 30, br = 15;
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath(); ctx.roundRect(wx - bw/2 - 7, wy - bh/2 - 8, bw + 14, bh + 16, 18); ctx.fill();
             ctx.fillStyle = 'rgba(255,255,255,0.15)';
             ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw, bh, br); ctx.fill();
-            // Fill
-            if(progress > 0) {
-                ctx.fillStyle = superCharges > 0 ? '#9b59b6' : '#8e44ad';
-                ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw * Math.min(progress,1), bh, br); ctx.fill();
-            }
-            // Pulsing glow when full
-            if(superCharges > 0) {
-                ctx.strokeStyle = '#d98ff0';
-                ctx.lineWidth = 2;
-                ctx.globalAlpha = 0.6 + Math.sin(frames * 0.15) * 0.4;
+            if(superActive) {
+                // Active timer bar
+                const timeLeft = Math.max(0, superEndTime - Date.now());
+                const timeProgress = timeLeft / 5000;
+                ctx.fillStyle = '#9b59b6';
+                ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw * timeProgress, bh, br); ctx.fill();
+                ctx.strokeStyle = '#d98ff0'; ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.7 + Math.sin(frames * 0.25) * 0.3;
                 ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw, bh, br); ctx.stroke();
                 ctx.globalAlpha = 1;
+            } else if(superCharges > 0) {
+                ctx.fillStyle = '#8e44ad';
+                ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw, bh, br); ctx.fill();
+                ctx.strokeStyle = '#d98ff0'; ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.5 + Math.sin(frames * 0.15) * 0.4;
+                ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw, bh, br); ctx.stroke();
+                ctx.globalAlpha = 1;
+            } else if(progress > 0) {
+                ctx.fillStyle = '#6c3483';
+                ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw * Math.min(progress,1), bh, br); ctx.fill();
             }
-            // Label
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 13px sans-serif';
+            ctx.font = 'bold 14px sans-serif';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            if(superCharges > 0) {
-                ctx.fillText(`💜 SUPER GOTOWE x${superCharges}`, wx, wy);
+            if(superActive) {
+                const sec = Math.ceil(Math.max(0, superEndTime - Date.now()) / 1000);
+                ctx.fillText(`💜 SUPER AKTYWNY! ${sec}s`, wx, wy);
+            } else if(superCharges > 0) {
+                ctx.fillText(`💜 SUPER GOTOWE — naciśnij spację! (x${superCharges})`, wx, wy);
             } else {
                 ctx.fillText(`💎 ${gemsSinceLastSuper}/10 do Super`, wx, wy);
             }
@@ -2090,8 +2435,10 @@
             player.applyBrawler(selectedBrawler);
             generateMap();
             bullets = []; enemies = []; gems = []; hearts = []; particles = []; powerCubes = []; floatingTexts = [];
+            trackMarks = [];
             frames = 0; gameTime = 0; stats = { kills: 0, score: 0, bulletsFired: 0, bulletsHit: 0, supersFired: 0, heartsCollected: 0, dmgBonus: 0, cubesTotal: 0 };
-            superCharges = 0; gemsSinceLastSuper = 0;
+            superCharges = 0; superActive = false; superEndTime = 0; gemsSinceLastSuper = 0;
+            player.speedBoostMult = 1; player.speedBoostEnd = 0;
             for(let i=0; i<15; i++) gems.push(new Gem());
             gameState = 'PLAYING';
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
