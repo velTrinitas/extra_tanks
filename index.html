@@ -1049,11 +1049,15 @@
                     if (dist > 150) {
                         let nextX = this.x + Math.cos(this.angle) * this.speed;
                         let nextY = this.y + Math.sin(this.angle) * this.speed;
-                        let canMove = true;
+                        let canMoveX = true, canMoveY = true;
                         for(let env of environment) {
-                            if(env.type === 'wall' && checkRectCollision(env.x, env.y, env.w, env.h, nextX, nextY, this.height/2)) { canMove = false; break; }
+                            if(env.type === 'wall') {
+                                if(checkRectCollision(env.x, env.y, env.w, env.h, nextX, this.y, this.height/2)) canMoveX = false;
+                                if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2)) canMoveY = false;
+                            }
                         }
-                        if(canMove) { this.x = nextX; this.y = nextY; }
+                        if(canMoveX) this.x = nextX;
+                        if(canMoveY) this.y = nextY;
                     } else if(dist < 400 && Date.now() - this.lastShot > (this.isBoss ? 800 : 1500)) {
                         this.lastShot = Date.now();
                         if(this.isBoss) {
