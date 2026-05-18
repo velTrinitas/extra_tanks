@@ -292,9 +292,10 @@
         /* Instructions screen */
         .instr-section { width: 100%; margin-bottom: 16px; }
         .instr-section h3 {
-            font-size: 1.3rem; color: #fff; background: #27ae60;
-            padding: 6px 18px; border-radius: 14px; border: 3px solid #2c3e50;
+            font-size: 1.2rem; color: #fff; background: #27ae60;
+            padding: 6px 20px; border-radius: 14px; border: 3px solid #2c3e50;
             box-shadow: 3px 3px 0 #2c3e50; display: inline-block; margin: 0 0 10px 0;
+            font-family: 'Lilita One', cursive; text-transform: uppercase; letter-spacing: 0.04em;
         }
         .instr-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
         .instr-grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
@@ -302,13 +303,13 @@
             background: #ecf0f1; border: 3px solid #2c3e50; border-radius: 12px;
             padding: 10px 8px; text-align: center; box-shadow: 0 4px 0 #2c3e50;
         }
-        .instr-card .ic-icon { font-size: 1.6rem; margin-bottom: 4px; }
+        .instr-card .ic-icon { font-size: 1.5rem; margin-bottom: 5px; line-height:1.2; }
         .instr-card .ic-key {
-            font-size: 1rem; font-weight: bold; background: #2c3e50; color: #f1c40f;
-            border-radius: 6px; padding: 3px 8px; display: inline-block; margin-bottom: 4px;
+            font-size: 0.95rem; font-weight: bold; background: #2c3e50; color: #f1c40f;
+            border-radius: 6px; padding: 4px 10px; display: inline-block; margin-bottom: 5px;
             font-family: monospace; letter-spacing: 1px;
         }
-        .instr-card .ic-label { font-size: 0.85rem; color: #555; font-family: sans-serif; font-weight: bold; line-height: 1.3; }
+        .instr-card .ic-label { font-size: 0.88rem; color: #333; font-family: sans-serif; font-weight: bold; line-height: 1.3; }
         .instr-row {
             display: flex; align-items: flex-start; gap: 10px;
             background: #ecf0f1; border: 2px solid #2c3e50; border-radius: 10px;
@@ -361,7 +362,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v2.0
+        Game version: v2.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -405,72 +406,90 @@
             <h2>Wybierz otoczenie</h2>
             <div class="grid-container map-grid" id="mapGrid"></div>
 
-            <h2>Emotki w grze</h2>
-            <div style="display:flex;gap:10px;justify-content:center;margin-bottom:10px;">
-                <div class="select-card" style="pointer-events:none;flex:1;padding:10px;">
-                    <div style="font-size:2rem;">😂</div>
-                    <div class="stats" style="margin-top:4px;">Klawisz 1</div>
-                </div>
-                <div class="select-card" style="pointer-events:none;flex:1;padding:10px;">
-                    <div style="font-size:2rem;">😡</div>
-                    <div class="stats" style="margin-top:4px;">Klawisz 2</div>
-                </div>
-                <div class="select-card" style="pointer-events:none;flex:1;padding:10px;">
-                    <div style="font-size:2rem;">👍</div>
-                    <div class="stats" style="margin-top:4px;">Klawisz 3</div>
-                </div>
-                <div class="select-card" style="pointer-events:none;flex:1;padding:10px;">
-                    <div style="font-size:2rem;">👎</div>
-                    <div class="stats" style="margin-top:4px;">Klawisz 4</div>
-                </div>
-            </div>
-
             <button class="brawl-btn" id="startBtn">Graj!</button>
-            <button class="brawl-btn-sm" id="instrBtn">📖 Jak Grać?</button>
+            <button class="brawl-btn-sm" id="instrBtn">📖 HOW TO PLAY</button>
         </div>
 
         <!-- INSTRUCTIONS SCREEN -->
         <div id="instructionsScreen" class="screen" style="max-width:860px;">
-            <h1 style="font-size:3rem;margin-bottom:6px;">📖 Jak Grać?</h1>
+            <h1 style="font-size:2.8rem;margin-bottom:6px;">HOW TO PLAY</h1>
 
             <div class="instr-section">
                 <h3>🕹️ Sterowanie</h3>
                 <div class="instr-grid-4">
                     <div class="instr-card"><div class="ic-key">W A S D</div><div class="ic-label">Ruszaj czołgiem</div></div>
                     <div class="instr-card"><div class="ic-icon">🖱️</div><div class="ic-label">Celuj wieżyczką</div></div>
-                    <div class="instr-card"><div class="ic-icon">🖱️ klik<br>lub Spacja</div><div class="ic-label">Strzelaj!</div></div>
-                    <div class="instr-card"><div class="ic-key">1 2 3 4</div><div class="ic-label">Emotikony 😂😡👍👎</div></div>
+                    <div class="instr-card"><div class="ic-icon">LPM / Spacja</div><div class="ic-label">Strzelaj!</div></div>
+                    <div class="instr-card"><div class="ic-key">1 2 3 4</div><div class="ic-label">Emotikony</div></div>
+                    <div class="instr-card"><div class="ic-icon">PPM</div><div class="ic-label">Użyj Super Mocy</div></div>
+                    <div class="instr-card"><div class="ic-icon">Scroll</div><div class="ic-label">Zmień Super Moc</div></div>
                 </div>
             </div>
 
             <div class="instr-section">
-                <h3>🗺️ Co leży na mapie?</h3>
+                <h3>🗺️ Co jest na mapie</h3>
                 <div class="instr-grid-2">
-                    <div class="instr-row"><div class="ir-icon">💎</div><div class="ir-body"><div class="ir-title">Gem (zielony diament)</div><div class="ir-desc">Zbieraj je! To twój wynik. Co 10 gemów → ładujesz Super strzał.</div></div></div>
+                    <div class="instr-row"><div class="ir-icon">💎</div><div class="ir-body"><div class="ir-title">Gem</div><div class="ir-desc">Zbieraj je! To twój wynik. Co 10 gemów → ładujesz Super strzał.</div></div></div>
                     <div class="instr-row"><div class="ir-icon">⚡</div><div class="ir-body"><div class="ir-title">Power Cube</div><div class="ir-desc">Czerwony ⚔ = +5% siła strzałów. Niebieski 💙 = +trochę HP. Wrogowie też po nie biegną!</div></div></div>
                     <div class="instr-row"><div class="ir-icon">❤️</div><div class="ir-body"><div class="ir-title">Apteczka</div><div class="ir-desc">Leczy 1 punkt HP. Znika po chwili — spiesz się!</div></div></div>
                     <div class="instr-row"><div class="ir-icon">🌿</div><div class="ir-body"><div class="ir-title">Krzaki</div><div class="ir-desc">Wejdź w nie i wrogowie cię nie widzą! Ale nie strzelaj — strzelanie cię odkrywa.</div></div></div>
                     <div class="instr-row"><div class="ir-icon">🧱</div><div class="ir-body"><div class="ir-title">Ściany</div><div class="ir-desc">Blokują ruch i pociski. Chowaj się za nimi podczas walki.</div></div></div>
-                    <div class="instr-row"><div class="ir-icon">🔴</div><div class="ir-body"><div class="ir-title">Granica mapy</div><div class="ir-desc">Czerwona linia = koniec świata. Nie wychodź poza nią!</div></div></div>
+                    <div class="instr-row"><div class="ir-icon">🔧</div><div class="ir-body"><div class="ir-title">Hangar naprawczy</div><div class="ir-desc">Stań nieruchomo 3s → +1 HP. Cooldown 60s. Wrogowie cię atakują!</div></div></div>
+                    <div class="instr-row"><div class="ir-icon">⚡</div><div class="ir-body"><div class="ir-title">Studnia mocy</div><div class="ir-desc">Dotknij → ×2 prędkość na 8 sekund! Cooldown 45s.</div></div></div>
+                    <div class="instr-row"><div class="ir-icon">⚠️</div><div class="ir-body"><div class="ir-title">Ruchome piaski</div><div class="ir-desc">Żółte strefy — zwalniają czołg o 50%! Omijaj je gdy uciekasz.</div></div></div>
                 </div>
             </div>
 
             <div class="instr-section">
                 <h3>💜 Super strzał</h3>
-                <div class="instr-row"><div class="ir-icon">💎→💜</div><div class="ir-body"><div class="ir-title">Jak naładować?</div><div class="ir-desc">Zbierz <b>10 gemów</b> → dostajesz <b>3 ładunki Super</b>. Pasek na dole ekranu pokazuje postęp (💎 X/10).</div></div></div>
-                <div class="instr-row"><div class="ir-icon">💥</div><div class="ir-body"><div class="ir-title">Co daje Super?</div><div class="ir-desc">Super strzał jest <b>3× silniejszy</b> i szerszy. Następny strzał automatycznie zużywa ładunek.</div></div></div>
+                <div class="instr-row"><div class="ir-icon">💎→💜</div><div class="ir-body"><div class="ir-title">Jak naładować?</div><div class="ir-desc">Zbierz <b>10 gemów</b> → dostajesz ładunek Super. Pasek na dole pokazuje postęp.</div></div></div>
+                <div class="instr-row"><div class="ir-icon">💥</div><div class="ir-body"><div class="ir-title">Co daje Super?</div><div class="ir-desc">Super strzał jest <b>3× silniejszy</b> i działa przez <b>5 sekund</b> ciągłego strzelania.</div></div></div>
+            </div>
+
+            <div class="instr-section">
+                <h3>⚡ Super moce</h3>
+                <div class="instr-grid-2">
+                    <div class="instr-row"><div class="ir-icon" style="font-size:1.3rem;color:#f1c40f;">◎</div><div class="ir-body"><div class="ir-title">AURA — kuloodporność</div><div class="ir-desc">Żółto-pomarańczowe fale chronią czołg. Żaden pocisk nie może cię trafić przez 5s. Cooldown 30s.</div></div></div>
+                    <div class="instr-row"><div class="ir-icon" style="font-size:1.3rem;color:#ff7c47;">✦</div><div class="ir-body"><div class="ir-title">MEGA BOMB — eksplozja</div><div class="ir-desc">Niszczy WSZYSTKICH wrogów w promieniu 230px. Drży ekran! Cooldown 20s.</div></div></div>
+                    <div class="instr-row" style="grid-column:1/-1;"><div class="ir-icon" style="font-size:1.3rem;color:#70ccff;">❋</div><div class="ir-body"><div class="ir-title">FREEZE — zatrzymanie czasu</div><div class="ir-desc">Zamraża wszystkich wrogów i ich pociski na 5 sekund. Ty nadal możesz się ruszać i strzelać! Cooldown 25s.</div></div></div>
+                </div>
+                <p style="font-family:sans-serif;font-size:0.8rem;color:#777;margin:6px 0 0;"><b>Jak używać:</b> Scroll kółkiem myszy = wybierz moc → PPM (prawy klik) = aktywuj</p>
             </div>
 
             <div class="instr-section">
                 <h3>🤖 Wrogowie</h3>
                 <div class="instr-grid-2">
-                    <div class="instr-row"><div class="ir-icon">🔴</div><div class="ir-body"><div class="ir-title">Zwykły wróg</div><div class="ir-desc">Goni cię po mapie i strzela. Co trudniejszy poziom — więcej ich i szybciej.</div></div></div>
-                    <div class="instr-row"><div class="ir-icon">👾</div><div class="ir-body"><div class="ir-title">BOSS (co 20 kill)</div><div class="ir-desc">Duży fioletowy czołg z <b>10× HP</b>. Strzela potrójnie! Użyj Super i obchodź z boku.</div></div></div>
+                    <div class="instr-row">
+                        <div class="ir-icon">
+                            <svg width="44" height="34" viewBox="-22 -17 44 34" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="-20" y="-13" width="40" height="5" rx="2" fill="#1c1c1c"/>
+                                <rect x="-20" y="8" width="40" height="5" rx="2" fill="#1c1c1c"/>
+                                <rect x="-18" y="-9" width="36" height="18" rx="3" fill="#c0392b" stroke="#000" stroke-width="1.5"/>
+                                <circle cx="0" cy="0" r="7" fill="#7b241c" stroke="#000" stroke-width="1.5"/>
+                                <rect x="6" y="-2" width="13" height="4" rx="1" fill="#484848" stroke="#111" stroke-width="1"/>
+                            </svg>
+                        </div>
+                        <div class="ir-body"><div class="ir-title">Zwykły wróg</div><div class="ir-desc">Goni cię po mapie i strzela. Co trudniejszy poziom — więcej ich i szybciej.</div></div>
+                    </div>
+                    <div class="instr-row">
+                        <div class="ir-icon">
+                            <svg width="54" height="44" viewBox="-27 -22 54 44" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="-24" y="-17" width="48" height="6" rx="2" fill="#1c1c1c"/>
+                                <rect x="-24" y="11" width="48" height="6" rx="2" fill="#1c1c1c"/>
+                                <rect x="-22" y="-12" width="44" height="24" rx="3" fill="#7d3c98" stroke="#000" stroke-width="1.5"/>
+                                <polyline points="-8,-12 -8,-18 -4,-14.5 0,-19 4,-14.5 8,-18 8,-12" stroke="#d7bde2" stroke-width="1.2" fill="none"/>
+                                <circle cx="0" cy="0" r="9" fill="#4a235a" stroke="#000" stroke-width="1.5"/>
+                                <rect x="8" y="-5" width="13" height="3.5" rx="1" fill="#484848" stroke="#111" stroke-width="1"/>
+                                <rect x="8" y="1.5" width="13" height="3.5" rx="1" fill="#484848" stroke="#111" stroke-width="1"/>
+                            </svg>
+                        </div>
+                        <div class="ir-body"><div class="ir-title">BOSS (co 20 kill)</div><div class="ir-desc">Duży fioletowy czołg z <b>10× HP</b>. Strzela potrójnie! Użyj Super i obchodź z boku.</div></div>
+                    </div>
                 </div>
             </div>
 
             <div class="instr-section">
-                <h3>🏆 Ocena gwiazdkowa</h3>
+                <h3>🏆 Ocena gracza</h3>
                 <p style="font-family:sans-serif;font-size:0.9rem;color:#555;margin:0 0 8px;">Na koniec gry dostajesz 1–5 gwiazdek. Im lepiej grasz, tym więcej!</p>
                 <div style="font-family:sans-serif;font-size:0.85rem;color:#2c3e50;">
                     <div class="star-row"><span class="star-badge">⭐</span> <span>Debiutant — dopiero zaczynasz</span></div>
@@ -478,24 +497,25 @@
                     <div class="star-row"><span class="star-badge">⭐⭐⭐</span> <span>Obiecujący Rekrut</span></div>
                     <div class="star-row"><span class="star-badge">⭐⭐⭐⭐</span> <span>Doświadczony Bojownik</span></div>
                     <div class="star-row"><span class="star-badge">⭐⭐⭐⭐⭐</span> <span>🏆 Legendarny Tankista — najlepszy z najlepszych!</span></div>
-                    <p style="font-size:0.8rem;color:#777;margin:8px 0 0;">Liczy się: czas przetrwania + zabici wrogowie + gemy + celność strzałów + supertrzały</p>
+                    <p style="font-size:0.8rem;color:#777;margin:8px 0 0;">Liczy się: czas przetrwania + wrogowie + gemy + celność + supertrzały + super moce</p>
                 </div>
             </div>
 
             <div class="instr-section">
-                <h3>📊 Statystyki po meczu</h3>
+                <h3>📊 Statystyki</h3>
                 <div class="instr-grid-2">
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">💎</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Gemy</div><div class="ir-desc">Twój wynik — ile gemów zebrałeś.</div></div></div>
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">💥</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Zniszczeni wrogowie</div><div class="ir-desc">Ilu przeciwników zniszczyłeś.</div></div></div>
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">⏱️</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Czas przetrwania</div><div class="ir-desc">Jak długo żyłeś w tym meczu.</div></div></div>
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">🎯</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Celność</div><div class="ir-desc">Ile % twoich strzałów trafiło w cel.</div></div></div>
-                    <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">💜</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Supertrzały</div><div class="ir-desc">Ile razy użyłeś Super strzału.</div></div></div>
+                    <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">💜</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Supertrzały</div><div class="ir-desc">Ile razy użyłeś specjalnego Super strzału.</div></div></div>
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">❤️</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Apteczki</div><div class="ir-desc">Ile apteczek zebrałeś w trakcie walki.</div></div></div>
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">⚡</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Power Cuby</div><div class="ir-desc">Ile cube'ów zebrałeś i jakie bonusy dostałeś.</div></div></div>
+                    <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">⚡</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Użyte super moce</div><div class="ir-desc">Ile razy użyłeś AURA, MEGA BOMB lub FREEZE.</div></div></div>
                 </div>
             </div>
 
-            <button class="brawl-btn" id="backFromInstr">⬅️ Powrót do Menu</button>
+            <button class="brawl-btn" id="backFromInstr">⬅️ MENU GŁÓWNE</button>
         </div>
 
         <!-- GAME OVER SCREEN -->
@@ -512,6 +532,7 @@
                 <tr><td>💜 Supertrzały oddane</td><td id="statSupers">0</td></tr>
                 <tr><td>❤️ Apteczki zebrane</td><td id="statHearts">0</td></tr>
                 <tr><td>⚡ Power Cuby</td><td id="statCubes">0</td></tr>
+                <tr><td>⚡ Użyte super moce</td><td id="statPowers">0</td></tr>
             </table>
 
             <button class="brawl-btn" id="restartBtn">Powrót do Menu Głównego</button>
@@ -2344,6 +2365,7 @@
             const p=SUPER_POWERS[selectedPower];
             if(now<powerCooldowns[selectedPower]) return;
             powerCooldowns[selectedPower]=now+p.COOLDOWN;
+            stats.powersUsed++;
             if(selectedPower===0){ // AURA
                 auraActive=true; auraEndTime=now+5000;
                 floatingTexts.push(new FloatingText(player.x,player.y-55,'⚡ AURA!','#f1c40f'));
@@ -2462,6 +2484,7 @@
                 ? `${stats.cubesTotal} (${dmgPct>0?'+'+dmgPct+'%DMG ':''} ${parseFloat(hpGain)>0?'+'+hpGain+'HP':''})`
                 : '0';
             document.getElementById('statCubes').innerText = cubeStr.replace(/\s+/g,' ').trim();
+            document.getElementById('statPowers').innerText = stats.powersUsed;
 
             // Star rating formula (0-100 points):
             // Przetrwanie: 1 pkt co 8s, maks 25
@@ -2829,7 +2852,7 @@
             generateMap();
             bullets = []; enemies = []; gems = []; hearts = []; particles = []; powerCubes = []; floatingTexts = [];
             trackMarks = []; bombExplosion = null;
-            frames = 0; gameTime = 0; stats = { kills: 0, score: 0, bulletsFired: 0, bulletsHit: 0, supersFired: 0, heartsCollected: 0, dmgBonus: 0, cubesTotal: 0 };
+            frames = 0; gameTime = 0; stats = { kills: 0, score: 0, bulletsFired: 0, bulletsHit: 0, supersFired: 0, heartsCollected: 0, dmgBonus: 0, cubesTotal: 0, powersUsed: 0 };
             superCharges = 0; superActive = false; superEndTime = 0; gemsSinceLastSuper = 0;
             auraActive = false; auraEndTime = 0; freezeActive = false; freezeEndTime = 0;
             powerCooldowns = [0, 0, 0]; selectedPower = 0; shakeX = 0; shakeY = 0; shakeTimer = 0;
