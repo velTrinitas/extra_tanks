@@ -817,6 +817,60 @@
                 }
             }
 
+            // Kill marks on barrel (one diagonal line per kill, max 20)
+            const km = Math.min(stats.kills, 20);
+            if(km > 0) {
+                c.strokeStyle='#fff'; c.lineWidth=0.9; c.globalAlpha=0.6;
+                for(let i=0;i<km;i++){
+                    const row=Math.floor(i/5), col=i%5;
+                    const mx=bstart+4+col*4.5, my=-bw/2-2.5-row*3.5;
+                    c.beginPath(); c.moveTo(mx,my); c.lineTo(mx+2.2,my-4.5); c.stroke();
+                    if(col===4){
+                        c.lineWidth=1.2;
+                        c.beginPath(); c.moveTo(mx-15,my); c.lineTo(mx+2.5,my-4.5); c.stroke();
+                        c.lineWidth=0.9;
+                    }
+                }
+                c.globalAlpha=1;
+            }
+
+            // Muzzle flash (< 100ms after shot)
+            const tss = Date.now() - lastShot;
+            if(tss < 100) {
+                const fi = 1 - tss/100;
+                const tipX = id==='plasma' ? tr+13 : bstart+bl+(id==='sniper'?5:0);
+                const tipY = 0;
+                // Outer glow
+                c.globalAlpha = fi*0.55;
+                c.fillStyle='#fff8e0';
+                c.beginPath(); c.arc(tipX,tipY,10*fi,0,Math.PI*2); c.fill();
+                // Bright core
+                c.globalAlpha = fi*0.9;
+                c.fillStyle='#fffde7';
+                c.beginPath(); c.arc(tipX,tipY,6*fi,0,Math.PI*2); c.fill();
+                c.fillStyle='#fff';
+                c.beginPath(); c.arc(tipX,tipY,3.5*fi,0,Math.PI*2); c.fill();
+                // Star rays × 4
+                c.strokeStyle='#fff8e0'; c.lineWidth=1.8*fi;
+                for(let i=0;i<4;i++){
+                    const a=i*Math.PI/2;
+                    c.beginPath();
+                    c.moveTo(tipX+Math.cos(a)*5*fi,tipY+Math.sin(a)*5*fi);
+                    c.lineTo(tipX+Math.cos(a)*15*fi,tipY+Math.sin(a)*15*fi);
+                    c.stroke();
+                }
+                // Diagonal rays × 4
+                c.lineWidth=1*fi; c.globalAlpha=fi*0.5;
+                for(let i=0;i<4;i++){
+                    const a=i*Math.PI/2+Math.PI/4;
+                    c.beginPath();
+                    c.moveTo(tipX+Math.cos(a)*3*fi,tipY+Math.sin(a)*3*fi);
+                    c.lineTo(tipX+Math.cos(a)*10*fi,tipY+Math.sin(a)*10*fi);
+                    c.stroke();
+                }
+                c.globalAlpha=1;
+            }
+
             // Reload arc
             const rr = (id==='heavy'||id==='king')?18:15;
             const reload=Math.min(1,(Date.now()-lastShot)/shootCooldown);
