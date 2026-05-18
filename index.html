@@ -322,6 +322,27 @@
         .star-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; font-family: sans-serif; font-size: 0.9rem; }
         .star-badge { background: #f1c40f; border: 2px solid #2c3e50; border-radius: 8px; padding: 3px 10px; font-weight: bold; font-size: 0.9rem; white-space: nowrap; }
 
+        .scenario-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; width: 100%; margin-bottom: 8px; }
+        .scenario-card {
+            background: #1e2a3a; border: 3px solid #4a5a6a; border-radius: 14px;
+            padding: 14px 8px; text-align: center; cursor: pointer;
+            transition: transform .1s, border-color .1s; position: relative;
+        }
+        .scenario-card:hover:not(.locked) { border-color: #f1c40f; transform: scale(1.03); }
+        .scenario-card.selected { border-color: #f1c40f; background: #2a2000; }
+        .scenario-card.locked { opacity: 0.42; cursor: not-allowed; pointer-events: none; }
+        .scenario-card .sc-icon { font-size: 2.2rem; display: block; margin-bottom: 6px; }
+        .scenario-card .sc-name { font-family: 'Lilita One', cursive; font-size: 0.95rem; color: #fff; -webkit-text-stroke: 0.5px #000; display: block; }
+        .scenario-card .sc-badge {
+            position: absolute; top: -8px; right: -8px;
+            background: #e74c3c; color: #fff; font-size: 8px; font-weight: bold;
+            padding: 2px 6px; border-radius: 8px; border: 2px solid #fff;
+            font-family: sans-serif; text-transform: uppercase; letter-spacing: .04em;
+        }
+        #victoryScreen { background: linear-gradient(160deg, #1a3300 0%, #2c5000 60%, #0a2200 100%); }
+        #victoryScreen h1 { color: #f1c40f; font-size: 3.2rem; text-shadow: 0 0 20px rgba(241,196,15,0.7), 2px 2px 0 #000; }
+        #victoryCanvas { border-radius: 12px; display: block; margin: 6px auto; }
+
         /* Credits */
         #credits {
             position: fixed; bottom: 16px; left: 18px; z-index: 20;
@@ -362,7 +383,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v2.1
+        Game version: v2.2
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -406,8 +427,41 @@
             <h2>Wybierz otoczenie</h2>
             <div class="grid-container map-grid" id="mapGrid"></div>
 
+            <h2>Wybierz scenariusz</h2>
+            <div class="scenario-grid">
+                <div class="scenario-card selected" data-scenario="boss" id="sc-boss">
+                    <span class="sc-icon">💀</span>
+                    <span class="sc-name">KILL THE BOSS</span>
+                </div>
+                <div class="scenario-card locked" data-scenario="flag" id="sc-flag">
+                    <span class="sc-badge">W BUDOWIE</span>
+                    <span class="sc-icon">🚩</span>
+                    <span class="sc-name">CAPTURE THE FLAG</span>
+                </div>
+                <div class="scenario-card locked" data-scenario="king" id="sc-king">
+                    <span class="sc-badge">W BUDOWIE</span>
+                    <span class="sc-icon">👑</span>
+                    <span class="sc-name">SAVE THE KING</span>
+                </div>
+            </div>
+
             <button class="brawl-btn" id="startBtn">Graj!</button>
             <button class="brawl-btn-sm" id="instrBtn">📖 HOW TO PLAY</button>
+        </div>
+
+        <!-- VICTORY SCREEN -->
+        <div id="victoryScreen" class="screen">
+            <h1>🏆 VICTORY!</h1>
+            <canvas id="victoryCanvas" width="300" height="200"></canvas>
+            <p style="font-family:sans-serif;font-size:1rem;color:#a8d87c;margin:4px 0 10px;">Mega Boss został pokonany!</p>
+            <table class="stats-table">
+                <tr><td>💎 Gemy</td><td id="vStatScore">0</td></tr>
+                <tr><td>💥 Zniszczeni wrogowie</td><td id="vStatKills">0</td></tr>
+                <tr><td>⏱️ Czas</td><td id="vStatTime">0s</td></tr>
+                <tr><td>🎯 Celność</td><td id="vStatAcc">0%</td></tr>
+                <tr><td>⚡ Super moce użyte</td><td id="vStatPowers">0</td></tr>
+            </table>
+            <button class="brawl-btn" id="victoryBtn" style="background:#27ae60;box-shadow:0 8px 0 #1a7a40;">Powrót do Menu</button>
         </div>
 
         <!-- INSTRUCTIONS SCREEN -->
@@ -693,6 +747,19 @@
         let freezeActive = false, freezeEndTime = 0;
         let bombExplosion = null;
         let shakeX = 0, shakeY = 0, shakeTimer = 0;
+        // Kill tracking & mega boss
+        let regularKills = 0, megaBossSpawned = false, megaBossKilled = false;
+        // Combo system
+        let comboCount = 0, comboEndTime = 0, comboText = '', comboTextTimer = 0;
+        // Victory
+        let victoryFlashAlpha = 0;
+        // Scenario
+        let selectedScenario = 'boss';
+        // Power icon images
+        const powerIcons = { aura: new Image(), bomb: new Image(), freeze: new Image() };
+        powerIcons.aura.src  = 'Aura128.jpg';
+        powerIcons.bomb.src  = 'Super_Bomb128.jpg';
+        powerIcons.freeze.src = 'Freeze128.jpg';
 
         const keys = { w: false, a: false, s: false, d: false };
         const mouse = { screenX: screenW/2, screenY: screenH/2, worldX: 0, worldY: 0, isDown: false };
@@ -1519,32 +1586,124 @@
         }
 
         class Enemy {
-            constructor(isBoss = false) {
+            constructor(isBoss = false, _unused = false, isMegaBoss = false) {
                 let side = Math.floor(Math.random() * 4);
-                if (side === 0) { this.x = camera.x + Math.random() * screenW; this.y = camera.y - 100; }
-                else if (side === 1) { this.x = camera.x + screenW + 100; this.y = camera.y + Math.random() * screenH; }
-                else if (side === 2) { this.x = camera.x + Math.random() * screenW; this.y = camera.y + screenH + 100; }
-                else { this.x = camera.x - 100; this.y = camera.y + Math.random() * screenH; }
-                this.x = Math.max(80, Math.min(WORLD_W-80, this.x));
-                this.y = Math.max(80, Math.min(WORLD_H-80, this.y));
-                this.isBoss = isBoss;
-                this.width = isBoss ? 80 : 40; 
-                this.height = isBoss ? 80 : 40;
-                // Fix: ensure spawn not inside a wall
+                if (side === 0) { this.x = camera.x + Math.random() * screenW; this.y = camera.y - 120; }
+                else if (side === 1) { this.x = camera.x + screenW + 120; this.y = camera.y + Math.random() * screenH; }
+                else if (side === 2) { this.x = camera.x + Math.random() * screenW; this.y = camera.y + screenH + 120; }
+                else { this.x = camera.x - 120; this.y = camera.y + Math.random() * screenH; }
+                this.x = Math.max(100, Math.min(WORLD_W-100, this.x));
+                this.y = Math.max(100, Math.min(WORLD_H-100, this.y));
+                this.isMegaBoss = isMegaBoss;
+                this.isBoss = isBoss || isMegaBoss;
+                this.width  = isMegaBoss ? 120 : (isBoss ? 80 : 40);
+                this.height = isMegaBoss ? 120 : (isBoss ? 80 : 40);
                 let safe = findSafeSpawn(this.x, this.y, this.height/2 + 5);
                 this.x = safe.x; this.y = safe.y;
                 let diffMult = selectedDifficulty === 'easy' ? 0.6 : (selectedDifficulty === 'hard' ? 1.5 : 1.0);
                 let timeMult = 1 + (gameTime / 300);
                 this.speed = (Math.random() * 1.5 + 1.5) * Math.min(1.6, timeMult) * (selectedDifficulty === 'hard' ? 1.2 : 1.0);
                 if(isBoss) this.speed *= 0.6;
-                this.hp = Math.ceil(Math.min(3, 2 + Math.floor(gameTime / 60) * 0.5) * diffMult);
-                if(isBoss) this.hp *= 10;
+                if(isMegaBoss) this.speed = 4.5; // normal speed
+                this.hp = isMegaBoss ? 20 : Math.ceil(Math.min(3, 2 + Math.floor(gameTime / 60) * 0.5) * diffMult);
+                if(isBoss && !isMegaBoss) this.hp *= 10;
                 if(this.hp < 1) this.hp = 1;
                 this.maxHp = this.hp;
                 this.angle = 0; this.active = true; this.lastShot = Date.now(); this.age = 0;
-                this.serial = isBoss ? 'B-00' : `E-${Math.floor(Math.random()*90+10)}`;
+                this.flashTimer = 0;
+                // Mega boss shield
+                this.shieldActive = false;
+                this.shieldEndTime = 0;
+                this.nextShieldTime = isMegaBoss ? Date.now() + 12000 : Infinity;
+                this.strafeDir = 1; this.strafeTimer = 0;
+                this.serial = isMegaBoss ? 'MB-∞' : (isBoss ? 'B-00' : `E-${Math.floor(Math.random()*90+10)}`);
             }
             update() {
+                if(this.flashTimer > 0) this.flashTimer--;
+                // Mega boss ignores FREEZE, has own AI
+                if(this.isMegaBoss) {
+                    this.age++;
+                    const now = Date.now();
+                    // Shield management
+                    const phase = this.hp > this.maxHp*0.6 ? 1 : this.hp > this.maxHp*0.3 ? 2 : 3;
+                    const shieldCD = phase === 1 ? 12000 : 8000;
+                    if(!this.shieldActive && now > this.nextShieldTime) {
+                        this.shieldActive = true; this.shieldEndTime = now + 3000;
+                        this.nextShieldTime = now + 3000 + shieldCD;
+                    }
+                    if(this.shieldActive && now > this.shieldEndTime) this.shieldActive = false;
+
+                    const dx = player.x - this.x, dy = player.y - this.y;
+                    const dist = Math.hypot(dx, dy);
+                    this.angle = Math.atan2(dy, dx);
+
+                    // Phase-based movement
+                    let targetDist = phase === 1 ? 80 : phase === 2 ? 200 : 350;
+                    let moveSpeed = this.speed;
+                    let shouldMove = true;
+
+                    if(phase === 2) {
+                        // Strafe around player
+                        this.strafeTimer--;
+                        if(this.strafeTimer <= 0) { this.strafeDir *= -1; this.strafeTimer = 90 + Math.random()*60; }
+                        const strafeAngle = this.angle + Math.PI/2 * this.strafeDir;
+                        const nx = this.x + Math.cos(strafeAngle) * moveSpeed * 0.6;
+                        const ny = this.y + Math.sin(strafeAngle) * moveSpeed * 0.6;
+                        // Also maintain distance
+                        let canMX=true, canMY=true;
+                        for(let env of environment){ if(env.type==='wall'){
+                            if(checkRectCollision(env.x,env.y,env.w,env.h,nx,this.y,this.height/2)) canMX=false;
+                            if(checkRectCollision(env.x,env.y,env.w,env.h,this.x,ny,this.height/2)) canMY=false;
+                        }}
+                        if(canMX) this.x = nx; if(canMY) this.y = ny;
+                        // Push toward/away from target dist
+                        if(dist < targetDist - 30) { this.x -= Math.cos(this.angle)*moveSpeed*0.4; this.y -= Math.sin(this.angle)*moveSpeed*0.4; }
+                        else if(dist > targetDist + 60) { this.x += Math.cos(this.angle)*moveSpeed*0.4; this.y += Math.sin(this.angle)*moveSpeed*0.4; }
+                        shouldMove = false;
+                    } else if(phase === 3) {
+                        // Run away when close, maintain distance
+                        if(dist < targetDist) {
+                            const nx = this.x - Math.cos(this.angle) * moveSpeed;
+                            const ny = this.y - Math.sin(this.angle) * moveSpeed;
+                            let canMX=true, canMY=true;
+                            for(let env of environment){ if(env.type==='wall'){
+                                if(checkRectCollision(env.x,env.y,env.w,env.h,nx,this.y,this.height/2)) canMX=false;
+                                if(checkRectCollision(env.x,env.y,env.w,env.h,this.x,ny,this.height/2)) canMY=false;
+                            }}
+                            if(canMX) this.x = nx; if(canMY) this.y = ny;
+                        }
+                        shouldMove = false;
+                    }
+
+                    if(shouldMove && dist > targetDist) {
+                        const nx = this.x + Math.cos(this.angle)*moveSpeed;
+                        const ny = this.y + Math.sin(this.angle)*moveSpeed;
+                        let canMX=true, canMY=true;
+                        for(let env of environment){ if(env.type==='wall'){
+                            if(checkRectCollision(env.x,env.y,env.w,env.h,nx,this.y,this.height/2)) canMX=false;
+                            if(checkRectCollision(env.x,env.y,env.w,env.h,this.x,ny,this.height/2)) canMY=false;
+                        }}
+                        if(canMX) this.x = nx; if(canMY) this.y = ny;
+                    }
+
+                    // Shooting based on phase
+                    const shootCD = phase === 1 ? 600 : phase === 2 ? 800 : 400;
+                    if(now - this.lastShot > shootCD) {
+                        this.lastShot = now;
+                        if(phase === 3) {
+                            // Triple spread
+                            [-0.25, 0, 0.25].forEach(off => bullets.push(new Bullet(this.x, this.y, this.angle+off, false)));
+                        } else {
+                            bullets.push(new Bullet(this.x, this.y, this.angle, false));
+                            if(phase === 2) bullets.push(new Bullet(this.x, this.y, this.angle + 0.15, false));
+                        }
+                        AudioSys.playShoot('standard');
+                    }
+                    this.x = Math.max(60, Math.min(WORLD_W-60, this.x));
+                    this.y = Math.max(60, Math.min(WORLD_H-60, this.y));
+                    return;
+                }
+                // Regular/boss enemies freeze during FREEZE power
                 if(freezeActive && Date.now() < freezeEndTime) { this.age++; return; }
                 if(player.isHidden) {
                     this.angle += 0.05;
@@ -1603,9 +1762,134 @@
                 this.age++;
             }
             draw() {
-                if(this.x < camera.x-120 || this.x > camera.x+screenW+120 || this.y < camera.y-120 || this.y > camera.y+screenH+120) return;
-                const boss = this.isBoss;
+                if(this.x < camera.x-160 || this.x > camera.x+screenW+160 || this.y < camera.y-160 || this.y > camera.y+screenH+160) return;
                 const age = this.age;
+                // MEGA BOSS draw
+                if(this.isMegaBoss) {
+                    const sc=2.0, HL=52*sc, HW=26*sc, TRK=5*sc;
+                    const hhl=HL/2, hhw=HW/2;
+                    const col='#f1c40f', colL='#f8d567', colD='#c0860a';
+                    ctx.save(); ctx.translate(this.x, this.y);
+                    // HP bar mega
+                    const hpW=120, hpY=-(hhw+TRK+22);
+                    ctx.fillStyle='#2c1a00'; ctx.fillRect(-hpW/2,hpY,hpW,10);
+                    ctx.fillStyle='#f1c40f'; ctx.fillRect(-hpW/2,hpY,hpW*(this.hp/this.maxHp),10);
+                    ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.strokeRect(-hpW/2,hpY,hpW,10);
+                    ctx.fillStyle='#fff'; ctx.font='bold 8px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText('⚠ MEGA BOSS',0,hpY+5);
+                    // Shield aura
+                    if(this.shieldActive){
+                        const sr=80+Math.sin(frames*0.2)*4;
+                        for(let i=0;i<2;i++){
+                            ctx.globalAlpha=0.3-i*0.1;
+                            ctx.strokeStyle=i===0?'#f1c40f':'#fff';
+                            ctx.lineWidth=3-i;
+                            ctx.setLineDash([12,8]);
+                            ctx.lineDashOffset=-(frames*(i===0?1.5:2));
+                            ctx.beginPath(); ctx.arc(0,0,sr+i*8,0,Math.PI*2); ctx.stroke();
+                        }
+                        ctx.setLineDash([]); ctx.globalAlpha=1;
+                        // Gold electric sparks
+                        ctx.strokeStyle='#ffd700'; ctx.lineWidth=1.5; ctx.globalAlpha=0.7;
+                        for(let i=0;i<6;i++){
+                            const a=i*Math.PI/3+frames*0.04;
+                            const r1=sr-5, r2=sr+8;
+                            ctx.beginPath(); ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1);
+                            ctx.lineTo(Math.cos(a+0.1)*((r1+r2)/2),Math.sin(a+0.1)*((r1+r2)/2));
+                            ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2); ctx.stroke();
+                        }
+                        ctx.globalAlpha=1;
+                    } else {
+                        // Passive gold pulse aura
+                        ctx.globalAlpha=0.1+Math.sin(frames*0.05)*0.06;
+                        ctx.fillStyle='#f1c40f';
+                        ctx.beginPath(); ctx.arc(0,0,70+Math.sin(frames*0.08)*5,0,Math.PI*2); ctx.fill();
+                        ctx.globalAlpha=1;
+                    }
+                    ctx.rotate(this.angle);
+                    // Tracks
+                    const drawMT=(sy)=>{
+                        ctx.fillStyle='#1c1c1c'; ctx.beginPath(); ctx.roundRect(-hhl,sy-TRK/2,HL,TRK,2); ctx.fill();
+                        ctx.strokeStyle='#383838'; ctx.lineWidth=0.6;
+                        const step=8*sc, tOff=((age*0.9)%step+step)%step;
+                        for(let i=0;i<=Math.ceil(HL/step)+1;i++){const lx=-hhl+i*step-tOff; if(lx>-hhl+0.5&&lx<hhl-0.5){ctx.beginPath();ctx.moveTo(lx,sy-TRK/2+sc);ctx.lineTo(lx,sy+TRK/2-sc);ctx.stroke();}}
+                        [-hhl+4*sc,-hhl/2,0,hhl/2,hhl-4*sc].forEach(wx=>{ ctx.fillStyle='#252525'; ctx.beginPath(); ctx.arc(wx,sy,4*sc,0,Math.PI*2); ctx.fill(); });
+                    };
+                    drawMT(-(hhw+TRK/2+0.5)); drawMT(hhw+TRK/2+0.5);
+                    // Hull
+                    ctx.lineWidth=2*sc; ctx.strokeStyle='#000';
+                    ctx.fillStyle=col; ctx.beginPath(); ctx.roundRect(-hhl,-hhw,HL,HW,4*sc); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle=colL; ctx.globalAlpha=0.3; ctx.beginPath(); ctx.roundRect(-hhl,-hhw,HL*0.2,HW,4*sc); ctx.fill(); ctx.globalAlpha=1;
+                    ctx.fillStyle=colD; ctx.globalAlpha=0.45; ctx.beginPath(); ctx.roundRect(hhl-HL*0.28,-hhw,HL*0.28,HW,4*sc); ctx.fill(); ctx.globalAlpha=1;
+                    // Gold rivets
+                    ctx.fillStyle='#d4a000'; ctx.strokeStyle='#000'; ctx.lineWidth=0.8;
+                    for(let x=-hhl+8*sc;x<hhl-6*sc;x+=14*sc){
+                        ctx.beginPath();ctx.arc(x,-hhw+3*sc,2.5*sc,0,Math.PI*2);ctx.fill();ctx.stroke();
+                        ctx.beginPath();ctx.arc(x,hhw-3*sc,2.5*sc,0,Math.PI*2);ctx.fill();ctx.stroke();
+                    }
+                    // Side armor plates
+                    ctx.fillStyle=colL; ctx.globalAlpha=0.45; ctx.lineWidth=sc; ctx.strokeStyle='rgba(0,0,0,0.4)';
+                    ctx.beginPath(); ctx.roundRect(-hhl+HL*0.1,-hhw,HL*0.65,4*sc,sc); ctx.fill(); ctx.stroke();
+                    ctx.beginPath(); ctx.roundRect(-hhl+HL*0.1,hhw-4*sc,HL*0.65,4*sc,sc); ctx.fill(); ctx.stroke();
+                    ctx.globalAlpha=1;
+                    // Warning stripes
+                    ctx.save(); ctx.beginPath(); ctx.roundRect(-hhl,-hhw,HL,HW,4*sc); ctx.clip();
+                    ctx.globalAlpha=0.12; ctx.fillStyle='#1a0800';
+                    for(let i=-5;i<14;i++) ctx.fillRect(-hhl+i*16*sc,-hhw,8*sc,HW);
+                    ctx.globalAlpha=1; ctx.restore();
+                    // Engine grilles
+                    ctx.fillStyle=colD; ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=sc;
+                    for(let i=0;i<4;i++) ctx.beginPath(),ctx.roundRect(hhl-HL*0.22+sc,-hhw+3*sc+i*((HW-6*sc)/4),HL*0.18,(HW-6*sc)/4-sc,sc),ctx.fill(),ctx.stroke();
+                    // Driver hatch
+                    ctx.fillStyle=colL; ctx.strokeStyle='#000'; ctx.lineWidth=sc;
+                    ctx.beginPath(); ctx.ellipse(-hhl+HL*0.19,-hhw*0.42,5*sc,4*sc,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                    // Serial
+                    ctx.font=`bold ${Math.round(7*sc)}px monospace`; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillText(this.serial,0,0);
+                    ctx.fillStyle='rgba(241,196,15,0.3)'; ctx.font=`bold ${Math.round(9*sc)}px sans-serif`;
+                    ctx.fillText('☠',-HL*0.06,hhw*0.5);
+                    // Exhaust
+                    const ex=-hhl+3*sc, ey=hhw*0.38;
+                    [0,0.38,0.72].forEach(off=>{const a=(age*0.022+off)%1; ctx.globalAlpha=(1-a)*0.22; ctx.fillStyle='#c0860a'; ctx.beginPath(); ctx.arc(ex-a*12*sc,ey-a*7*sc,(2.5+a*5)*sc,0,Math.PI*2); ctx.fill();}); ctx.globalAlpha=1;
+                    // TURRET — hexagonal gold
+                    const tr=18*sc;
+                    ctx.fillStyle=lerpHex(col,-22); ctx.strokeStyle='#000'; ctx.lineWidth=2*sc;
+                    ctx.beginPath(); ctx.arc(0,0,tr+2*sc,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle=colD; ctx.strokeStyle='#000'; ctx.lineWidth=2*sc;
+                    ctx.beginPath();
+                    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6; ctx.lineTo(Math.cos(a)*tr,Math.sin(a)*tr);}
+                    ctx.closePath(); ctx.fill(); ctx.stroke();
+                    // Turret gold trim
+                    ctx.strokeStyle='rgba(248,213,103,0.5)'; ctx.lineWidth=sc;
+                    ctx.beginPath();
+                    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6; ctx.lineTo(Math.cos(a)*(tr-3*sc),Math.sin(a)*(tr-3*sc));}
+                    ctx.closePath(); ctx.stroke();
+                    // Crown
+                    ctx.strokeStyle='#ffd700'; ctx.lineWidth=1.5*sc;
+                    ctx.beginPath();
+                    ctx.moveTo(-10*sc,-tr-sc);ctx.lineTo(-10*sc,-tr-9*sc);ctx.lineTo(-5*sc,-tr-5*sc);
+                    ctx.lineTo(0,-tr-11*sc);ctx.lineTo(5*sc,-tr-5*sc);ctx.lineTo(10*sc,-tr-9*sc);ctx.lineTo(10*sc,-tr-sc);
+                    ctx.stroke();
+                    // Hatch
+                    ctx.fillStyle=colL; ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=sc;
+                    ctx.beginPath(); ctx.ellipse(-2*sc,-1.5*sc,tr*0.3,tr*0.24,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                    // Turret highlight
+                    ctx.fillStyle='rgba(255,255,255,0.12)';
+                    ctx.beginPath(); ctx.ellipse(-tr*0.28,-tr*0.28,tr*0.38,tr*0.22,-0.4,0,Math.PI*2); ctx.fill();
+                    // Triple barrel
+                    const bstart=tr*0.55;
+                    ctx.fillStyle='#555'; ctx.strokeStyle='#111'; ctx.lineWidth=1.5*sc;
+                    [-5*sc,0,5*sc].forEach(oy=>{ctx.beginPath(); ctx.roundRect(bstart,oy-3*sc,28*sc,6*sc,2*sc); ctx.fill(); ctx.stroke();});
+                    // Hit flash
+                    if(this.flashTimer>0){
+                        ctx.globalAlpha=this.flashTimer/3*0.8;
+                        ctx.fillStyle='#fff'; ctx.beginPath(); ctx.roundRect(-hhl,-hhw,HL,HW,4*sc); ctx.fill();
+                        ctx.globalAlpha=1;
+                    }
+                    ctx.restore(); return;
+                }
+
+                const boss = this.isBoss;
                 const sc = boss ? 1.45 : 1.0;
                 const HL=52*sc, HW=26*sc, TRK=5*sc;
                 const hhl=HL/2, hhw=HW/2;
@@ -1758,6 +2042,14 @@
                     });
                 } else {
                     ctx.beginPath(); ctx.roundRect(bstart,-bw/2,bl,bw,bw*0.25); ctx.fill(); ctx.stroke();
+                }
+
+                // Hit flash overlay
+                if(this.flashTimer > 0){
+                    ctx.globalAlpha = this.flashTimer/3 * 0.75;
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.roundRect(-hhl,-hhw,HL,HW,3*sc); ctx.fill();
+                    ctx.globalAlpha = 1;
                 }
 
                 ctx.restore();
@@ -2327,8 +2619,18 @@
                 ctx.globalAlpha=alpha;
                 ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,6); ctx.stroke();
                 ctx.globalAlpha=1;
-                // Icon
-                drawPowerIcon(ctx,p.id,bx+SW/2,by+SH*0.43,13,alpha);
+                // Icon — jpg image if loaded, fallback to canvas draw
+                const img = powerIcons[p.id];
+                if(img && img.complete && img.naturalWidth > 0) {
+                    const iS = 30;
+                    ctx.globalAlpha = alpha;
+                    ctx.save();
+                    ctx.beginPath(); ctx.roundRect(bx+(SW-iS)/2, by+4, iS, iS, 4); ctx.clip();
+                    ctx.drawImage(img, bx+(SW-iS)/2, by+4, iS, iS);
+                    ctx.restore(); ctx.globalAlpha = 1;
+                } else {
+                    drawPowerIcon(ctx, p.id, bx+SW/2, by+SH*0.43, 13, alpha);
+                }
                 // Name label
                 ctx.globalAlpha=alpha;
                 ctx.fillStyle=p.col;
@@ -2374,7 +2676,7 @@
                 shakeTimer=40;
                 let killed=0;
                 enemies.forEach(e=>{
-                    if(e.active&&Math.hypot(e.x-player.x,e.y-player.y)<230){
+                    if(e.active&&!e.isMegaBoss&&Math.hypot(e.x-player.x,e.y-player.y)<230){
                         e.active=false; stats.kills++; killed++;
                         createExplosion(e.x,e.y,'#ff6b00',30);
                     }
@@ -2463,6 +2765,59 @@
             if(count > 5) AudioSys.playExplosion();
         }
 
+        function triggerVictory() {
+            if(gameState === 'VICTORY') return;
+            gameState = 'VICTORY';
+            clearInterval(gameTimerInterval);
+            document.getElementById('hud').style.display = 'none';
+            document.getElementById('controlsHelper').style.display = 'none';
+            document.getElementById('victoryScreen').classList.add('active-screen');
+            document.body.classList.add('show-credits');
+            const accuracy = stats.bulletsFired > 0 ? Math.round(stats.bulletsHit/stats.bulletsFired*100) : 0;
+            document.getElementById('vStatScore').innerText = stats.score;
+            document.getElementById('vStatKills').innerText = stats.kills;
+            document.getElementById('vStatTime').innerText = gameTime + 's';
+            document.getElementById('vStatAcc').innerText = accuracy + '%';
+            document.getElementById('vStatPowers').innerText = stats.powersUsed;
+            // Animate winning tank on victory canvas
+            const vc = document.getElementById('victoryCanvas');
+            const vctx = vc.getContext('2d');
+            let vf = 0;
+            const brawler = selectedBrawler;
+            function animateVictory(){
+                if(gameState !== 'VICTORY') return;
+                vctx.clearRect(0,0,vc.width,vc.height);
+                vctx.fillStyle='rgba(20,40,10,0.5)'; vctx.fillRect(0,0,vc.width,vc.height);
+                // Gold particles
+                for(let i=0;i<12;i++){
+                    const a=(vf*0.04+i*(Math.PI*2/12));
+                    const r=60+Math.sin(vf*0.08+i)*15;
+                    vctx.globalAlpha=0.5+Math.sin(vf*0.1+i)*0.3;
+                    vctx.fillStyle=i%2===0?'#f1c40f':'#ffd700';
+                    const px=vc.width/2+Math.cos(a)*r, py=vc.height/2+Math.sin(a)*r;
+                    vctx.beginPath(); vctx.arc(px,py,3+Math.sin(vf*0.12+i)*2,0,Math.PI*2); vctx.fill();
+                }
+                vctx.globalAlpha=1;
+                // Tank hull rotating
+                vctx.save(); vctx.translate(vc.width/2-8, vc.height/2+4);
+                const hullAngle = vf * 0.03;
+                const turretAngle = vf * -0.04;
+                vctx.rotate(hullAngle);
+                drawTankHull(vctx, brawler, vf, vf);
+                vctx.restore();
+                vctx.save(); vctx.translate(vc.width/2-8, vc.height/2+4);
+                vctx.rotate(turretAngle);
+                drawTankTurret(vctx, brawler, brawler.colorMain, 0, 1000);
+                vctx.restore();
+                // Stars
+                vctx.font='bold 24px sans-serif'; vctx.textAlign='center';
+                vctx.fillStyle='#f1c40f'; vctx.fillText('⭐⭐⭐⭐⭐',vc.width/2,vc.height-14);
+                vf++;
+                requestAnimationFrame(animateVictory);
+            }
+            animateVictory();
+        }
+
         function triggerGameOver() {
             gameState = 'GAMEOVER';
             clearInterval(gameTimerInterval);
@@ -2537,11 +2892,39 @@
                 if(b.isPlayer) {
                     for(let e of enemies) {
                         if(e.active && Math.hypot(b.x - e.x, b.y - e.y) < e.height/2 + b.radius) {
+                            // Mega boss shield — deflect player bullets
+                            if(e.isMegaBoss && e.shieldActive) {
+                                b.active = false;
+                                b.vx = -(b.vx || Math.cos(b.angle)*b.speed);
+                                b.vy = -(b.vy || Math.sin(b.angle)*b.speed);
+                                createExplosion(b.x, b.y, '#f1c40f', 4);
+                                break;
+                            }
                             b.active = false; e.hp -= b.dmg;
                             stats.bulletsHit++;
+                            e.flashTimer = 3; // hit flash
                             createExplosion(b.x, b.y, b.color, 5); 
                             if(e.hp <= 0) {
                                 e.active = false; stats.kills++;
+                                // Kill type tracking
+                                if(e.isMegaBoss) {
+                                    megaBossKilled = true;
+                                    shakeTimer = 50; victoryFlashAlpha = 1;
+                                    createExplosion(e.x, e.y, '#f1c40f', 60);
+                                    setTimeout(triggerVictory, 800);
+                                    break;
+                                } else if(!e.isBoss) {
+                                    regularKills++;
+                                } 
+                                // Combo system
+                                const now = Date.now();
+                                if(now < comboEndTime) { comboCount++; } else { comboCount = 1; }
+                                comboEndTime = now + 2000;
+                                if(comboCount === 2){ comboText='DOUBLE!'; comboTextTimer=90; }
+                                else if(comboCount === 3){ comboText='TRIPLE!'; comboTextTimer=100; }
+                                else if(comboCount >= 4){ comboText='MEGA KILL! 💥'; comboTextTimer=110; }
+                                // Screenshake on kill
+                                shakeTimer = Math.max(shakeTimer, e.isBoss ? 28 : 10);
                                 createExplosion(e.x, e.y, e.isBoss ? '#8e44ad' : '#e74c3c', e.isBoss ? 40 : 15);
                                 // Drop logic: 70% gem, 30% PowerCube (max 10 cubes per match)
                                 const dropRoll = Math.random();
@@ -2556,7 +2939,7 @@
                                 } else {
                                     gems.push(new Gem(e.x, e.y));
                                 }
-                                if (stats.kills > 0 && stats.kills % 20 === 0) enemies.push(new Enemy(true)); 
+                                if (stats.kills > 0 && stats.kills % 20 === 0 && !e.isMegaBoss) enemies.push(new Enemy(true));
                             }
                             break;
                         }
@@ -2657,6 +3040,21 @@
             // Power state timers
             if(auraActive && Date.now() > auraEndTime) { auraActive=false; floatingTexts.push(new FloatingText(player.x,player.y-40,'AURA wygasła','#e67e22')); }
             if(freezeActive && Date.now() > freezeEndTime) { freezeActive=false; }
+            // Combo timer
+            if(comboTextTimer > 0) comboTextTimer--;
+            // Victory flash fade
+            if(victoryFlashAlpha > 0) victoryFlashAlpha = Math.max(0, victoryFlashAlpha - 0.025);
+            // Mega boss spawn: 100 regular kills + no regular bosses alive
+            if(!megaBossSpawned && regularKills >= 100 && !enemies.some(e => e.isBoss && !e.isMegaBoss)) {
+                enemies.push(new Enemy(false, false, true));
+                megaBossSpawned = true;
+                floatingTexts.push(new FloatingText(player.x, player.y-80, '⚠️ MEGA BOSS NADCHODZI!', '#f1c40f'));
+                shakeTimer = 20;
+            }
+            // Notification when approaching mega boss conditions
+            if(!megaBossSpawned && regularKills === 100 && enemies.some(e => e.isBoss && !e.isMegaBoss)) {
+                floatingTexts.push(new FloatingText(player.x, player.y-80, '💀 Zniszcz wszystkich bossów!', '#e74c3c'));
+            }
             if(shakeTimer>0){ shakeX=(Math.random()-0.5)*10; shakeY=(Math.random()-0.5)*10; shakeTimer--; } else { shakeX=0; shakeY=0; }
             
             checkCollisions();
@@ -2784,6 +3182,28 @@
             // Super powers HUD slots
             drawSuperPowerHUD();
 
+            // Combo toast
+            if(comboTextTimer > 0) {
+                const ct = comboTextTimer;
+                const scale = ct > 80 ? 1 + (ct-80)/20 * 0.3 : 1;
+                const alpha = Math.min(1, ct/20);
+                const isRed = comboText.includes('MEGA');
+                const col = isRed ? '#e74c3c' : comboText.includes('TRIPLE') ? '#e67e22' : '#f1c40f';
+                const fs = isRed ? 30 : 22;
+                ctx.save(); ctx.globalAlpha=alpha;
+                ctx.translate(screenW/2, screenH/2 - 120); ctx.scale(scale, scale);
+                ctx.font=`bold ${fs}px "Lilita One", cursive`;
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.strokeStyle='#000'; ctx.lineWidth=5; ctx.strokeText(comboText,0,0);
+                ctx.fillStyle=col; ctx.fillText(comboText,0,0);
+                ctx.restore(); ctx.globalAlpha=1;
+            }
+            // Victory flash (white screen flash when mega boss dies)
+            if(victoryFlashAlpha > 0) {
+                ctx.fillStyle=`rgba(255,255,200,${victoryFlashAlpha})`;
+                ctx.fillRect(0,0,screenW,screenH);
+            }
+
             // SCORE display — top center
             ctx.save();
             ctx.fillStyle='rgba(0,0,0,0.5)';
@@ -2856,6 +3276,9 @@
             superCharges = 0; superActive = false; superEndTime = 0; gemsSinceLastSuper = 0;
             auraActive = false; auraEndTime = 0; freezeActive = false; freezeEndTime = 0;
             powerCooldowns = [0, 0, 0]; selectedPower = 0; shakeX = 0; shakeY = 0; shakeTimer = 0;
+            regularKills = 0; megaBossSpawned = false; megaBossKilled = false;
+            comboCount = 0; comboEndTime = 0; comboText = ''; comboTextTimer = 0;
+            victoryFlashAlpha = 0;
             player.speedBoostMult = 1; player.speedBoostEnd = 0;
             for(let i=0; i<15; i++) gems.push(new Gem());
             gameState = 'PLAYING';
@@ -2870,6 +3293,26 @@
         }
 
         document.getElementById('startBtn').addEventListener('click', initGame);
+
+        // Scenario card selection
+        document.querySelectorAll('.scenario-card:not(.locked)').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedScenario = card.dataset.scenario;
+            });
+        });
+
+        // Victory button
+        document.getElementById('victoryBtn').addEventListener('click', () => {
+            document.getElementById('victoryScreen').classList.remove('active-screen');
+            document.getElementById('welcomeScreenWrapper').style.display = 'block';
+            document.getElementById('welcomeScreen').classList.add('active-screen');
+            gameState = 'MENU';
+            const gameMusic = document.getElementById('gameMusic');
+            if(gameMusic) gameMusic.pause();
+            bgMusic.play().catch(e=>{});
+        });
         document.getElementById('instrBtn').addEventListener('click', () => {
             document.getElementById('welcomeScreen').classList.remove('active-screen');
             document.getElementById('instructionsScreen').classList.add('active-screen');
