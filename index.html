@@ -383,7 +383,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v2.3
+        Game version: v2.4
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -749,7 +749,8 @@
         let shakeX = 0, shakeY = 0, shakeTimer = 0;
         // Kill tracking & mega boss
         let regularKills = 0, megaBossSpawned = false, megaBossKilled = false;
-        let megaBossNotified = false; // one-time notification flag
+        let megaBossNotified = false;
+        let magnetActive = false, magnetEndTime = 0;
         // Combo system
         let comboCount = 0, comboEndTime = 0, comboText = '', comboTextTimer = 0;
         // Victory
@@ -2061,7 +2062,7 @@
             constructor(x, y) {
                 this.x = x || 50 + Math.random() * (WORLD_W - 100);
                 this.y = y || 50 + Math.random() * (WORLD_H - 100);
-                this.radius = 24; this.active = true; this.pulse = Math.random() * Math.PI * 2;
+                this.radius = 19; this.active = true; this.pulse = Math.random() * Math.PI * 2;
                 this.sparkTimer = Math.random() * 60;
                 this.baseY = this.y;
             }
@@ -2653,64 +2654,124 @@
         }
 
         function drawSuperPowerHUD() {
-            const SW=64, SH=45, gap=8;
+            const SW=128, gap=10;
+            const LBL=22; // label height below image
+            const SH=SW+LBL;
             const totalW=SW*3+gap*2;
-            const startX=screenW/2-totalW/2;
-            const sy=screenH-160;
+            const startX=Math.round(screenW/2-totalW/2);
+            // Position above super bar (super bar bg top = screenH-104), gap 14px
+            const sy=screenH-104-14-SH;
             const now=Date.now();
+
             SUPER_POWERS.forEach((p,i)=>{
                 const bx=startX+i*(SW+gap), by=sy;
                 const onCD=now<powerCooldowns[i];
                 const cdLeft=onCD?Math.ceil((powerCooldowns[i]-now)/1000):0;
                 const isSelected=i===selectedPower;
-                const alpha=onCD?0.2:1;
-                // Slot bg
-                ctx.globalAlpha=alpha*(isSelected?0.88:0.65);
-                ctx.fillStyle='#0a0a16';
-                ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,6); ctx.fill();
-                // Border
-                ctx.strokeStyle=isSelected&&!onCD?p.col:'rgba(255,255,255,0.2)';
-                ctx.lineWidth=isSelected&&!onCD?2:0.8;
-                ctx.globalAlpha=alpha;
-                ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,6); ctx.stroke();
+                const alpha=onCD?0.22:1;
+
+                // Slot shadow
+                ctx.fillStyle='rgba(0,0,0,0.4)';
+                ctx.beginPath(); ctx.roundRect(bx+3,by+3,SW,SH,10); ctx.fill();
+
+                // Slot background
+                ctx.globalAlpha=isSelected?0.95:0.70;
+                ctx.fillStyle=isSelected?'#0e0e20':'#080814';
+                ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,10); ctx.fill();
                 ctx.globalAlpha=1;
-                // Icon — jpg image if loaded, fallback to canvas draw
-                const img = powerIcons[p.id];
-                if(img && img.complete && img.naturalWidth > 0) {
-                    ctx.globalAlpha = alpha;
-                    ctx.drawImage(img, bx+2, by+2, SW-4, SH-15);
-                    ctx.globalAlpha = 1;
-                } else {
-                    drawPowerIcon(ctx, p.id, bx+SW/2, by+SH*0.43, 13, alpha);
+
+                // Selection glow behind border
+                if(isSelected&&!onCD){
+                    ctx.globalAlpha=0.35+Math.sin(frames*0.08)*0.15;
+                    ctx.shadowColor=p.col; ctx.shadowBlur=16;
+                    ctx.strokeStyle=p.col; ctx.lineWidth=3;
+                    ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,10); ctx.stroke();
+                    ctx.shadowBlur=0; ctx.globalAlpha=1;
                 }
+
+                // Border
+                ctx.strokeStyle=isSelected&&!onCD?p.col:'rgba(255,255,255,0.18)';
+                ctx.lineWidth=isSelected&&!onCD?2.5:0.8;
+                ctx.globalAlpha=alpha;
+                ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,10); ctx.stroke();
+                ctx.globalAlpha=1;
+
+                // Image — full slot width, square portion
+                const img=powerIcons[p.id];
+                if(img&&img.complete&&img.naturalWidth>0){
+                    ctx.globalAlpha=alpha;
+                    ctx.save();
+                    ctx.beginPath(); ctx.roundRect(bx+1,by+1,SW-2,SW-2,9); ctx.clip();
+                    ctx.drawImage(img,bx,by,SW,SW);
+                    ctx.restore();
+                    ctx.globalAlpha=1;
+                } else {
+                    drawPowerIcon(ctx,p.id,bx+SW/2,by+SW/2,46,alpha);
+                }
+
                 // Name label
                 ctx.globalAlpha=alpha;
-                ctx.fillStyle=p.col;
-                ctx.font='bold 6px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-                ctx.fillText(p.name,bx+SW/2,by+SH-5);
+                ctx.fillStyle=isSelected&&!onCD?p.col:'rgba(255,255,255,0.7)';
+                ctx.font=`bold ${isSelected?9:8}px sans-serif`;
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillText(p.name,bx+SW/2,by+SW+LBL/2);
                 ctx.globalAlpha=1;
-                // CD overlay + countdown
+
+                // Cooldown overlay + number
                 if(onCD){
-                    ctx.fillStyle='rgba(0,0,0,0.55)';
-                    ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,6); ctx.fill();
-                    ctx.fillStyle='rgba(255,255,255,0.5)';
-                    ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-                    ctx.fillText(cdLeft+'s',bx+SW/2,by+SH/2);
+                    ctx.globalAlpha=0.65; ctx.fillStyle='#000';
+                    ctx.beginPath(); ctx.roundRect(bx+1,by+1,SW-2,SW-2,9);
+                    // Radial cooldown wipe
+                    const pct=1-(powerCooldowns[i]-now)/SUPER_POWERS[i].COOLDOWN;
+                    const startA=-Math.PI/2, endA=-Math.PI/2+Math.PI*2*pct;
+                    ctx.beginPath();
+                    ctx.moveTo(bx+SW/2,by+SW/2);
+                    ctx.arc(bx+SW/2,by+SW/2,SW*0.7,startA,endA);
+                    ctx.closePath(); ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fill();
+                    ctx.globalAlpha=1;
+                    ctx.fillStyle='#fff'; ctx.font='bold 22px "Lilita One",cursive';
+                    ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.strokeStyle='#000'; ctx.lineWidth=4;
+                    ctx.strokeText(cdLeft+'s',bx+SW/2,by+SW/2);
+                    ctx.fillText(cdLeft+'s',bx+SW/2,by+SW/2);
+                }
+
+                // Selected indicator: triangle + "PPM" hint below slot
+                if(isSelected&&!onCD){
+                    // Bright selection outline
+                    ctx.strokeStyle=p.col; ctx.lineWidth=2.5; ctx.globalAlpha=1;
+                    ctx.beginPath(); ctx.roundRect(bx,by,SW,SH,10); ctx.stroke();
+                    // Triangle pointing down from bottom of slot
+                    const tx=bx+SW/2, ty=by+SH+6;
+                    ctx.fillStyle=p.col; ctx.globalAlpha=0.95;
+                    ctx.beginPath();
+                    ctx.moveTo(tx-7,ty); ctx.lineTo(tx+7,ty); ctx.lineTo(tx,ty+7);
+                    ctx.closePath(); ctx.fill();
                     ctx.globalAlpha=1;
                 }
-                // Selection arrow
-                if(isSelected&&!onCD){
-                    ctx.fillStyle=p.col; ctx.globalAlpha=0.9;
-                    ctx.beginPath();
-                    ctx.moveTo(bx+SW/2-4,by-2); ctx.lineTo(bx+SW/2+4,by-2); ctx.lineTo(bx+SW/2,by+4);
-                    ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
-                }
             });
-            // Scroll hint
-            ctx.fillStyle='rgba(255,255,255,0.22)';
-            ctx.font='7px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-            ctx.fillText('scroll ← →   PPM = użyj', screenW/2, sy-5);
+
+            // Scroll hint below slots
+            const hintY=sy+SH+18;
+            ctx.fillStyle='rgba(255,255,255,0.28)';
+            ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+            ctx.fillText('scroll ← →  wybierz    PPM = użyj', screenW/2, hintY);
             ctx.textAlign='left';
+
+            // Magnet active indicator
+            if(magnetActive){
+                const timeLeft=Math.max(0,magnetEndTime-Date.now());
+                const pct=timeLeft/10000;
+                const mw=180;
+                const mx=screenW/2-mw/2, my=sy-28;
+                ctx.fillStyle='rgba(0,0,0,0.5)';
+                ctx.beginPath(); ctx.roundRect(mx,my,mw,18,9); ctx.fill();
+                ctx.fillStyle='#e17055';
+                ctx.beginPath(); ctx.roundRect(mx,my,mw*pct,18,9); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillText(`🧲 MAGNES ${Math.ceil(timeLeft/1000)}s`,screenW/2,my+9);
+                ctx.textAlign='left';
+            }
         }
 
         function activateSuperPower() {
@@ -2989,7 +3050,7 @@
                                 } else {
                                     gems.push(new Gem(e.x, e.y));
                                 }
-                                if (stats.kills > 0 && stats.kills % 20 === 0 && !e.isMegaBoss) enemies.push(new Enemy(true));
+                                if (stats.kills > 0 && stats.kills % 20 === 0 && !e.isMegaBoss && regularKills < 100 && !megaBossSpawned) enemies.push(new Enemy(true));
                             }
                             break;
                         }
@@ -3048,17 +3109,26 @@
             for(let m of magnets) {
                 if(m.active && Math.hypot(player.x - m.x, player.y - m.y) < player.height/2 + m.radius) {
                     m.active = false;
-                    // Pull all gems within 250px toward player instantly
-                    let pulled = 0;
-                    gems.forEach(g => {
-                        if(g.active && Math.hypot(player.x-g.x, player.y-g.y) < 280) {
-                            g.x += (player.x-g.x)*0.8; g.y += (player.y-g.y)*0.8; pulled++;
-                        }
-                    });
-                    floatingTexts.push(new FloatingText(player.x, player.y-50, `🧲 MAGNES! +${pulled} gemów`, '#e17055'));
+                    magnetActive = true; magnetEndTime = Date.now() + 10000;
+                    floatingTexts.push(new FloatingText(player.x, player.y-55, '🧲 MAGNES! 10s!', '#e17055'));
                     createExplosion(player.x, player.y, '#e17055', 14);
                     AudioSys.playGem();
                 }
+            }
+            // Continuous gem attraction when magnet active
+            if(magnetActive && Date.now() < magnetEndTime) {
+                gems.forEach(g => {
+                    if(!g.active) return;
+                    const dx = player.x - g.x, dy = player.y - g.y;
+                    const dist = Math.hypot(dx, dy);
+                    if(dist < 350 && dist > 2) {
+                        const pull = Math.min(6, 180/dist);
+                        g.x += (dx/dist) * pull;
+                        g.y += (dy/dist) * pull;
+                    }
+                });
+            } else if(magnetActive && Date.now() >= magnetEndTime) {
+                magnetActive = false;
             }
 
             for(let pc of powerCubes) {
@@ -3095,7 +3165,7 @@
             let spawnRate = Math.max(20, diffBase - Math.floor(gameTime * 1.5));
             if (frames % spawnRate === 0 && enemies.length < 25) enemies.push(new Enemy());
             if (frames % 522 === 0) hearts.push(new Heart());
-            if (frames % 900 === 0) magnets.push(new MagnetItem());
+            if (frames % 1125 === 0) magnets.push(new MagnetItem());
 
             player.update(); bullets.forEach(b => b.update());
             enemies.forEach(e => e.update()); gems.forEach(g => g.update());
@@ -3112,7 +3182,18 @@
             if(comboTextTimer > 0) comboTextTimer--;
             // Victory flash fade
             if(victoryFlashAlpha > 0) victoryFlashAlpha = Math.max(0, victoryFlashAlpha - 0.025);
-            // Mega boss spawn: 100 regular kills + no regular bosses alive
+            if(shakeTimer>0){ shakeX=(Math.random()-0.5)*10; shakeY=(Math.random()-0.5)*10; shakeTimer--; } else { shakeX=0; shakeY=0; }
+            
+            checkCollisions();
+
+            bullets = bullets.filter(b => b.active); enemies = enemies.filter(e => e.active);
+            gems = gems.filter(g => g.active); hearts = hearts.filter(h => h.active);
+            particles = particles.filter(p => p.active);
+            powerCubes = powerCubes.filter(pc => pc.active); floatingTexts = floatingTexts.filter(ft => ft.active);
+            trackMarks = trackMarks.filter(tm => tm.active);
+            magnets = magnets.filter(m => m.active);
+
+            // Mega boss spawn — AFTER filter so dead bosses are already removed
             if(!megaBossSpawned && regularKills >= 100 && !enemies.some(e => e.isBoss && !e.isMegaBoss)) {
                 enemies.push(new Enemy(false, false, true));
                 megaBossSpawned = true;
@@ -3124,16 +3205,6 @@
                 megaBossNotified = true;
                 floatingTexts.push(new FloatingText(player.x, player.y-80, '💀 Zniszcz wszystkich bossów!', '#e74c3c'));
             }
-            if(shakeTimer>0){ shakeX=(Math.random()-0.5)*10; shakeY=(Math.random()-0.5)*10; shakeTimer--; } else { shakeX=0; shakeY=0; }
-            
-            checkCollisions();
-
-            bullets = bullets.filter(b => b.active); enemies = enemies.filter(e => e.active);
-            gems = gems.filter(g => g.active); hearts = hearts.filter(h => h.active);
-            particles = particles.filter(p => p.active);
-            powerCubes = powerCubes.filter(pc => pc.active); floatingTexts = floatingTexts.filter(ft => ft.active);
-            trackMarks = trackMarks.filter(tm => tm.active);
-            magnets = magnets.filter(m => m.active);
 
             updateCamera();
 
@@ -3302,6 +3373,30 @@
                 ctx.fillRect(0,0,screenW,screenH);
             }
 
+            // Enemy kills counter — top left
+            ctx.save();
+            ctx.fillStyle='rgba(0,0,0,0.55)';
+            ctx.beginPath(); ctx.roundRect(14,8,148,54,10); ctx.fill();
+            // Mini enemy tank icon (red)
+            const tx=38, ty=35;
+            ctx.save(); ctx.translate(tx,ty);
+            ctx.fillStyle='#1c1c1c'; ctx.fillRect(-16,-5,32,5); ctx.fillRect(-16,0,32,5);
+            ctx.fillStyle='#c0392b'; ctx.strokeStyle='#000'; ctx.lineWidth=1;
+            ctx.beginPath(); ctx.roundRect(-14,-4,28,8,2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle='#7b241c'; ctx.beginPath(); ctx.arc(0,-2,6,0,Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle='#484848'; ctx.fillRect(5,-2.5,10,3);
+            ctx.restore();
+            // Kill count
+            ctx.fillStyle='#e74c3c'; ctx.font='bold 26px "Lilita One",cursive';
+            ctx.textAlign='left'; ctx.textBaseline='middle';
+            ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=4;
+            ctx.strokeText(stats.kills, 62, 30);
+            ctx.fillText(stats.kills, 62, 30);
+            ctx.fillStyle='rgba(255,255,255,0.42)'; ctx.font='8px sans-serif';
+            ctx.textBaseline='alphabetic';
+            ctx.fillText('wrogów zniszczono', 62, 52);
+            ctx.restore(); ctx.textAlign='left';
+
             // SCORE display — top center (100% bigger)
             ctx.save();
             ctx.fillStyle='rgba(0,0,0,0.55)';
@@ -3384,7 +3479,7 @@
             powerCooldowns = [0, 0, 0]; selectedPower = 0; shakeX = 0; shakeY = 0; shakeTimer = 0;
             regularKills = 0; megaBossSpawned = false; megaBossKilled = false; megaBossNotified = false;
             comboCount = 0; comboEndTime = 0; comboText = ''; comboTextTimer = 0;
-            victoryFlashAlpha = 0;
+            victoryFlashAlpha = 0; magnetActive = false; magnetEndTime = 0;
             player.speedBoostMult = 1; player.speedBoostEnd = 0;
             for(let i=0; i<15; i++) gems.push(new Gem());
             gameState = 'PLAYING';
