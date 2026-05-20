@@ -383,7 +383,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v2.7
+        Game version: v2.8
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -3475,58 +3475,114 @@
             // HP pill — top left canvas (200×54, same as other pills)
             drawHPPill(14, 8, 200, 54, 16);
 
-            // Kill counter — top right (200x54, same as gem counter)
-            if(!megaBossKilled) {
-                ctx.save();
-                const KW=200, KH=54, kx=screenW-14-KW, ky=8;
-                ctx.fillStyle='rgba(0,0,0,0.55)';
-                ctx.beginPath(); ctx.roundRect(kx,ky,KW,KH,16); ctx.fill();
-
-                if(megaBossSpawned) {
-                    // MEGA BOSS alive — pulsing warning state
-                    ctx.globalAlpha=0.85+Math.sin(frames*0.2)*0.15;
-                    ctx.fillStyle='rgba(80,20,0,0.5)';
-                    ctx.beginPath(); ctx.roundRect(kx,ky,KW,KH,16); ctx.fill();
-                    ctx.globalAlpha=1;
-                    // Skull icon (large)
-                    ctx.font='bold 28px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-                    ctx.fillStyle='#f1c40f';
-                    ctx.globalAlpha=0.9+Math.sin(frames*0.2)*0.1;
-                    ctx.fillText('⚠️', kx+10, ky+KH/2);
-                    ctx.globalAlpha=1;
-                    ctx.fillStyle='#f1c40f'; ctx.font='bold 15px "Lilita One",cursive';
-                    ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.lineWidth=3;
-                    ctx.textBaseline='middle';
-                    ctx.strokeText('MEGA BOSS!', kx+50, ky+KH/2-4);
-                    ctx.fillText('MEGA BOSS!', kx+50, ky+KH/2-4);
-                    ctx.font='bold 9px sans-serif'; ctx.fillStyle='rgba(255,200,0,0.7)';
-                    ctx.textBaseline='alphabetic';
-                    ctx.fillText('zniszcz by wygrać!', kx+50, ky+KH-8);
-                } else {
-                    // Normal kill counter with boss progress
-                    // Skull icon
-                    ctx.font='28px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-                    ctx.fillText('💀', kx+10, ky+KH/2-4);
-                    // Kill count (large, same style as gem counter)
-                    ctx.fillStyle='#e74c3c'; ctx.font='bold 32px "Lilita One",cursive';
-                    ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=4;
-                    ctx.strokeText(stats.kills, kx+52, ky+28);
-                    ctx.fillText(stats.kills, kx+52, ky+28);
-                    // Label + boss progress
-                    const bpct=Math.min(regularKills/100,1);
-                    ctx.fillStyle='rgba(255,255,255,0.38)'; ctx.font='8px sans-serif'; ctx.textBaseline='alphabetic';
-                    ctx.fillText('wrogów zniszczono', kx+52, ky+50);
-                    // Mini boss progress bar at bottom of pill
-                    ctx.fillStyle='rgba(255,255,255,0.08)';
-                    ctx.beginPath(); ctx.roundRect(kx+52,ky+36,KW-60,5,2); ctx.fill();
-                    ctx.fillStyle=bpct>=1?'#e74c3c':'#f39c12';
-                    ctx.beginPath(); ctx.roundRect(kx+52,ky+36,(KW-60)*bpct,5,2); ctx.fill();
-                    ctx.fillStyle=bpct>=1?'#e74c3c':'rgba(255,180,0,0.6)'; ctx.font='7px sans-serif';
-                    ctx.fillText(`boss ${Math.min(regularKills,100)}/100`, kx+52, ky+34);
-                }
-                ctx.restore(); ctx.textAlign='left';
+            // Gem counter — top center (restored)
+            {
+                const GW=200,GH=54,gx2=Math.round(screenW/2-GW/2),gy2=8,r2=16;
+                ctx.fillStyle='rgba(8,8,18,0.75)';
+                ctx.beginPath();ctx.roundRect(gx2,gy2,GW,GH,r2);ctx.fill();
+                ctx.strokeStyle='rgba(241,196,15,0.28)';ctx.lineWidth=0.8;
+                ctx.beginPath();ctx.roundRect(gx2,gy2,GW,GH,r2);ctx.stroke();
+                // Gem icon
+                const gix=gx2+38,giy=gy2+GH/2;
+                ctx.fillStyle='#2ecc71';ctx.strokeStyle='#1a7a40';ctx.lineWidth=1.5;
+                ctx.beginPath();ctx.moveTo(gix,giy-12);ctx.lineTo(gix+9,giy-4);ctx.lineTo(gix+9,giy+4);ctx.lineTo(gix,giy+12);ctx.lineTo(gix-9,giy+4);ctx.lineTo(gix-9,giy-4);ctx.closePath();ctx.fill();ctx.stroke();
+                ctx.fillStyle='rgba(255,255,255,0.5)';ctx.beginPath();ctx.ellipse(gix-3,giy-6,4,2.5,-0.5,0,Math.PI*2);ctx.fill();
+                // Score number
+                ctx.fillStyle='#f1c40f';ctx.font='32px "Lilita One",cursive';
+                ctx.textAlign='left';ctx.textBaseline='middle';
+                ctx.strokeStyle='rgba(0,0,0,0.7)';ctx.lineWidth=4;
+                ctx.strokeText(stats.score,gx2+58,gy2+GH/2+1);ctx.fillText(stats.score,gx2+58,gy2+GH/2+1);
+                ctx.textAlign='left';
             }
 
+            // Kill counter — top right (200×54)
+            {
+                const KW=200,KH=54,kx=screenW-14-KW,ky=8;
+                const bossesAlive=enemies.some(e=>e.isBoss&&!e.isMegaBoss);
+                const megaReady=regularKills>=100&&bossesAlive&&!megaBossSpawned;
+                const rKillPct=Math.min(regularKills/100,1);
+
+                // Pill bg
+                ctx.fillStyle='rgba(8,8,18,0.75)';
+                ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.fill();
+
+                if(megaBossSpawned&&!megaBossKilled){
+                    // Mega boss alive — pulsing gold alert
+                    const pa=0.82+Math.sin(frames*0.2)*0.15;
+                    ctx.globalAlpha=pa;ctx.fillStyle='rgba(60,30,0,0.7)';
+                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.fill();ctx.globalAlpha=1;
+                    ctx.strokeStyle=`rgba(241,196,15,${0.5+Math.sin(frames*0.15)*0.3})`;ctx.lineWidth=1.8;
+                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.stroke();
+                    ctx.fillStyle='#f1c40f';ctx.font='bold 13px "Lilita One",cursive';
+                    ctx.textAlign='center';ctx.textBaseline='middle';
+                    ctx.strokeStyle='rgba(0,0,0,0.9)';ctx.lineWidth=3;
+                    ctx.strokeText('⚠️ MEGA BOSS ŻYJE!',kx+KW/2,ky+KH/2);
+                    ctx.fillText('⚠️ MEGA BOSS ŻYJE!',kx+KW/2,ky+KH/2);
+                } else if(megaReady){
+                    // Ready but bosses alive — UNMISSABLE red alert
+                    const pa2=0.85+Math.sin(frames*0.14)*0.15;
+                    ctx.globalAlpha=pa2;ctx.fillStyle='rgba(80,0,0,0.65)';
+                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.fill();ctx.globalAlpha=1;
+                    ctx.strokeStyle=`rgba(231,76,60,${0.6+Math.sin(frames*0.14)*0.35})`;ctx.lineWidth=2;
+                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.stroke();
+                    ctx.fillStyle='#ff6b6b';ctx.font='bold 12px "Lilita One",cursive';
+                    ctx.textAlign='center';ctx.textBaseline='middle';
+                    ctx.strokeStyle='rgba(0,0,0,0.9)';ctx.lineWidth=3;
+                    ctx.strokeText('💀 ZNISZCZ BOSSÓW!',kx+KW/2,ky+KH/2-8);
+                    ctx.fillText('💀 ZNISZCZ BOSSÓW!',kx+KW/2,ky+KH/2-8);
+                    ctx.fillStyle='rgba(255,150,150,0.7)';ctx.font='8px sans-serif';ctx.textBaseline='alphabetic';
+                    const bc=enemies.filter(e=>e.isBoss&&!e.isMegaBoss).length;
+                    ctx.fillText(`${bc} boss${bc===1?'':'y'} żyw${bc===1?'y':'e'}`,kx+KW/2,ky+KH-8);
+                } else {
+                    // Normal: skull + number + progress bar + debug
+                    ctx.strokeStyle='rgba(231,76,60,0.22)';ctx.lineWidth=0.8;
+                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.stroke();
+
+                    // Canvas skull (ivory/bone, animated pulse)
+                    const pulse=1+Math.sin(frames*0.06)*0.07;
+                    ctx.save();ctx.translate(kx+28,ky+KH/2-2);ctx.scale(pulse,pulse);
+                    ctx.fillStyle='#e8dcc8';ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=1;
+                    // Cranium
+                    ctx.beginPath();ctx.arc(0,-2,11,0,Math.PI*2);ctx.fill();ctx.stroke();
+                    // Jaw
+                    ctx.beginPath();ctx.roundRect(-8,5,16,7,2);ctx.fill();ctx.stroke();
+                    // Eye sockets
+                    ctx.fillStyle='rgba(0,0,0,0.75)';
+                    ctx.beginPath();ctx.ellipse(-3.5,-3,3.2,3.8,0,0,Math.PI*2);ctx.fill();
+                    ctx.beginPath();ctx.ellipse(3.5,-3,3.2,3.8,0,0,Math.PI*2);ctx.fill();
+                    // Nose
+                    ctx.fillStyle='rgba(0,0,0,0.45)';
+                    ctx.beginPath();ctx.moveTo(-1.5,2);ctx.lineTo(0,0);ctx.lineTo(1.5,2);ctx.closePath();ctx.fill();
+                    // Teeth
+                    ctx.fillStyle='#fffdd0';ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=0.5;
+                    for(let i=0;i<4;i++){ctx.beginPath();ctx.roundRect(-6+i*3.5,7,2.8,4,0.5);ctx.fill();ctx.stroke();}
+                    ctx.restore();
+
+                    // Kill number (ivory)
+                    ctx.fillStyle='#e8dcc8';ctx.font='32px "Lilita One",cursive';
+                    ctx.textAlign='left';ctx.textBaseline='middle';
+                    ctx.strokeStyle='rgba(0,0,0,0.7)';ctx.lineWidth=4;
+                    const numX=kx+50;
+                    ctx.strokeText(stats.kills,numX,ky+KH/2-2);ctx.fillText(stats.kills,numX,ky+KH/2-2);
+
+                    // Progress bar — 3px below number, light orange→strong red
+                    const barY=ky+KH/2-2+18; // number center + half font height + 3px gap ≈ +18
+                    const barX=kx+50,barW=KW-58,barH=5;
+                    const barG=ctx.createLinearGradient(barX,0,barX+barW,0);
+                    barG.addColorStop(0,'rgba(255,190,60,0.9)');
+                    barG.addColorStop(1,'rgba(160,0,0,0.95)');
+                    ctx.fillStyle='rgba(255,255,255,0.06)';
+                    ctx.beginPath();ctx.roundRect(barX,barY,barW,barH,barH/2);ctx.fill();
+                    if(rKillPct>0){
+                        ctx.fillStyle=barG;
+                        ctx.beginPath();ctx.roundRect(barX,barY,barW*rKillPct,barH,barH/2);ctx.fill();
+                    }
+                    // Debug: regularKills counter (small, diagnostic)
+                    ctx.fillStyle='rgba(255,255,255,0.28)';ctx.font='7px sans-serif';ctx.textBaseline='alphabetic';
+                    ctx.fillText(`${Math.min(regularKills,100)}/100`,barX+barW+4,barY+5);
+                }
+                ctx.textAlign='left';ctx.textBaseline='alphabetic';
+            }
             // Super powers HUD slots
             drawSuperPowerHUD();
 
