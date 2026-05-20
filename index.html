@@ -2194,21 +2194,28 @@
             }
             update() {
                 this.y += this.vy; this.vy *= 0.93;
-                this.life -= 0.022; this.age++;
+                this.life -= 0.0275; this.age++;
                 if(this.life <= 0) this.active = false;
             }
             draw() {
                 if(this.x < camera.x-50 || this.x > camera.x+screenW+50 || this.y < camera.y-50 || this.y > camera.y+screenH+50) return;
+                const sx = this.x - camera.x;
+                const rawSy = this.y - camera.y;
+                const sy = Math.max(90, rawSy); // clamp above HUD
                 ctx.save();
                 ctx.globalAlpha = Math.min(1, this.life * 2);
-                const sc = 1 + Math.sin(this.age * 0.15) * 0.08;
-                ctx.translate(this.x, this.y); ctx.scale(sc, sc);
-                ctx.font = 'bold 17px Lilita One, sans-serif';
+                ctx.font = 'bold 15px "Lilita One",cursive';
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-                ctx.strokeText(this.text, 0, 0);
+                const tw = ctx.measureText(this.text).width;
+                const pw = tw+16, ph = 22, pr = 11;
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.beginPath(); ctx.roundRect(sx-pw/2, sy-ph/2, pw, ph, pr); ctx.fill();
                 ctx.fillStyle = this.color;
-                ctx.fillText(this.text, 0, 0);
+                ctx.beginPath(); ctx.roundRect(sx-pw/2, sy-ph/2, 4, ph, [pr,0,0,pr]); ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 3;
+                ctx.strokeText(this.text, sx, sy);
+                ctx.fillStyle = this.color;
+                ctx.fillText(this.text, sx, sy);
                 ctx.restore(); ctx.globalAlpha = 1;
             }
         }
@@ -3706,7 +3713,9 @@
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
             document.getElementById('welcomeScreenWrapper').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
-            document.getElementById('controlsHelper').style.display = 'block';
+            const ch = document.getElementById('controlsHelper');
+            ch.style.display = 'block'; ch.style.opacity = '1';
+            setTimeout(() => { ch.style.transition='opacity 1s'; ch.style.opacity='0'; setTimeout(()=>{ch.style.display='none';},1000); }, 3000);
             document.body.classList.remove('show-credits');
             updateHUD();
             clearInterval(gameTimerInterval);
@@ -3715,7 +3724,7 @@
 
         document.getElementById('startBtn').addEventListener('click', () => {
             if(selectedScenario === 'flag') {
-                window.location.href = 'ctf.html';
+                window.location.href = `ctf.html?brawler=${encodeURIComponent(selectedBrawler.id)}&diff=${encodeURIComponent(selectedDifficulty)}`;
                 return;
             }
             initGame();
@@ -3769,6 +3778,17 @@
         
         document.getElementById('charGrid').children[0].classList.add('selected');
         document.getElementById('mapGrid').children[0].classList.add('selected');
+
+        // Brawler sound effects
+        const BRAWLER_SOUNDS = { twardy: 'SoundEffects/Twardy.mp3', pyro: 'SoundEffects/Ogniarz.mp3' };
+        document.querySelectorAll('#charGrid .select-card').forEach(card => {
+            card.addEventListener('click', () => {
+                if(BRAWLER_SOUNDS[selectedBrawler.id]) {
+                    const snd = new Audio(BRAWLER_SOUNDS[selectedBrawler.id]);
+                    snd.volume = 0.65; snd.play().catch(()=>{});
+                }
+            });
+        });
 
         gameLoop();
     </script>

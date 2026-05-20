@@ -735,7 +735,7 @@
         let repairHangars = [], powerWells = [], quicksandZones = [], trackMarks = [];
         // Super powers
         // CTF — only Turbo Boost (no AURA/BOMB/FREEZE)
-        const TURBO = { col:'#f1c40f', COOLDOWN:20000, DURATION:5000 };
+        const TURBO = { col:'#f1c40f', COOLDOWN:20000, DURATION:2000 };
         let turboCooldown = 0; // timestamp when cooldown expires
         let turboActive = false, turboEndTime = 0;
         // Keep these for compatibility but unused in CTF
@@ -2229,21 +2229,32 @@
             }
             update() {
                 this.y += this.vy; this.vy *= 0.93;
-                this.life -= 0.022; this.age++;
+                this.life -= 0.0275; this.age++; // 25% faster (was 0.022)
                 if(this.life <= 0) this.active = false;
             }
             draw() {
                 if(this.x < camera.x-50 || this.x > camera.x+screenW+50 || this.y < camera.y-50 || this.y > camera.y+screenH+50) return;
+                const sx = this.x - camera.x;
+                // Clamp: don't overlap top HUD (y < 90 screen pixels)
+                const rawSy = this.y - camera.y;
+                const sy = Math.max(90, rawSy);
                 ctx.save();
                 ctx.globalAlpha = Math.min(1, this.life * 2);
-                const sc = 1 + Math.sin(this.age * 0.15) * 0.08;
-                ctx.translate(this.x, this.y); ctx.scale(sc, sc);
-                ctx.font = 'bold 17px Lilita One, sans-serif';
+                ctx.font = 'bold 15px "Lilita One",cursive';
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-                ctx.strokeText(this.text, 0, 0);
+                const tw = ctx.measureText(this.text).width;
+                const pw = tw + 16, ph = 22, pr = 11;
+                // Pill background
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.beginPath(); ctx.roundRect(sx-pw/2, sy-ph/2, pw, ph, pr); ctx.fill();
+                // Coloured left accent bar
                 ctx.fillStyle = this.color;
-                ctx.fillText(this.text, 0, 0);
+                ctx.beginPath(); ctx.roundRect(sx-pw/2, sy-ph/2, 4, ph, [pr,0,0,pr]); ctx.fill();
+                // Text
+                ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 3;
+                ctx.strokeText(this.text, sx, sy);
+                ctx.fillStyle = this.color;
+                ctx.fillText(this.text, sx, sy);
                 ctx.restore(); ctx.globalAlpha = 1;
             }
         }
@@ -2653,6 +2664,24 @@
                 }
 
             // ── CTF FORTIFIED RUINS DECORATIONS ─────────────────────
+            } else if(d.mapId === 'ctf_bush3d') {
+                // 3D layered bush with sway
+                const r2=d.r||28, sway=Math.sin(frames*0.02+d.seed)*r2*0.08;
+                // Shadow
+                ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(sway*0.3,r2*0.35,r2*0.8,r2*0.25,0,0,Math.PI*2); ctx.fill();
+                // Bottom layer (darkest, widest)
+                ctx.fillStyle='#2d5a1b';
+                ctx.beginPath(); ctx.ellipse(sway*0.5,4,r2*0.9,r2*0.65,0,0,Math.PI*2); ctx.fill();
+                // Middle layer
+                ctx.fillStyle='#3d7a26';
+                ctx.beginPath(); ctx.ellipse(sway*0.7,-r2*0.2,r2*0.75,r2*0.58,0,0,Math.PI*2); ctx.fill();
+                // Top layer (brightest, smallest)
+                ctx.fillStyle='#52a032';
+                ctx.beginPath(); ctx.ellipse(sway,-r2*0.42,r2*0.55,r2*0.45,0,0,Math.PI*2); ctx.fill();
+                // Highlight
+                ctx.fillStyle='rgba(120,200,60,0.25)';
+                ctx.beginPath(); ctx.ellipse(sway-r2*0.12,-r2*0.52,r2*0.22,r2*0.16,-0.4,0,Math.PI*2); ctx.fill();
+
             } else if(d.mapId === 'ctf_tree') {
                 const v = d.variant||0; const sway = Math.sin(frames*0.018+d.seed*10)*2.5;
                 // Trunk
@@ -3065,6 +3094,51 @@
         }
 
         function drawCTFCarryWarning() {
+            // Safe zone indicator — always visible on left edge
+            const inSafe = hangar && hangar.containsWorld(player.x, player.y);
+            const IW=36, IH=screenH-20, ix=8, iy=10;
+            ctx.fillStyle=inSafe?'rgba(52,152,219,0.22)':'rgba(52,152,219,0.10)';
+            ctx.beginPath(); ctx.roundRect(ix,iy,IW,IH,8); ctx.fill();
+            ctx.strokeStyle=`rgba(52,152,219,${inSafe?0.8:0.35})`; ctx.lineWidth=1.5;
+            ctx.beginPath(); ctx.roundRect(ix,iy,IW,IH,8); ctx.stroke();
+            // Arrow + label
+            ctx.save(); ctx.translate(ix+IW/2, screenH/2);
+            ctx.fillStyle=inSafe?'#3498db':'rgba(52,152,219,0.6)';
+            ctx.font=`bold 9px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+            // Vertical text
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText(inSafe?'⚓ BAZA':'← BAZA', 0, 0);
+            ctx.restore();
+            // Pulse when in safe zone
+            if(inSafe) {
+                ctx.globalAlpha=0.25+Math.sin(frames*0.1)*0.1;
+                ctx.fillStyle='#3498db';
+                ctx.beginPath(); ctx.roundRect(ix,iy,IW,IH,8); ctx.fill();
+                ctx.globalAlpha=1;
+            }
+
+            // Flag proximity glow on screen when near flag
+            if(!playerCarryingFlag) {
+                for(let f of ctfFlags) {
+                    if(f.state!=='IDLE') continue;
+                    const dist=Math.hypot(player.x-f.x, player.y-f.y);
+                    if(dist<180) {
+                        const sx=f.x-camera.x, sy=f.y-camera.y;
+                        ctx.globalAlpha=(1-dist/180)*0.5;
+                        ctx.strokeStyle=f.color; ctx.lineWidth=2;
+                        ctx.setLineDash([5,4]);
+                        ctx.beginPath(); ctx.arc(sx,sy,55+Math.sin(frames*0.12)*5,0,Math.PI*2); ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.fillStyle=f.color; ctx.font='bold 12px sans-serif';
+                        ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.globalAlpha=(1-dist/180)*0.85;
+                        ctx.fillText('NAJEDŹ BY ZABRAĆ',sx,sy-65);
+                        ctx.globalAlpha=1;
+                    }
+                }
+            }
+            ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+
+            // Carry warning
             if(!playerCarryingFlag) return;
             const f = playerCarryingFlag;
             const alpha = 0.7+Math.sin(frames*0.12)*0.3;
@@ -3266,43 +3340,103 @@
 
         // ── HANGAR (SAFE BASE) CLASS ────────────────────────────────
         class Hangar {
-            constructor(x,y,w,h) {
-                this.x=x; this.y=y; this.w=w; this.h=h; this.pulse=0;
-            }
+            constructor(x,y,w,h) { this.x=x; this.y=y; this.w=w; this.h=h; this.pulse=0; }
             containsWorld(wx,wy){ return wx>this.x&&wx<this.x+this.w&&wy>this.y&&wy<this.y+this.h; }
             draw() {
                 this.pulse+=0.04;
                 const sx=this.x-camera.x, sy=this.y-camera.y;
-                // Safe zone glow
+
+                // Safe zone glow background
                 const grd=ctx.createLinearGradient(sx,sy,sx+this.w,sy);
-                grd.addColorStop(0,'rgba(52,152,219,0.12)');
+                grd.addColorStop(0,'rgba(52,152,219,0.14)');
                 grd.addColorStop(1,'rgba(52,152,219,0.04)');
                 ctx.fillStyle=grd; ctx.fillRect(sx,sy,this.w,this.h);
-                // Border
-                ctx.strokeStyle=`rgba(52,152,219,${0.5+Math.sin(this.pulse)*0.3})`; ctx.lineWidth=2;
+                ctx.strokeStyle=`rgba(52,152,219,${0.4+Math.sin(this.pulse)*0.25})`; ctx.lineWidth=2;
                 ctx.setLineDash([10,6]); ctx.strokeRect(sx,sy,this.w,this.h); ctx.setLineDash([]);
-                // Building
-                const bx=sx+18, by=sy+this.h/2-45;
-                ctx.fillStyle='#2c3e50'; ctx.beginPath(); ctx.roundRect(bx,by,90,70,4); ctx.fill();
-                ctx.fillStyle='#3498db'; ctx.globalAlpha=0.5+Math.sin(this.pulse)*0.2;
-                ctx.beginPath(); ctx.roundRect(bx+28,by+18,34,52,2); ctx.fill(); ctx.globalAlpha=1;
-                ctx.fillStyle='#7f8c8d';
-                ctx.beginPath(); ctx.roundRect(bx,by,90,16,2); ctx.fill();
-                // Masts for captured flags
-                for(let i=0;i<3;i++) {
-                    const mx=bx+110+i*28, my=by+15;
-                    ctx.strokeStyle='#c8a86b'; ctx.lineWidth=2;
-                    ctx.beginPath(); ctx.moveTo(mx,my+50); ctx.lineTo(mx,my); ctx.stroke();
-                    if(ctfFlags[i]&&ctfFlags[i].state==='CAPTURED') {
-                        ctx.fillStyle=ctfFlags[i].color;
-                        ctx.beginPath(); ctx.moveTo(mx,my);
-                        ctx.lineTo(mx+14,my+6); ctx.lineTo(mx,my+12); ctx.closePath(); ctx.fill();
+
+                // Building drop shadow
+                const bx=sx+20, by=sy+this.h/2-60, bw=130, bh=100;
+                ctx.fillStyle='rgba(0,0,0,0.25)';
+                ctx.beginPath(); ctx.roundRect(bx+6,by+6,bw,bh,5); ctx.fill();
+
+                // Main building walls — gradient (dark base to lighter top)
+                const wallG=ctx.createLinearGradient(bx,by+bh,bx,by);
+                wallG.addColorStop(0,'#1a2535'); wallG.addColorStop(1,'#2c3e50');
+                ctx.fillStyle=wallG; ctx.strokeStyle='#1a252f'; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,5); ctx.fill(); ctx.stroke();
+                // Roof ridge
+                ctx.fillStyle='#243342';
+                ctx.beginPath(); ctx.roundRect(bx,by,bw,14,3); ctx.fill();
+                ctx.fillStyle='#5d8aa8'; ctx.fillRect(bx+8,by+4,bw-16,6);
+
+                // Large hangar doors (double)
+                const dx=bx+18, dy=by+22, dw=94, dh=70;
+                // Door frame
+                ctx.fillStyle='#1a252f'; ctx.beginPath(); ctx.roundRect(dx-3,dy-3,dw+6,dh+6,3); ctx.fill();
+                // Left door panel
+                const dg1=ctx.createLinearGradient(dx,dy,dx+dw/2,dy+dh);
+                dg1.addColorStop(0,'#3498db'); dg1.addColorStop(1,'#1a5276');
+                ctx.fillStyle=dg1; ctx.beginPath(); ctx.roundRect(dx,dy,dw/2-2,dh,2); ctx.fill();
+                // Right door panel
+                const dg2=ctx.createLinearGradient(dx+dw/2,dy,dx+dw,dy+dh);
+                dg2.addColorStop(0,'#1a5276'); dg2.addColorStop(1,'#3498db');
+                ctx.fillStyle=dg2; ctx.beginPath(); ctx.roundRect(dx+dw/2+2,dy,dw/2-2,dh,2); ctx.fill();
+                // Door panel lines (horizontal detail)
+                ctx.strokeStyle='rgba(52,152,219,0.4)'; ctx.lineWidth=1;
+                [18,34,50,62].forEach(yoff=>{
+                    ctx.beginPath(); ctx.moveTo(dx+2,dy+yoff); ctx.lineTo(dx+dw-2,dy+yoff); ctx.stroke();
+                });
+                // Door centre gap + handle
+                ctx.fillStyle='#111'; ctx.fillRect(dx+dw/2-2,dy,4,dh);
+                ctx.fillStyle='#7fb3d3'; ctx.strokeStyle='#2980b9'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.roundRect(dx+dw/2-8,dy+dh/2-8,6,16,3); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(dx+dw/2+2,dy+dh/2-8,6,16,3); ctx.fill(); ctx.stroke();
+                // Door glow when open
+                ctx.globalAlpha=0.15+Math.sin(this.pulse*1.5)*0.08;
+                ctx.fillStyle='#3498db';
+                ctx.beginPath(); ctx.roundRect(dx,dy,dw,dh,2); ctx.fill();
+                ctx.globalAlpha=1;
+
+                // Flag mounting spots (3 masts to the right of building)
+                const flagCols=['#3498db','#e74c3c','#f1c40f'];
+                const flagNames=['A','B','C'];
+                for(let i=0;i<3;i++){
+                    const mx=bx+bw+20+i*30, my=by+bh-10;
+                    // Mast shadow
+                    ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=3;
+                    ctx.beginPath(); ctx.moveTo(mx+2,my+4); ctx.lineTo(mx+2,my-55); ctx.stroke();
+                    // Mast
+                    ctx.strokeStyle='#c8a86b'; ctx.lineWidth=2.5;
+                    ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(mx,my-55); ctx.stroke();
+                    // Base bracket
+                    ctx.fillStyle='#8b6914'; ctx.strokeStyle='#5d4500'; ctx.lineWidth=1;
+                    ctx.beginPath(); ctx.roundRect(mx-7,my-6,14,8,2); ctx.fill(); ctx.stroke();
+                    // Flag or empty slot
+                    const f = ctfFlags[i];
+                    if(f && f.state==='CAPTURED'){
+                        ctx.fillStyle=flagCols[i]; ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8;
+                        ctx.beginPath(); ctx.moveTo(mx,my-55); ctx.lineTo(mx+20,my-47); ctx.lineTo(mx,my-39); ctx.closePath(); ctx.fill(); ctx.stroke();
+                        // Shine
+                        ctx.globalAlpha=0.3; ctx.fillStyle='#fff';
+                        ctx.beginPath(); ctx.moveTo(mx,my-55); ctx.lineTo(mx+10,my-52); ctx.lineTo(mx,my-47); ctx.closePath(); ctx.fill();
+                        ctx.globalAlpha=1;
+                    } else {
+                        // Empty slot indicator
+                        ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+                        ctx.beginPath(); ctx.moveTo(mx,my-52); ctx.lineTo(mx+16,my-45); ctx.lineTo(mx,my-38); ctx.closePath(); ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.font='7px sans-serif'; ctx.textAlign='center';
+                        ctx.fillText(flagNames[i], mx+5, my-43);
                     }
                 }
-                // "SAFE ZONE" label
-                ctx.fillStyle='rgba(52,152,219,0.7)'; ctx.font='bold 10px sans-serif';
+
+                // "HANGAR" label (×2 bigger)
+                ctx.fillStyle=`rgba(52,152,219,${0.7+Math.sin(this.pulse)*0.2})`;
+                ctx.font='bold 20px "Lilita One",cursive';
                 ctx.textAlign='center'; ctx.textBaseline='top';
-                ctx.fillText('⚓ STREFA BEZPIECZNA', sx+this.w/2, sy+4);
+                ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.lineWidth=3;
+                ctx.strokeText('⚓ STREFA BEZPIECZNA', sx+this.w/2, sy+6);
+                ctx.fillText('⚓ STREFA BEZPIECZNA', sx+this.w/2, sy+6);
                 ctx.textAlign='left'; ctx.textBaseline='alphabetic';
             }
         }
@@ -3333,55 +3467,60 @@
 
             // 4. Three flag defensive zones — stone walls forming U-shape around each flag
             const flagZones = [
-                {fx:870, fy:430},
-                {fx:1640, fy:300},
-                {fx:2470, fy:1900}
+                {fx:750,  fy:380},
+                {fx:2600, fy:580},
+                {fx:1500, fy:2650}
             ];
             flagZones.forEach(({fx,fy})=>{
-                // U-shaped fortress walls around flag
                 environment.push(new EnvironmentBlock(fx-120, fy-100, 240, 18, 'wall', STONE));
-                environment.push(new EnvironmentBlock(fx-120, fy+82, 240, 18, 'wall', STONE));
+                environment.push(new EnvironmentBlock(fx-120, fy+82,  240, 18, 'wall', STONE));
                 environment.push(new EnvironmentBlock(fx-120, fy-100, 18, 200, 'wall', STONE));
                 environment.push(new EnvironmentBlock(fx+102, fy-100, 18, 200, 'wall', STONE));
-                // Broken corner pillars
-                mapDecorations.push({x:fx-118, y:fy-98, mapId:'ctf_pillar', seed:0.1, angle:0});
-                mapDecorations.push({x:fx+100, y:fy-98, mapId:'ctf_pillar', seed:0.2, angle:0});
-                mapDecorations.push({x:fx-118, y:fy+82, mapId:'ctf_pillar', seed:0.3, angle:0});
-                mapDecorations.push({x:fx+100, y:fy+82, mapId:'ctf_pillar', seed:0.4, angle:0});
+                mapDecorations.push({x:fx-118, y:fy-98, mapId:'ctf_pillar', seed:0.1});
+                mapDecorations.push({x:fx+100, y:fy-98, mapId:'ctf_pillar', seed:0.2});
+                mapDecorations.push({x:fx-118, y:fy+82, mapId:'ctf_pillar', seed:0.3});
+                mapDecorations.push({x:fx+100, y:fy+82, mapId:'ctf_pillar', seed:0.4});
             });
 
-            // 5. Cover rocks / fallen columns (corridors between flags)
+            // 5. Cover rocks / fallen columns (+25% — 28 elements, 3 wall tones)
+            const TONES=['#c4a77d','#8b6914','#5a6e3a','#6b4c2a','#9b8c6e'];
             const covers=[
-                [600,200],[700,700],[600,1100],[600,1500],
-                [950,900],[1100,600],[1200,1400],[1300,800],
-                [1800,800],[1900,1100],[2000,600],[2100,1300],
-                [2200,900],[2300,500],[2400,1100],[2500,700],
-                [1050,1700],[1300,1900],[1700,1600],[2000,1800],
-                [900,1300],[1600,1200]
+                [600,200],[700,700],[600,1100],[600,1500],[520,900],
+                [950,900],[1100,600],[1200,1400],[1300,800],[1050,250],
+                [1800,800],[1900,1100],[2000,600],[2100,1300],[1750,400],
+                [2200,900],[2300,500],[2400,1100],[2500,700],[2350,1400],
+                [1050,1700],[1300,1900],[1700,1600],[2000,1800],[1150,2100],
+                [900,1300],[1600,1200],[1400,2400],[2600,1400]
             ];
-            covers.forEach(([x,y])=>{
-                const w=55+Math.random()*80, h=40+Math.random()*60;
-                environment.push(new EnvironmentBlock(x,y,w,h,'wall',Math.random()>0.5?WALL:DARK));
+            covers.forEach(([x,y],ci)=>{
+                const w=50+Math.random()*90, h=38+Math.random()*65;
+                const tone=TONES[ci%TONES.length];
+                environment.push(new EnvironmentBlock(x,y,w,h,'wall',tone));
                 mapDecorations.push({x:x+w/2, y:y+h/2, mapId:'ctf_ruin', seed:Math.random(), w, h});
             });
 
-            // 6. Bush stealth zones (12 scattered)
+            // 6. 3D Bush zones (replace flat blocks with animated layered bushes)
             const bushPos=[
-                [550,300],[720,900],[550,1300],[800,1600],
-                [1100,300],[1200,1100],[1400,500],[1500,1700],
-                [1800,300],[2100,800],[2200,1600],[2600,600]
+                [550,300],[720,900],[550,1300],[800,1600],[480,2200],
+                [1100,300],[1200,1100],[1400,500],[1500,1700],[1350,2300],
+                [1800,300],[2100,800],[2200,1600],[2600,600],[2450,1300],
             ];
             bushPos.forEach(([x,y])=>{
-                const r=60+Math.random()*55;
+                // Invisible cover block (bush type)
+                const r=55+Math.random()*45;
                 environment.push(new EnvironmentBlock(x-r,y-r,r*2,r*2,'bush',BUSH));
+                // Visual 3D bush decoration
+                for(let b=0;b<3+Math.floor(Math.random()*3);b++){
+                    const bx2=x+Math.cos(b*1.3)*r*0.6, by2=y+Math.sin(b*1.3)*r*0.6;
+                    mapDecorations.push({x:bx2, y:by2, mapId:'ctf_bush3d', seed:Math.random()*Math.PI*2, r:r*0.45+Math.random()*15});
+                }
             });
 
-            // 7. Decorations: trees, torches, campfires, barrels, statues, stone paths
-            // Trees (kołyszące)
+            // 7. Trees (+25% — 20 trees, spread wider)
             const treePos=[
-                [500,150],[480,500],[500,800],[490,1200],[500,1600],[510,2000],
-                [700,1400],[800,250],[1050,1400],[1100,2000],[1200,1800],
-                [1700,2000],[1900,1500],[2050,2100],[2300,2200],[2600,1200]
+                [500,150],[480,500],[500,800],[490,1200],[500,1600],[510,2000],[490,2400],
+                [700,1400],[800,250],[1050,1400],[1100,2000],[1200,1800],[1050,2500],
+                [1700,2000],[1900,1500],[2050,2100],[2300,2200],[2600,1200],[2650,1800],[2700,900]
             ];
             treePos.forEach(([x,y])=>mapDecorations.push({x,y,mapId:'ctf_tree',seed:Math.random(),variant:Math.floor(Math.random()*3)}));
 
@@ -3391,29 +3530,29 @@
                 mapDecorations.push({x:fx+125, y:fy+50, mapId:'ctf_campfire', seed:(i+1)*0.33});
             });
 
-            // Pochodnie na murach
-            [[380,200],[380,600],[380,1000],[380,1400],[380,1800],
-             [860,330],[860,520],[1630,200],[1630,390],[2460,1800],[2460,1990]
+            // Pochodnie na murach i przy flagi zonach
+            [[380,200],[380,600],[380,1000],[380,1400],[380,1800],[380,2400],
+             [740,280],[740,470],[2590,480],[2590,670],[1490,2550],[1490,2740]
             ].forEach(([x,y])=>mapDecorations.push({x,y,mapId:'ctf_torch',seed:Math.random()}));
 
-            // Beczki/skrzynie
-            [[650,400],[680,1100],[900,700],[1350,1300],[1600,700],[1900,400],[2150,1000],[2350,1700]].forEach(
+            // Beczki/skrzynie (więcej, rozsiane)
+            [[650,400],[680,1100],[900,700],[1350,1300],[1600,700],[1900,400],[2150,1000],[2350,1700],
+             [1100,1900],[2500,900],[800,2000],[1700,2400]].forEach(
                 ([x,y])=>mapDecorations.push({x,y,mapId:'ctf_barrel',seed:Math.random()}));
 
             // Posągi wojowników
-            [[600,H/2-140],[1200,H/2+80],[2000,400],[2400,H/2+100]].forEach(
+            [[600,H/2-140],[1200,H/2+80],[2000,400],[2400,H/2+100],[1500,500],[1500,2200]].forEach(
                 ([x,y])=>mapDecorations.push({x,y,mapId:'ctf_statue',seed:Math.random()}));
 
-            // Kręgi run przy flagach (złote pulsujące)
+            // Kręgi run przy flagach
             flagZones.forEach(({fx,fy},i)=>mapDecorations.push({x:fx,y:fy,mapId:'ctf_rune',seed:i*0.4}));
 
             // Droga kamienna (ścieżka przez środek)
-            for(let sx2=500; sx2<W-200; sx2+=120) {
+            for(let sx2=500; sx2<W-200; sx2+=120)
                 mapDecorations.push({x:sx2, y:H/2, mapId:'ctf_stonepath', seed:Math.random()});
-            }
 
-            // Czaszki na palach (przy murach, dalej od flag)
-            [[760,260],[760,600],[1480,140],[1480,480],[2300,1720],[2300,2050]].forEach(
+            // Czaszki na palach (dalej od flag)
+            [[660,260],[660,500],[2480,480],[2480,680],[1380,2530],[1380,2760]].forEach(
                 ([x,y])=>mapDecorations.push({x,y,mapId:'ctf_skull_stake',seed:Math.random()}));
 
             // Świetliki (ambient)
@@ -3567,7 +3706,7 @@
             // ── CTF: Flag pickup ──
             if(!playerCarryingFlag) {
                 for(let f of ctfFlags) {
-                    if(f.state === 'IDLE' && Math.hypot(player.x - f.x, player.y - f.y) < 42) {
+                    if(f.state === 'IDLE' && Math.hypot(player.x - f.x, player.y - f.y) < 80) {
                         f.state = 'CARRIED';
                         playerCarryingFlag = f;
                         floatingTexts.push(new FloatingText(player.x, player.y-60, `🚩 FLAGA ${f.name}!`, f.color));
@@ -4132,14 +4271,14 @@
             ctfFlagsCaptured = 0; playerCarryingFlag = null; ctfEscalation = 0;
             ctfBossKilled = [false,false,false]; ctfBossRespawnTimers = [0,0,0];
             ctfFlags = [
-                new Flag(0, 870,  430,  '#3498db', 'ALFA'),
-                new Flag(1, 1640, 300,  '#e74c3c', 'BRAVO'),
-                new Flag(2, 2470, 1900, '#f1c40f', 'CHARLIE'),
+                new Flag(0,  750,  380,  '#3498db', 'ALFA'),
+                new Flag(1, 2600,  580,  '#e74c3c', 'BRAVO'),
+                new Flag(2, 1500, 2650,  '#f1c40f', 'CHARLIE'),
             ];
-            hangar = new Hangar(30, WORLD_H/2 - 180, 370, 360);
+            hangar = new Hangar(30, WORLD_H/2 - 200, 400, 400);
 
             // Spawn 3 super bosses (one per flag)
-            const flagZonePos = [{fx:870,fy:430},{fx:1640,fy:300},{fx:2470,fy:1900}];
+            const flagZonePos = [{fx:750,fy:380},{fx:2600,fy:580},{fx:1500,fy:2650}];
             for(let i=0;i<3;i++){
                 const {fx,fy} = flagZonePos[i];
                 const boss = new Enemy(true, false, false, false, -1, fx+180, fy+30);
@@ -4152,8 +4291,8 @@
                 enemies.push(new Enemy(false,false,false,true,i, fx-80, fy+60));
                 enemies.push(new Enemy(false,false,false,true,i, fx+80, fy-60));
             }
-            // Some regular enemies as ambient pressure
-            for(let k=0;k<8;k++) enemies.push(new Enemy());
+            // Regular enemies (+25% vs old 8)
+            for(let k=0;k<10;k++) enemies.push(new Enemy());
             // Initial gems
             for(let i=0; i<12; i++) gems.push(new Gem());
 
@@ -4161,7 +4300,13 @@
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
             document.getElementById('welcomeScreenWrapper').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
-            document.getElementById('controlsHelper').style.display = 'block';
+            const ch = document.getElementById('controlsHelper');
+            ch.style.display = 'block'; ch.style.opacity = '1';
+            // Controls hint fades after 3s
+            setTimeout(() => {
+                ch.style.transition = 'opacity 1s'; ch.style.opacity = '0';
+                setTimeout(() => { ch.style.display = 'none'; }, 1000);
+            }, 3000);
             document.body.classList.remove('show-credits');
             updateHUD();
             clearInterval(gameTimerInterval);
@@ -4211,6 +4356,33 @@
         
         document.getElementById('charGrid').children[0].classList.add('selected');
         document.getElementById('mapGrid').children[0].classList.add('selected');
+
+        // Brawler sound effects on selection
+        const BRAWLER_SOUNDS = { twardy: 'SoundEffects/Twardy.mp3', pyro: 'SoundEffects/Ogniarz.mp3' };
+        document.querySelectorAll('#charGrid .select-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const bId = selectedBrawler.id;
+                if(BRAWLER_SOUNDS[bId]) {
+                    const snd = new Audio(BRAWLER_SOUNDS[bId]);
+                    snd.volume = 0.65; snd.play().catch(()=>{});
+                }
+            });
+        });
+
+        // Auto-start from index.html redirect (URL params)
+        (function(){
+            const p = new URLSearchParams(window.location.search);
+            const bId = p.get('brawler'), diff = p.get('diff');
+            if(bId) {
+                const found = BRAWLERS.find(b => b.id === bId);
+                if(found) selectedBrawler = found;
+            }
+            if(diff) selectedDifficulty = diff;
+            if(bId) {
+                // Skip welcome screen — launch directly
+                requestAnimationFrame(initGame);
+            }
+        })();
 
         gameLoop();
     </script>
