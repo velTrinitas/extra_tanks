@@ -383,7 +383,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v2.8
+        Game version: v2.9
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -3513,7 +3513,7 @@
                     ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.fill();ctx.globalAlpha=1;
                     ctx.strokeStyle=`rgba(241,196,15,${0.5+Math.sin(frames*0.15)*0.3})`;ctx.lineWidth=1.8;
                     ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.stroke();
-                    ctx.fillStyle='#f1c40f';ctx.font='bold 13px "Lilita One",cursive';
+                    ctx.fillStyle='#f1c40f';ctx.font='bold 19px "Lilita One",cursive';
                     ctx.textAlign='center';ctx.textBaseline='middle';
                     ctx.strokeStyle='rgba(0,0,0,0.9)';ctx.lineWidth=3;
                     ctx.strokeText('⚠️ MEGA BOSS ŻYJE!',kx+KW/2,ky+KH/2);
@@ -3525,12 +3525,12 @@
                     ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.fill();ctx.globalAlpha=1;
                     ctx.strokeStyle=`rgba(231,76,60,${0.6+Math.sin(frames*0.14)*0.35})`;ctx.lineWidth=2;
                     ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.stroke();
-                    ctx.fillStyle='#ff6b6b';ctx.font='bold 12px "Lilita One",cursive';
+                    ctx.fillStyle='#ff6b6b';ctx.font='bold 18px "Lilita One",cursive';
                     ctx.textAlign='center';ctx.textBaseline='middle';
                     ctx.strokeStyle='rgba(0,0,0,0.9)';ctx.lineWidth=3;
-                    ctx.strokeText('💀 ZNISZCZ BOSSÓW!',kx+KW/2,ky+KH/2-8);
-                    ctx.fillText('💀 ZNISZCZ BOSSÓW!',kx+KW/2,ky+KH/2-8);
-                    ctx.fillStyle='rgba(255,150,150,0.7)';ctx.font='8px sans-serif';ctx.textBaseline='alphabetic';
+                    ctx.strokeText('💀 ZNISZCZ BOSSÓW!',kx+KW/2,ky+KH/2-10);
+                    ctx.fillText('💀 ZNISZCZ BOSSÓW!',kx+KW/2,ky+KH/2-10);
+                    ctx.fillStyle='rgba(255,150,150,0.7)';ctx.font='12px sans-serif';ctx.textBaseline='alphabetic';
                     const bc=enemies.filter(e=>e.isBoss&&!e.isMegaBoss).length;
                     ctx.fillText(`${bc} boss${bc===1?'':'y'} żyw${bc===1?'y':'e'}`,kx+KW/2,ky+KH-8);
                 } else {
