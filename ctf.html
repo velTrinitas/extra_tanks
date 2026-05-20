@@ -3208,7 +3208,7 @@
             }
             draw() {
                 if(this.state === 'CAPTURED') return;
-                const sx = this.x - camX, sy = this.y - camY;
+                const sx = this.x - camera.x, sy = this.y - camera.y;
                 const bob = Math.sin(this.pulse) * 5;
 
                 if(this.state === 'IDLE') {
@@ -3272,7 +3272,7 @@
             containsWorld(wx,wy){ return wx>this.x&&wx<this.x+this.w&&wy>this.y&&wy<this.y+this.h; }
             draw() {
                 this.pulse+=0.04;
-                const sx=this.x-camX, sy=this.y-camY;
+                const sx=this.x-camera.x, sy=this.y-camera.y;
                 // Safe zone glow
                 const grd=ctx.createLinearGradient(sx,sy,sx+this.w,sy);
                 grd.addColorStop(0,'rgba(52,152,219,0.12)');

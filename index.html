@@ -151,14 +151,19 @@
             transform: translateY(-5px) scale(1.05);
             z-index: 10;
         }
-        
-        .select-card.selected::before {
-            content: "✅";
-            position: absolute;
-            top: 5px; right: 5px;
-            font-size: 1.5rem;
-            filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.5));
-            z-index: 5;
+
+        /* map section disabled when CTF selected */
+        #mapSection.map-disabled {
+            opacity: 0.32;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        #mapSection.map-disabled #mapLabel::after {
+            content: ' — mapa CTF: Fortified Ruins';
+            font-size: 0.62em;
+            color: #3498db;
+            font-family: sans-serif;
+            font-weight: normal;
         }
 
         .select-card .name { 
@@ -422,17 +427,13 @@
                 <div class="select-card diff-card" style="background:#e74c3c;" data-diff="hard">Rój!</div>
             </div>
 
-            <h2>Wybierz otoczenie</h2>
-            <div class="grid-container map-grid" id="mapGrid"></div>
-
             <h2>Wybierz scenariusz</h2>
             <div class="scenario-grid">
                 <div class="scenario-card selected" data-scenario="boss" id="sc-boss">
                     <span class="sc-icon">💀</span>
                     <span class="sc-name">KILL THE BOSS</span>
                 </div>
-                <div class="scenario-card locked" data-scenario="flag" id="sc-flag">
-                    <span class="sc-badge">W BUDOWIE</span>
+                <div class="scenario-card" data-scenario="flag" id="sc-flag">
                     <span class="sc-icon">🚩</span>
                     <span class="sc-name">CAPTURE THE FLAG</span>
                 </div>
@@ -441,6 +442,11 @@
                     <span class="sc-icon">👑</span>
                     <span class="sc-name">SAVE THE KING</span>
                 </div>
+            </div>
+
+            <div id="mapSection">
+                <h2 id="mapLabel">Wybierz otoczenie</h2>
+                <div class="grid-container map-grid" id="mapGrid"></div>
             </div>
 
             <button class="brawl-btn" id="startBtn">Graj!</button>
@@ -564,6 +570,26 @@
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">❤️</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Apteczki</div><div class="ir-desc">Ile apteczek zebrałeś w trakcie walki.</div></div></div>
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">⚡</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Power Cuby</div><div class="ir-desc">Ile cube'ów zebrałeś i jakie bonusy dostałeś.</div></div></div>
                     <div class="instr-row" style="padding:7px 10px;"><div class="ir-icon" style="font-size:1.2rem;">⚡</div><div class="ir-body"><div class="ir-title" style="font-size:0.9rem;">Użyte super moce</div><div class="ir-desc">Ile razy użyłeś AURA, MEGA BOMB lub FREEZE.</div></div></div>
+                </div>
+            </div>
+
+            <div class="instr-section">
+                <h3>🎮 Dostępne scenariusze</h3>
+                <div class="instr-grid-2">
+                    <div class="instr-row" style="padding:10px 12px;">
+                        <div class="ir-icon" style="font-size:1.5rem;">💀</div>
+                        <div class="ir-body">
+                            <div class="ir-title">KILL THE BOSS</div>
+                            <div class="ir-desc">Zniszcz 100 wrogów, wyeliminuj wszystkich bossów, a następnie pokonaj potężnego Mega Bossa — to jedyna droga do zwycięstwa. Wybierz mapę i trudność przed startem.</div>
+                        </div>
+                    </div>
+                    <div class="instr-row" style="padding:10px 12px;">
+                        <div class="ir-icon" style="font-size:1.5rem;">🚩</div>
+                        <div class="ir-body">
+                            <div class="ir-title">CAPTURE THE FLAG</div>
+                            <div class="ir-desc">Przeniknij do ruin fortecy i zdobądź 3 flagi strzeżone przez Super Bossów. Wróć z każdą flagą do hangaru — swojej strefy bezpiecznej. Dostępna jest tylko super moc TURBO. Mapa: Fortified Ruins.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -3687,7 +3713,13 @@
             gameTimerInterval = setInterval(() => { if(gameState === 'PLAYING') gameTime++; }, 1000);
         }
 
-        document.getElementById('startBtn').addEventListener('click', initGame);
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if(selectedScenario === 'flag') {
+                window.location.href = 'ctf.html';
+                return;
+            }
+            initGame();
+        });
 
         // Scenario card selection
         document.querySelectorAll('.scenario-card:not(.locked)').forEach(card => {
@@ -3695,6 +3727,13 @@
                 document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
                 card.classList.add('selected');
                 selectedScenario = card.dataset.scenario;
+                // Disable map selection for CTF (fixed map)
+                const mapSec = document.getElementById('mapSection');
+                if(selectedScenario === 'flag') {
+                    mapSec.classList.add('map-disabled');
+                } else {
+                    mapSec.classList.remove('map-disabled');
+                }
             });
         });
 
