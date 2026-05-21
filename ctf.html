@@ -3472,10 +3472,13 @@
                 {fx:1500, fy:2650}
             ];
             flagZones.forEach(({fx,fy})=>{
-                environment.push(new EnvironmentBlock(fx-120, fy-100, 240, 18, 'wall', STONE));
-                environment.push(new EnvironmentBlock(fx-120, fy+82,  240, 18, 'wall', STONE));
-                environment.push(new EnvironmentBlock(fx-120, fy-100, 18, 200, 'wall', STONE));
-                environment.push(new EnvironmentBlock(fx+102, fy-100, 18, 200, 'wall', STONE));
+                // U-shaped fortress walls around flag — OPEN at bottom (south entrance)
+                environment.push(new EnvironmentBlock(fx-120, fy-100, 240, 18, 'wall', STONE)); // top
+                environment.push(new EnvironmentBlock(fx-120, fy-100, 18,  182, 'wall', STONE)); // left
+                environment.push(new EnvironmentBlock(fx+102, fy-100, 18,  182, 'wall', STONE)); // right
+                // Bottom: two short stumps leaving 80px gap in centre (no full bottom wall)
+                environment.push(new EnvironmentBlock(fx-120, fy+64, 60, 18, 'wall', STONE)); // bottom-left stump
+                environment.push(new EnvironmentBlock(fx+60,  fy+64, 60, 18, 'wall', STONE)); // bottom-right stump
                 mapDecorations.push({x:fx-118, y:fy-98, mapId:'ctf_pillar', seed:0.1});
                 mapDecorations.push({x:fx+100, y:fy-98, mapId:'ctf_pillar', seed:0.2});
                 mapDecorations.push({x:fx-118, y:fy+82, mapId:'ctf_pillar', seed:0.3});
@@ -3987,6 +3990,25 @@
 
             ctx.fillStyle = selectedMap.bg;
             ctx.fillRect(0, 0, screenW, screenH);
+            // CTF: Safe zone permanent ground marker (world space, always at left of map)
+            if(hangar) {
+                const szX = hangar.x - camera.x, szW = hangar.w + 30;
+                // Solid coloured ground
+                ctx.fillStyle='rgba(30,80,140,0.18)';
+                ctx.fillRect(szX, 0, szW, screenH);
+                // Left border stripe
+                const bx2 = szX + szW - 6;
+                ctx.fillStyle=`rgba(52,152,219,${0.35+Math.sin(frames*0.04)*0.12})`;
+                ctx.fillRect(bx2, 0, 6, screenH);
+                // "BEZPIECZNA STREFA" ground text (vertical, faint)
+                ctx.save();
+                ctx.globalAlpha=0.12;
+                ctx.font='bold 28px "Lilita One",cursive';
+                ctx.fillStyle='#3498db'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.translate(szX+szW/2, screenH/2); ctx.rotate(-Math.PI/2);
+                ctx.fillText('⚓ STREFA BEZPIECZNA ⚓', 0, 0);
+                ctx.restore(); ctx.globalAlpha=1;
+            }
             
             ctx.save();
             ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
@@ -4124,95 +4146,7 @@
                 ctx.textAlign='left';
             }
 
-            // Kill counter — top right (200×54)
-            {
-                const KW=200,KH=54,kx=screenW-14-KW,ky=8;
-                const bossesAlive=enemies.some(e=>e.isBoss&&!e.isMegaBoss);
-                const megaReady=regularKills>=100&&bossesAlive&&!megaBossSpawned;
-                const rKillPct=Math.min(regularKills/100,1);
-
-                // Pill bg
-                ctx.fillStyle='rgba(8,8,18,0.75)';
-                ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.fill();
-
-                if(megaBossSpawned&&!megaBossKilled){
-                    // Mega boss alive — pulsing gold alert
-                    const pa=0.82+Math.sin(frames*0.2)*0.15;
-                    ctx.globalAlpha=pa;ctx.fillStyle='rgba(60,30,0,0.7)';
-                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.fill();ctx.globalAlpha=1;
-                    ctx.strokeStyle=`rgba(241,196,15,${0.5+Math.sin(frames*0.15)*0.3})`;ctx.lineWidth=1.8;
-                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.stroke();
-                    ctx.fillStyle='#f1c40f';ctx.font='bold 19px "Lilita One",cursive';
-                    ctx.textAlign='center';ctx.textBaseline='middle';
-                    ctx.strokeStyle='rgba(0,0,0,0.9)';ctx.lineWidth=3;
-                    ctx.strokeText('⚠️ MEGA BOSS ŻYJE!',kx+KW/2,ky+KH/2);
-                    ctx.fillText('⚠️ MEGA BOSS ŻYJE!',kx+KW/2,ky+KH/2);
-                } else if(megaReady){
-                    // Ready but bosses alive — UNMISSABLE red alert
-                    const pa2=0.85+Math.sin(frames*0.14)*0.15;
-                    ctx.globalAlpha=pa2;ctx.fillStyle='rgba(80,0,0,0.65)';
-                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.fill();ctx.globalAlpha=1;
-                    ctx.strokeStyle=`rgba(231,76,60,${0.6+Math.sin(frames*0.14)*0.35})`;ctx.lineWidth=2;
-                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.stroke();
-                    ctx.fillStyle='#ff6b6b';ctx.font='bold 18px "Lilita One",cursive';
-                    ctx.textAlign='center';ctx.textBaseline='middle';
-                    ctx.strokeStyle='rgba(0,0,0,0.9)';ctx.lineWidth=3;
-                    ctx.strokeText('💀 ZNISZCZ BOSSÓW!',kx+KW/2,ky+KH/2-10);
-                    ctx.fillText('💀 ZNISZCZ BOSSÓW!',kx+KW/2,ky+KH/2-10);
-                    ctx.fillStyle='rgba(255,150,150,0.7)';ctx.font='12px sans-serif';ctx.textBaseline='alphabetic';
-                    const bc=enemies.filter(e=>e.isBoss&&!e.isMegaBoss).length;
-                    ctx.fillText(`${bc} boss${bc===1?'':'y'} żyw${bc===1?'y':'e'}`,kx+KW/2,ky+KH-8);
-                } else {
-                    // Normal: skull + number + progress bar + debug
-                    ctx.strokeStyle='rgba(231,76,60,0.22)';ctx.lineWidth=0.8;
-                    ctx.beginPath();ctx.roundRect(kx,ky,KW,KH,16);ctx.stroke();
-
-                    // Canvas skull (ivory/bone, animated pulse)
-                    const pulse=1+Math.sin(frames*0.06)*0.07;
-                    ctx.save();ctx.translate(kx+28,ky+KH/2-2);ctx.scale(pulse,pulse);
-                    ctx.fillStyle='#e8dcc8';ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=1;
-                    // Cranium
-                    ctx.beginPath();ctx.arc(0,-2,11,0,Math.PI*2);ctx.fill();ctx.stroke();
-                    // Jaw
-                    ctx.beginPath();ctx.roundRect(-8,5,16,7,2);ctx.fill();ctx.stroke();
-                    // Eye sockets
-                    ctx.fillStyle='rgba(0,0,0,0.75)';
-                    ctx.beginPath();ctx.ellipse(-3.5,-3,3.2,3.8,0,0,Math.PI*2);ctx.fill();
-                    ctx.beginPath();ctx.ellipse(3.5,-3,3.2,3.8,0,0,Math.PI*2);ctx.fill();
-                    // Nose
-                    ctx.fillStyle='rgba(0,0,0,0.45)';
-                    ctx.beginPath();ctx.moveTo(-1.5,2);ctx.lineTo(0,0);ctx.lineTo(1.5,2);ctx.closePath();ctx.fill();
-                    // Teeth
-                    ctx.fillStyle='#fffdd0';ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=0.5;
-                    for(let i=0;i<4;i++){ctx.beginPath();ctx.roundRect(-6+i*3.5,7,2.8,4,0.5);ctx.fill();ctx.stroke();}
-                    ctx.restore();
-
-                    // Kill number (ivory)
-                    ctx.fillStyle='#e8dcc8';ctx.font='32px "Lilita One",cursive';
-                    ctx.textAlign='left';ctx.textBaseline='middle';
-                    ctx.strokeStyle='rgba(0,0,0,0.7)';ctx.lineWidth=4;
-                    const numX=kx+50;
-                    ctx.strokeText(stats.kills,numX,ky+KH/2-2);ctx.fillText(stats.kills,numX,ky+KH/2-2);
-
-                    // Progress bar — 3px below number, light orange→strong red
-                    const barY=ky+KH/2-2+18; // number center + half font height + 3px gap ≈ +18
-                    const barX=kx+50,barW=KW-58,barH=5;
-                    const barG=ctx.createLinearGradient(barX,0,barX+barW,0);
-                    barG.addColorStop(0,'rgba(255,190,60,0.9)');
-                    barG.addColorStop(1,'rgba(160,0,0,0.95)');
-                    ctx.fillStyle='rgba(255,255,255,0.06)';
-                    ctx.beginPath();ctx.roundRect(barX,barY,barW,barH,barH/2);ctx.fill();
-                    if(rKillPct>0){
-                        ctx.fillStyle=barG;
-                        ctx.beginPath();ctx.roundRect(barX,barY,barW*rKillPct,barH,barH/2);ctx.fill();
-                    }
-                    // Debug: regularKills counter (small, diagnostic)
-                    ctx.fillStyle='rgba(255,255,255,0.28)';ctx.font='7px sans-serif';ctx.textBaseline='alphabetic';
-                    ctx.fillText(`${Math.min(regularKills,100)}/100`,barX+barW+4,barY+5);
-                }
-                ctx.textAlign='left';ctx.textBaseline='alphabetic';
-            }
-            // CTF HUD
+            // CTF HUD (replaces kill counter)
             drawCTFProgressHUD();
             drawTurboHUD();
             drawCTFCarryWarning();
@@ -4343,22 +4277,14 @@
             document.getElementById('welcomeScreen').classList.add('active-screen');
         });
         document.getElementById('restartBtn').addEventListener('click', () => {
-            document.getElementById('gameOverScreen').classList.remove('active-screen');
-            document.getElementById('welcomeScreenWrapper').style.display = 'block';
-            document.getElementById('welcomeScreen').classList.add('active-screen');
-            document.body.classList.add('show-credits');
-            const gameMusic = document.getElementById('gameMusic');
-            gameMusic.pause();
-            gameMusic.currentTime = 0;
-            const bgMusic = document.getElementById('bgMusic');
-            bgMusic.play().catch(e => console.log(e));
+            window.location.href = 'index.html';
         });
         
         document.getElementById('charGrid').children[0].classList.add('selected');
         document.getElementById('mapGrid').children[0].classList.add('selected');
 
         // Brawler sound effects on selection
-        const BRAWLER_SOUNDS = { twardy: 'SoundEffects/Twardy.mp3', pyro: 'SoundEffects/Ogniarz.mp3' };
+        const BRAWLER_SOUNDS = { twardy: 'Sound_Effects/Twardy.mp3', pyro: 'Sound_Effects/Ogniarz.mp3' };
         document.querySelectorAll('#charGrid .select-card').forEach(card => {
             card.addEventListener('click', () => {
                 const bId = selectedBrawler.id;

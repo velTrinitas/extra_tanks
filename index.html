@@ -3780,7 +3780,7 @@
         document.getElementById('mapGrid').children[0].classList.add('selected');
 
         // Brawler sound effects
-        const BRAWLER_SOUNDS = { twardy: 'SoundEffects/Twardy.mp3', pyro: 'SoundEffects/Ogniarz.mp3' };
+        const BRAWLER_SOUNDS = { twardy: 'Sound_Effects/Twardy.mp3', pyro: 'Sound_Effects/Ogniarz.mp3' };
         document.querySelectorAll('#charGrid .select-card').forEach(card => {
             card.addEventListener('click', () => {
                 if(BRAWLER_SOUNDS[selectedBrawler.id]) {
