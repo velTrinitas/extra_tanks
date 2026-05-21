@@ -729,7 +729,6 @@
             },
             playFlagCapture: function() {
                 if(!this.ctx) return;
-                // Short fanfare: C-E-G-C(high) + sustain
                 const notes = [261.63, 329.63, 392.00, 523.25, 523.25];
                 const times =  [0,      0.1,    0.2,    0.32,   0.32];
                 const durs =   [0.15,   0.15,   0.15,   0.5,    0.5];
@@ -744,6 +743,28 @@
                     osc.start(this.ctx.currentTime + times[i]);
                     osc.stop(this.ctx.currentTime + times[i] + durs[i] + 0.05);
                 });
+            },
+            playBombWhistle: function() {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 1.0);
+                gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 1.1);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 1.1);
+            },
+            playBombExplosion: function() {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(130, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(18, this.ctx.currentTime + 0.7);
+                gain.gain.setValueAtTime(0.42, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.7);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.75);
             }
         };
 
@@ -797,6 +818,7 @@
         let ctfCarryWarningTimer = 0;
         let hangar = null;
         let ctfMessage = { text: '', color: '#fff', timer: 0, maxTimer: 180 };
+        let bossBombs = [], craterMarks = [], lakeZones = [];
 
         const keys = { w: false, a: false, s: false, d: false };
         const mouse = { screenX: screenW/2, screenY: screenH/2, worldX: 0, worldY: 0, isDown: false };
@@ -1240,6 +1262,12 @@
                             if(checkRectCollision(env.x, env.y, env.w, env.h, nextX, this.y, this.height/2.5)) canMoveX = false;
                             if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2.5)) canMoveY = false;
                         }
+                    }
+                    // Lake zones (impassable)
+                    for(let lz of lakeZones) {
+                        const r2=this.height/2+6;
+                        if(nextX>lz.x-r2&&nextX<lz.x+lz.w+r2&&this.y>lz.y-r2&&this.y<lz.y+lz.h+r2) canMoveX=false;
+                        if(this.x>lz.x-r2&&this.x<lz.x+lz.w+r2&&nextY>lz.y-r2&&nextY<lz.y+lz.h+r2) canMoveY=false;
                     }
                     if(canMoveX) this.x = nextX;
                     if(canMoveY) this.y = nextY;
@@ -1685,6 +1713,22 @@
                     }
                     // Stop at safe zone boundary
                     if(player.x < 450 && this.guardState === 'CHASE') this.guardState = 'PATROL';
+
+                    // After 2nd flag: +20% speed, boss bomb every 5s
+                    if(ctfEscalation >= 2) {
+                        this.speed *= 1.20;
+                        if(!this.lastBombTime) this.lastBombTime = Date.now();
+                        if(this.isBoss && Date.now() - this.lastBombTime > 5000) {
+                            this.lastBombTime = Date.now();
+                            const spread = 60;
+                            bossBombs.push(new BossBomb(
+                                this.x, this.y,
+                                player.x + (Math.random()-0.5)*spread,
+                                player.y + (Math.random()-0.5)*spread
+                            ));
+                            AudioSys.playBombWhistle();
+                        }
+                    }
 
                     const fireRate = 2200 - ctfEscalation * 300;
                     const now2 = Date.now();
@@ -2849,6 +2893,37 @@
                     ctx.beginPath(); ctx.roundRect(-w,-y,w*2,8,1); ctx.fill(); ctx.stroke();
                 });
 
+            } else if(d.mapId === 'ctf_lake') {
+                const lw=d.w||180, lh=d.h||120;
+                // Shadow (2.5D effect)
+                ctx.fillStyle='rgba(0,0,0,0.22)';
+                ctx.beginPath(); ctx.ellipse(8, 8, lw/2, lh/2, 0, 0, Math.PI*2); ctx.fill();
+                // Deep water gradient
+                const wg=ctx.createRadialGradient(0,0,lh/6,0,0,Math.max(lw,lh)/2);
+                wg.addColorStop(0,'rgba(15,85,180,0.95)');
+                wg.addColorStop(0.55,'rgba(25,110,200,0.92)');
+                wg.addColorStop(1,'rgba(60,155,225,0.85)');
+                ctx.fillStyle=wg;
+                ctx.beginPath(); ctx.ellipse(0,0,lw/2,lh/2,0,0,Math.PI*2); ctx.fill();
+                // Shore highlight
+                ctx.strokeStyle='rgba(130,200,250,0.55)'; ctx.lineWidth=3.5;
+                ctx.beginPath(); ctx.ellipse(0,0,lw/2,lh/2,0,0,Math.PI*2); ctx.stroke();
+                // Inner edge (depth illusion)
+                ctx.strokeStyle='rgba(10,60,150,0.3)'; ctx.lineWidth=8;
+                ctx.beginPath(); ctx.ellipse(0,0,lw/2-4,lh/2-4,0,0,Math.PI*2); ctx.stroke();
+                // Surface shine
+                ctx.fillStyle='rgba(255,255,255,0.14)';
+                ctx.beginPath(); ctx.ellipse(-lw*0.18,-lh*0.22,lw*0.22,lh*0.1,-0.4,0,Math.PI*2); ctx.fill();
+                // Animated ripple rings
+                const rp=frames*0.018+d.seed*12;
+                for(let ri=0;ri<2;ri++){
+                    const rph=(rp+ri*2)%4;
+                    ctx.globalAlpha=(0.12+ri*0.05)*(1-rph/4);
+                    ctx.strokeStyle='rgba(200,230,255,0.6)'; ctx.lineWidth=1.5;
+                    ctx.beginPath(); ctx.ellipse(0,0,lw*0.25+rph*18,lh*0.25+rph*10,0,0,Math.PI*2); ctx.stroke();
+                }
+                ctx.globalAlpha=1;
+
             } else if(d.mapId === 'ctf_waterfall') {
                 // Animated waterfall
                 const wf=frames*0.08;
@@ -3204,6 +3279,55 @@
             ctx.restore();
         }
 
+        function drawMiniHangar() {
+            // Fixed-screen mini hangar: always visible at left edge
+            const mx=8, my=screenH/2-80, mw=42, mh=160, r=6;
+            ctx.fillStyle='rgba(8,15,30,0.82)';
+            ctx.beginPath(); ctx.roundRect(mx,my,mw,mh,r); ctx.fill();
+            ctx.strokeStyle=`rgba(52,152,219,${0.6+Math.sin(frames*0.06)*0.25})`; ctx.lineWidth=1.5;
+            ctx.beginPath(); ctx.roundRect(mx,my,mw,mh,r); ctx.stroke();
+            // Building icon (mini)
+            const bx=mx+8, by=my+14;
+            ctx.fillStyle='#2c3e50'; ctx.beginPath(); ctx.roundRect(bx,by,26,22,2); ctx.fill();
+            ctx.fillStyle='#7f8c8d'; ctx.beginPath(); ctx.roundRect(bx,by,26,7,1); ctx.fill();
+            // Door
+            const dg=ctx.createLinearGradient(bx+5,by+7,bx+5,by+22);
+            dg.addColorStop(0,'#3498db'); dg.addColorStop(1,'#1a5276');
+            ctx.fillStyle=dg; ctx.beginPath(); ctx.roundRect(bx+5,by+7,7,15,1); ctx.fill();
+            ctx.fillStyle=dg; ctx.beginPath(); ctx.roundRect(bx+14,by+7,7,15,1); ctx.fill();
+            // Flag slots (3)
+            const flagCols=['#3498db','#e74c3c','#f1c40f'];
+            for(let i=0;i<3;i++){
+                const fy2=my+44+i*32;
+                ctx.strokeStyle='#c8a86b'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.moveTo(mx+21,fy2+12); ctx.lineTo(mx+21,fy2-8); ctx.stroke();
+                const f=ctfFlags[i];
+                if(f&&f.state==='CAPTURED'){
+                    ctx.fillStyle=flagCols[i];
+                    ctx.beginPath(); ctx.moveTo(mx+21,fy2-8); ctx.lineTo(mx+33,fy2-3); ctx.lineTo(mx+21,fy2+2); ctx.closePath(); ctx.fill();
+                } else if(f&&f.state==='CARRIED') {
+                    ctx.globalAlpha=0.6+Math.sin(frames*0.2)*0.3;
+                    ctx.strokeStyle=flagCols[i]; ctx.lineWidth=1; ctx.setLineDash([3,2]);
+                    ctx.beginPath(); ctx.moveTo(mx+21,fy2-8); ctx.lineTo(mx+33,fy2-3); ctx.lineTo(mx+21,fy2+2); ctx.closePath(); ctx.stroke();
+                    ctx.setLineDash([]); ctx.globalAlpha=1;
+                } else {
+                    ctx.globalAlpha=0.22;
+                    ctx.fillStyle=flagCols[i];
+                    ctx.beginPath(); ctx.moveTo(mx+21,fy2-8); ctx.lineTo(mx+33,fy2-3); ctx.lineTo(mx+21,fy2+2); ctx.closePath(); ctx.fill();
+                    ctx.globalAlpha=1;
+                }
+                // Flag letter
+                ctx.fillStyle=ctfFlagsCaptured>i?flagCols[i]:'rgba(255,255,255,0.3)';
+                ctx.font='bold 7px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+                ctx.fillText(['A','B','C'][i], mx+4, fy2+2);
+            }
+            // ⚓ label
+            ctx.fillStyle=`rgba(52,152,219,0.7)`; ctx.font='9px sans-serif';
+            ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+            ctx.fillText('⚓', mx+mw/2, my+mh-4);
+            ctx.textAlign='left';
+        }
+
         function drawCTFCarryWarning() {
             // Safe zone indicator — always visible on left edge
             const inSafe = hangar && hangar.containsWorld(player.x, player.y);
@@ -3411,14 +3535,14 @@
                 ctx.beginPath(); ctx.moveTo(sx, sy+bob+22); ctx.lineTo(sx, sy+bob-28); ctx.stroke();
                 ctx.lineCap = 'butt';
 
-                // RED triangular pennant (always red as requested)
-                const wave = this.state==='IDLE' ? Math.sin(this.pulse*1.8)*4 : 2;
+                // RED triangular pennant (+25% bigger: 35×30px) with wave animation
+                const wave = Math.sin(this.pulse*1.9)*5 + Math.sin(this.pulse*3.1)*2;
                 ctx.fillStyle = '#e74c3c';
-                ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1;
+                ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1.2;
                 ctx.beginPath();
-                ctx.moveTo(sx, sy+bob-28);         // top of pole
-                ctx.lineTo(sx+28, sy+bob-16+wave); // tip (waving)
-                ctx.lineTo(sx, sy+bob-4);           // bottom of flag
+                ctx.moveTo(sx, sy+bob-28);           // top of pole
+                ctx.lineTo(sx+35, sy+bob-14+wave);   // tip (waving)
+                ctx.lineTo(sx, sy+bob+2);             // bottom of flag
                 ctx.closePath(); ctx.fill(); ctx.stroke();
 
                 // White stripe on pennant
@@ -3552,6 +3676,97 @@
             }
         }
 
+        // ── BOSS BOMB CLASS (CTF — active after 2nd flag) ──────────
+        class BossBomb {
+            constructor(sx, sy, tx, ty) {
+                this.sx=sx; this.sy=sy; this.x=sx; this.y=sy;
+                this.tx=tx; this.ty=ty; this.prog=0; this.active=true;
+                this.exploded=false; this.explodeFrame=0;
+                this.shadowX=tx; this.shadowY=ty;
+            }
+            update() {
+                if(this.exploded) {
+                    if(frames - this.explodeFrame > 50) this.active=false;
+                    return;
+                }
+                this.prog = Math.min(1, this.prog + 0.014);
+                this.x = this.sx + (this.tx-this.sx)*this.prog;
+                this.y = this.sy + (this.ty-this.sy)*this.prog;
+                if(this.prog >= 1) {
+                    this.exploded=true; this.explodeFrame=frames;
+                    this.x=this.tx; this.y=this.ty;
+                    // Damage based on distance from epicenter
+                    const dist=Math.hypot(player.x-this.x, player.y-this.y);
+                    const maxR=250;
+                    if(dist<maxR) {
+                        const dmg = dist<maxR*0.33 ? 3 : dist<maxR*0.66 ? 2 : 1;
+                        player.hp-=dmg; updateHUD();
+                        shakeTimer=28;
+                        floatingTexts.push(new FloatingText(player.x,player.y-65,`💥 -${dmg} HP!`,'#ff5500'));
+                        if(player.hp<=0){
+                            if(playerCarryingFlag){playerCarryingFlag.state='IDLE';playerCarryingFlag.x=player.x;playerCarryingFlag.y=player.y;playerCarryingFlag.dropTimer=Date.now()+10000;playerCarryingFlag=null;}
+                            triggerGameOver();
+                        }
+                    }
+                    createExplosion(this.x,this.y,'#ff5500',40);
+                    AudioSys.playBombExplosion();
+                    craterMarks.push({x:this.x,y:this.y,timer:600,maxTimer:600,smoke:0});
+                }
+            }
+            draw() {
+                const sx=this.x-camera.x, sy=this.y-camera.y;
+                const tsx=this.tx-camera.x, tsy=this.ty-camera.y;
+                if(this.exploded) return;
+                // Warning ring on ground (target shadow)
+                const p2=this.prog;
+                ctx.globalAlpha=0.35+Math.sin(frames*0.35)*0.15;
+                ctx.strokeStyle='#ff5500'; ctx.lineWidth=2; ctx.setLineDash([6,5]);
+                ctx.beginPath(); ctx.arc(tsx,tsy,250,0,Math.PI*2); ctx.stroke();
+                ctx.setLineDash([]); ctx.globalAlpha=0.25;
+                ctx.fillStyle='rgba(255,80,0,0.15)';
+                ctx.beginPath(); ctx.arc(tsx,tsy,250,0,Math.PI*2); ctx.fill();
+                ctx.globalAlpha=1;
+                // Bomb arc (parabola illusion via Y offset)
+                const arc=Math.sin(p2*Math.PI)*55;
+                const bsx=sx, bsy=sy-arc;
+                ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#ff5500'; ctx.lineWidth=2.5;
+                ctx.beginPath(); ctx.arc(bsx,bsy,10,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                // Fuse spark
+                ctx.fillStyle=`rgba(255,200,0,${0.8+Math.sin(frames*0.5)*0.2})`;
+                ctx.beginPath(); ctx.arc(bsx+8,bsy-8,4,0,Math.PI*2); ctx.fill();
+            }
+        }
+
+        function drawCraterMarks() {
+            for(let cr of craterMarks) {
+                if(cr.timer<=0) continue;
+                const sx=cr.x-camera.x, sy=cr.y-camera.y;
+                const alpha=cr.timer/cr.maxTimer;
+                // Crater hole
+                ctx.globalAlpha=alpha*0.8;
+                ctx.fillStyle='rgba(20,10,0,0.7)';
+                ctx.beginPath(); ctx.ellipse(sx,sy,55,35,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='rgba(80,40,10,0.5)';
+                ctx.beginPath(); ctx.ellipse(sx+2,sy+2,42,26,0,0,Math.PI*2); ctx.fill();
+                // Scorched ring
+                ctx.strokeStyle=`rgba(60,30,0,${alpha*0.6})`; ctx.lineWidth=6;
+                ctx.beginPath(); ctx.arc(sx,sy,58,0,Math.PI*2); ctx.stroke();
+                // Smoke puffs
+                for(let i=0;i<3;i++){
+                    const sp=cr.smoke+i*0.4;
+                    const smoke_y=sy-(sp%8)*18;
+                    const smoke_x=sx+Math.sin(sp)*15;
+                    const sa=alpha*(1-(sp%8)/8)*0.25;
+                    ctx.globalAlpha=sa;
+                    ctx.fillStyle='rgba(100,80,70,0.6)';
+                    ctx.beginPath(); ctx.arc(smoke_x,smoke_y,8+sp%4*3,0,Math.PI*2); ctx.fill();
+                }
+                cr.smoke+=0.04; cr.timer--;
+                ctx.globalAlpha=1;
+            }
+            craterMarks=craterMarks.filter(cr=>cr.timer>0);
+        }
+
         function generateMap() {
             environment = []; mapDecorations = [];
             quicksandZones = []; repairHangars = []; powerWells = [];
@@ -3578,9 +3793,9 @@
 
             // 4. Three flag defensive zones — stone walls forming U-shape around each flag
             const flagZones = [
-                {fx:750,  fy:380},
-                {fx:2600, fy:580},
-                {fx:1500, fy:2650}
+                {fx:520,  fy:350},
+                {fx:2750, fy:400},
+                {fx:1500, fy:2780}
             ];
             flagZones.forEach(({fx,fy})=>{
                 // U-shaped fortress walls around flag — OPEN at bottom (south entrance)
@@ -3680,6 +3895,20 @@
 
             // Wodospad (przy fladze 2)
             mapDecorations.push({x:1700, y:H/2-160, mapId:'ctf_waterfall', seed:0.7, h:160});
+
+            // ── Jeziorka (5 jeziorek, impassable, efekt 2.5D) ──────
+            lakeZones = [];
+            const lakeDefs=[
+                {x:700,  y:750,  w:200, h:130},
+                {x:1300, y:1200, w:240, h:150},
+                {x:2150, y:600,  w:180, h:120},
+                {x:950,  y:2150, w:210, h:140},
+                {x:2350, y:1650, w:190, h:125},
+            ];
+            lakeDefs.forEach(l=>{
+                lakeZones.push({...l});
+                mapDecorations.push({x:l.x+l.w/2, y:l.y+l.h/2, mapId:'ctf_lake', seed:Math.random(), w:l.w, h:l.h});
+            });
         }
 
 
@@ -4070,6 +4299,9 @@
             hearts.forEach(h => h.update()); particles.forEach(p => p.update());
             // CTF flag updates
             ctfFlags.forEach(f => f.update());
+            // Boss bombs update + filter
+            bossBombs.forEach(b=>b.update());
+            bossBombs=bossBombs.filter(b=>b.active);
             magnets.forEach(m => m.update());
             powerCubes.forEach(pc => pc.update()); floatingTexts.forEach(ft => ft.update());
             quicksandZones.forEach(qs => qs.update());
@@ -4152,6 +4384,9 @@
             // CTF: hangar and flags drawn in world space
             if(hangar) hangar.draw();
             ctfFlags.forEach(f => f.draw());
+            // Boss bombs + craters
+            bossBombs.forEach(b=>b.draw());
+            drawCraterMarks();
             if(player.hp > 0) player.draw();
             // AURA visual (world space, around player)
             if(auraActive && Date.now() < auraEndTime) {
@@ -4268,6 +4503,7 @@
             drawMiniRadar();
             drawFlagArrows();
             drawCTFMessage();
+            drawMiniHangar();
 
             // Flag carry visual: small flag on top of player when carrying
             if(playerCarryingFlag) {
@@ -4334,15 +4570,16 @@
             ctfFlagsCaptured = 0; playerCarryingFlag = null; ctfEscalation = 0;
             ctfBossKilled = [false,false,false]; ctfBossRespawnTimers = [0,0,0];
             ctfMessage = { text:'', color:'#fff', timer:0, maxTimer:180 };
+            bossBombs = []; craterMarks = []; lakeZones = [];
             ctfFlags = [
-                new Flag(0,  750,  380,  '#3498db', 'ALFA'),
-                new Flag(1, 2600,  580,  '#e74c3c', 'BRAVO'),
-                new Flag(2, 1500, 2650,  '#f1c40f', 'CHARLIE'),
+                new Flag(0,  520,  350,  '#3498db', 'ALFA'),
+                new Flag(1, 2750,  400,  '#e74c3c', 'BRAVO'),
+                new Flag(2, 1500, 2780,  '#f1c40f', 'CHARLIE'),
             ];
             hangar = new Hangar(30, WORLD_H/2 - 400, 500, 800);
 
             // Spawn 3 super bosses (one per flag)
-            const flagZonePos = [{fx:750,fy:380},{fx:2600,fy:580},{fx:1500,fy:2650}];
+            const flagZonePos = [{fx:520,fy:350},{fx:2750,fy:400},{fx:1500,fy:2780}];
             for(let i=0;i<3;i++){
                 const {fx,fy} = flagZonePos[i];
                 const boss = new Enemy(true, false, false, false, -1, fx+180, fy+30);
@@ -4390,13 +4627,7 @@
 
         // Victory button
         document.getElementById('victoryBtn').addEventListener('click', () => {
-            document.getElementById('victoryScreen').classList.remove('active-screen');
-            document.getElementById('welcomeScreenWrapper').style.display = 'block';
-            document.getElementById('welcomeScreen').classList.add('active-screen');
-            gameState = 'MENU';
-            const gameMusic = document.getElementById('gameMusic');
-            if(gameMusic) gameMusic.pause();
-            bgMusic.play().catch(e=>{});
+            window.location.href = 'index.html';
         });
         document.getElementById('instrBtn').addEventListener('click', () => {
             document.getElementById('welcomeScreen').classList.remove('active-screen');
