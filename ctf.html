@@ -1665,7 +1665,7 @@
                     else if (side === 2) { this.x = camera.x + Math.random() * screenW; this.y = camera.y + screenH + 120; }
                     else { this.x = camera.x - 120; this.y = camera.y + Math.random() * screenH; }
                 }
-                this.x = Math.max(500, Math.min(WORLD_W-100, this.x)); // keep out of safe zone
+                this.x = Math.max(535, Math.min(WORLD_W-100, this.x)); // keep out of safe zone x<530
                 this.y = Math.max(100, Math.min(WORLD_H-100, this.y));
                 this.isMegaBoss = isMegaBoss;
                 this.isBoss = isBoss || isMegaBoss;
@@ -1735,7 +1735,7 @@
                         const dx2 = player.x - this.x, dy2 = player.y - this.y;
                         const dist2 = Math.hypot(dx2,dy2);
                         const spd = this.speed * (this.guardState==='ALERT' ? 1.25 : 1);
-                        if(dist2 > 30 && !(this.x < 465 && player.x < 450)) {
+                        if(dist2 > 30 && !(this.x < 535 && player.x < 530)) {
                             this.x += (dx2/dist2)*spd; this.y += (dy2/dist2)*spd;
                         }
                         this.angle = Math.atan2(dy2,dx2);
@@ -1746,7 +1746,7 @@
                         }
                     }
                     // Clamp to safe zone border
-                    if(this.x < 465) this.x = 465;
+                    if(this.x < 535) this.x = 535;
                     this.x=Math.max(30,Math.min(WORLD_W-30,this.x)); this.y=Math.max(30,Math.min(WORLD_H-30,this.y));
                     return;
                 }
@@ -2898,10 +2898,7 @@
             } else if(d.mapId === 'ctf_lake') {
                 const lw=d.w||180, lh=d.h||120, rx=d.rx||0;
                 ctx.save(); ctx.rotate(rx);
-                // Shadow (2.5D effect) — offset and slightly larger
-                ctx.fillStyle='rgba(0,0,0,0.22)';
-                ctx.beginPath(); ctx.ellipse(9, 9, lw/2+6, lh/2+3, 0, 0, Math.PI*2); ctx.fill();
-                // Deep water gradient
+                // Deep water gradient (no shadow)
                 const wg=ctx.createRadialGradient(0,0,lh/7,0,0,Math.max(lw,lh)/2);
                 wg.addColorStop(0,'rgba(15,85,180,0.95)');
                 wg.addColorStop(0.5,'rgba(25,110,200,0.92)');
@@ -3572,161 +3569,185 @@
             }
             draw() {
                 if(this.state === 'CAPTURED') return;
-                const sx = this.x - camera.x, sy = this.y - camera.y;
+                // World coords — canvas already translated by ctx.translate(-camera.x,-camera.y)
+                const wx = this.x, wy = this.y;
                 const bob = Math.sin(this.pulse) * 5;
 
                 if(this.state === 'IDLE') {
-                    // Glow aura on ground
-                    const grd = ctx.createRadialGradient(sx, sy+bob, 2, sx, sy+bob, 40);
-                    grd.addColorStop(0, `rgba(231,76,60,${0.25+Math.sin(this.pulse)*0.1})`);
-                    grd.addColorStop(1, 'rgba(0,0,0,0)');
-                    ctx.fillStyle = grd;
-                    ctx.beginPath(); ctx.arc(sx, sy+bob, 40, 0, Math.PI*2); ctx.fill();
+                    // Coloured ground plate to anchor flag visually
+                    const rgb = this.color==='#3498db'?'52,152,219':this.color==='#e74c3c'?'231,76,60':'241,196,15';
+                    const grd = ctx.createRadialGradient(wx,wy+8,2,wx,wy+8,52);
+                    grd.addColorStop(0,`rgba(${rgb},0.38)`); grd.addColorStop(1,'rgba(0,0,0,0)');
+                    ctx.fillStyle=grd; ctx.beginPath(); ctx.ellipse(wx,wy+8,50,30,0,0,Math.PI*2); ctx.fill();
                 }
 
-                // Wooden pole
-                ctx.strokeStyle = '#c8a86b'; ctx.lineWidth = 4;
-                ctx.lineCap = 'round';
-                ctx.beginPath(); ctx.moveTo(sx, sy+bob+22); ctx.lineTo(sx, sy+bob-28); ctx.stroke();
-                ctx.lineCap = 'butt';
+                // Pole shadow
+                ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=4; ctx.lineCap='round';
+                ctx.beginPath(); ctx.moveTo(wx+2,wy+bob+24); ctx.lineTo(wx+2,wy+bob-28); ctx.stroke();
+                // Pole
+                ctx.strokeStyle='#c8a86b';
+                ctx.beginPath(); ctx.moveTo(wx,wy+bob+22); ctx.lineTo(wx,wy+bob-28); ctx.stroke();
+                ctx.lineCap='butt';
 
-                // RED triangular pennant (+25% bigger: 35×30px) with wave animation
-                const wave = Math.sin(this.pulse*1.9)*5 + Math.sin(this.pulse*3.1)*2;
-                ctx.fillStyle = '#e74c3c';
-                ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1.2;
+                // Red triangular pennant
+                const wave=Math.sin(this.pulse*1.9)*5+Math.sin(this.pulse*3.1)*2;
+                ctx.fillStyle='#e74c3c'; ctx.strokeStyle='#c0392b'; ctx.lineWidth=1.2;
                 ctx.beginPath();
-                ctx.moveTo(sx, sy+bob-28);           // top of pole
-                ctx.lineTo(sx+35, sy+bob-14+wave);   // tip (waving)
-                ctx.lineTo(sx, sy+bob+2);             // bottom of flag
+                ctx.moveTo(wx,wy+bob-28); ctx.lineTo(wx+35,wy+bob-14+wave); ctx.lineTo(wx,wy+bob+2);
                 ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.fillStyle='rgba(255,255,255,0.28)';
+                ctx.beginPath(); ctx.moveTo(wx,wy+bob-28); ctx.lineTo(wx+17,wy+bob-22+wave*0.5); ctx.lineTo(wx,wy+bob-20); ctx.closePath(); ctx.fill();
 
-                // White stripe on pennant
-                ctx.fillStyle = 'rgba(255,255,255,0.3)';
-                ctx.beginPath();
-                ctx.moveTo(sx, sy+bob-28);
-                ctx.lineTo(sx+14, sy+bob-22+wave*0.5);
-                ctx.lineTo(sx, sy+bob-20);
-                ctx.closePath(); ctx.fill();
+                // Base stone
+                ctx.fillStyle='#b8956a'; ctx.strokeStyle='#8b6914'; ctx.lineWidth=1;
+                ctx.beginPath(); ctx.roundRect(wx-8,wy+bob+18,16,8,2); ctx.fill(); ctx.stroke();
 
-                // Flag base (small stone)
-                ctx.fillStyle = '#b8956a'; ctx.strokeStyle = '#8b6914'; ctx.lineWidth=1;
-                ctx.beginPath(); ctx.roundRect(sx-8, sy+bob+18, 16, 8, 2); ctx.fill(); ctx.stroke();
-
-                // Colour-coded name label
-                if(this.state === 'IDLE') {
-                    ctx.fillStyle = this.color;
-                    ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.lineWidth=3;
+                if(this.state==='IDLE'){
+                    ctx.fillStyle=this.color; ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.lineWidth=3;
                     ctx.font='bold 11px "Lilita One",cursive';
                     ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-                    ctx.strokeText('FLAGA '+this.name, sx, sy+bob+38);
-                    ctx.fillText('FLAGA '+this.name, sx, sy+bob+38);
+                    ctx.strokeText('FLAGA '+this.name,wx,wy+bob+40);
+                    ctx.fillText('FLAGA '+this.name,wx,wy+bob+40);
                     ctx.textAlign='left';
                 }
-
-                // CARRIED: smaller flag behind player
-                // (position already set in update() via behind-offset)
             }
         }
 
-        // ── HANGAR (SAFE BASE) CLASS ────────────────────────────────
+        // ── HANGAR (SAFE BASE) CLASS — World-space 250×125px ───────
         class Hangar {
             constructor(x,y,w,h) { this.x=x; this.y=y; this.w=w; this.h=h; this.pulse=0; }
             containsWorld(wx,wy){ return wx>this.x&&wx<this.x+this.w&&wy>this.y&&wy<this.y+this.h; }
             draw() {
+                // World coords — inside camera transform
                 this.pulse+=0.04;
-                const sx=this.x-camera.x, sy=this.y-camera.y;
+                const zx=this.x+this.w/2, zy=this.y+this.h/2;
+                // Building: 250×125, centered in zone
+                const bw=250, bh=125, bx=zx-bw/2, by=zy-bh/2;
 
-                // Safe zone glow background
-                const grd=ctx.createLinearGradient(sx,sy,sx+this.w,sy);
-                grd.addColorStop(0,'rgba(52,152,219,0.14)');
-                grd.addColorStop(1,'rgba(52,152,219,0.04)');
-                ctx.fillStyle=grd; ctx.fillRect(sx,sy,this.w,this.h);
-                ctx.strokeStyle=`rgba(52,152,219,${0.4+Math.sin(this.pulse)*0.25})`; ctx.lineWidth=2;
-                ctx.setLineDash([10,6]); ctx.strokeRect(sx,sy,this.w,this.h); ctx.setLineDash([]);
+                // Safe zone ground glow (world space)
+                const grd=ctx.createRadialGradient(zx,zy,20,zx,zy,this.w*0.6);
+                grd.addColorStop(0,'rgba(52,152,219,0.12)');
+                grd.addColorStop(1,'rgba(52,152,219,0)');
+                ctx.fillStyle=grd; ctx.fillRect(this.x,this.y,this.w,this.h);
+                // Zone border
+                ctx.strokeStyle=`rgba(52,152,219,${0.35+Math.sin(this.pulse)*0.15})`; ctx.lineWidth=2;
+                ctx.setLineDash([12,8]); ctx.strokeRect(this.x,this.y,this.w,this.h); ctx.setLineDash([]);
 
-                // Building drop shadow
-                const bx=sx+20, by=sy+this.h/2-60, bw=130, bh=100;
-                ctx.fillStyle='rgba(0,0,0,0.25)';
-                ctx.beginPath(); ctx.roundRect(bx+6,by+6,bw,bh,5); ctx.fill();
+                // 2.5D shadow under building
+                ctx.fillStyle='rgba(0,0,0,0.28)';
+                ctx.beginPath(); ctx.roundRect(bx+10,by+10,bw,bh,6); ctx.fill();
 
-                // Main building walls — gradient (dark base to lighter top)
-                const wallG=ctx.createLinearGradient(bx,by+bh,bx,by);
-                wallG.addColorStop(0,'#1a2535'); wallG.addColorStop(1,'#2c3e50');
-                ctx.fillStyle=wallG; ctx.strokeStyle='#1a252f'; ctx.lineWidth=2;
-                ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,5); ctx.fill(); ctx.stroke();
+                // Main building walls (gradient)
+                const wg=ctx.createLinearGradient(bx,by+bh,bx,by);
+                wg.addColorStop(0,'#182030'); wg.addColorStop(0.5,'#243444'); wg.addColorStop(1,'#2d4058');
+                ctx.fillStyle=wg; ctx.strokeStyle='#111'; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,6); ctx.fill(); ctx.stroke();
+
                 // Roof ridge
-                ctx.fillStyle='#243342';
-                ctx.beginPath(); ctx.roundRect(bx,by,bw,14,3); ctx.fill();
-                ctx.fillStyle='#5d8aa8'; ctx.fillRect(bx+8,by+4,bw-16,6);
+                ctx.fillStyle='#1a2838';
+                ctx.beginPath(); ctx.roundRect(bx,by,bw,18,4); ctx.fill();
+                ctx.fillStyle='#3d6e9e'; ctx.fillRect(bx+8,by+5,bw-16,8);
 
-                // Large hangar doors (double)
-                const dx=bx+18, dy=by+22, dw=94, dh=70;
-                // Door frame
-                ctx.fillStyle='#1a252f'; ctx.beginPath(); ctx.roundRect(dx-3,dy-3,dw+6,dh+6,3); ctx.fill();
+                // Right side face (2.5D depth)
+                ctx.fillStyle='rgba(10,20,35,0.6)';
+                ctx.beginPath();
+                ctx.moveTo(bx+bw,by); ctx.lineTo(bx+bw+14,by-8);
+                ctx.lineTo(bx+bw+14,by+bh-8); ctx.lineTo(bx+bw,by+bh);
+                ctx.closePath(); ctx.fill();
+                ctx.strokeStyle='#111'; ctx.lineWidth=1.5;
+                ctx.beginPath();
+                ctx.moveTo(bx+bw,by); ctx.lineTo(bx+bw+14,by-8);
+                ctx.lineTo(bx+bw+14,by+bh-8); ctx.lineTo(bx+bw,by+bh);
+                ctx.stroke();
+
+                // Large double doors (landscape center)
+                const dx=bx+30, dy=by+22, dw=120, dh=90;
+                ctx.fillStyle='#0d1520'; ctx.beginPath(); ctx.roundRect(dx-3,dy-3,dw+6,dh+3,3); ctx.fill();
                 // Left door panel
-                const dg1=ctx.createLinearGradient(dx,dy,dx+dw/2,dy+dh);
-                dg1.addColorStop(0,'#3498db'); dg1.addColorStop(1,'#1a5276');
-                ctx.fillStyle=dg1; ctx.beginPath(); ctx.roundRect(dx,dy,dw/2-2,dh,2); ctx.fill();
+                const dl=ctx.createLinearGradient(dx,dy,dx+dw/2,dy+dh);
+                dl.addColorStop(0,'#2980b9'); dl.addColorStop(1,'#154360');
+                ctx.fillStyle=dl; ctx.beginPath(); ctx.roundRect(dx,dy,dw/2-1,dh,2); ctx.fill();
                 // Right door panel
-                const dg2=ctx.createLinearGradient(dx+dw/2,dy,dx+dw,dy+dh);
-                dg2.addColorStop(0,'#1a5276'); dg2.addColorStop(1,'#3498db');
-                ctx.fillStyle=dg2; ctx.beginPath(); ctx.roundRect(dx+dw/2+2,dy,dw/2-2,dh,2); ctx.fill();
-                // Door panel lines (horizontal detail)
-                ctx.strokeStyle='rgba(52,152,219,0.4)'; ctx.lineWidth=1;
-                [18,34,50,62].forEach(yoff=>{
-                    ctx.beginPath(); ctx.moveTo(dx+2,dy+yoff); ctx.lineTo(dx+dw-2,dy+yoff); ctx.stroke();
+                const dr=ctx.createLinearGradient(dx+dw/2,dy,dx+dw,dy+dh);
+                dr.addColorStop(0,'#154360'); dr.addColorStop(1,'#2980b9');
+                ctx.fillStyle=dr; ctx.beginPath(); ctx.roundRect(dx+dw/2+1,dy,dw/2-1,dh,2); ctx.fill();
+                // Door panel lines
+                ctx.strokeStyle='rgba(52,152,219,0.3)'; ctx.lineWidth=1;
+                [18,38,58,74].forEach(yo=>{
+                    ctx.beginPath(); ctx.moveTo(dx+3,dy+yo); ctx.lineTo(dx+dw-3,dy+yo); ctx.stroke();
                 });
-                // Door centre gap + handle
-                ctx.fillStyle='#111'; ctx.fillRect(dx+dw/2-2,dy,4,dh);
-                ctx.fillStyle='#7fb3d3'; ctx.strokeStyle='#2980b9'; ctx.lineWidth=1.5;
-                ctx.beginPath(); ctx.roundRect(dx+dw/2-8,dy+dh/2-8,6,16,3); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.roundRect(dx+dw/2+2,dy+dh/2-8,6,16,3); ctx.fill(); ctx.stroke();
-                // Door glow when open
-                ctx.globalAlpha=0.15+Math.sin(this.pulse*1.5)*0.08;
-                ctx.fillStyle='#3498db';
-                ctx.beginPath(); ctx.roundRect(dx,dy,dw,dh,2); ctx.fill();
+                ctx.fillStyle='#080e18'; ctx.fillRect(dx+dw/2-2,dy,4,dh);
+                // Handles
+                ctx.fillStyle='#7fb3d3';
+                ctx.beginPath(); ctx.roundRect(dx+dw/2-9,dy+dh/2-12,6,24,2); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(dx+dw/2+3,dy+dh/2-12,6,24,2); ctx.fill();
+                // Door glow
+                ctx.globalAlpha=0.07+Math.sin(this.pulse*1.5)*0.04;
+                ctx.fillStyle='#3498db'; ctx.beginPath(); ctx.roundRect(dx,dy,dw,dh,2); ctx.fill();
                 ctx.globalAlpha=1;
 
-                // Flag mounting spots (3 masts to the right of building)
+                // Windows (right side of building)
+                [[bx+165,by+28],[bx+205,by+28]].forEach(([wx2,wy2])=>{
+                    ctx.fillStyle='rgba(20,120,200,0.4)'; ctx.strokeStyle='#2980b9'; ctx.lineWidth=1;
+                    ctx.beginPath(); ctx.roundRect(wx2,wy2,28,32,2); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle='rgba(255,255,255,0.12)';
+                    ctx.fillRect(wx2+2,wy2+2,12,14);
+                });
+
+                // Yellow "67" text on right wall
+                ctx.font='bold 24px "Lilita One",cursive';
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=4;
+                ctx.strokeText('67', bx+bw-30, by+bh/2);
+                ctx.fillStyle='#f1c40f';
+                ctx.fillText('67', bx+bw-30, by+bh/2);
+
+                // "HANGAR" label above
+                ctx.fillStyle=`rgba(52,152,219,${0.65+Math.sin(this.pulse)*0.2})`;
+                ctx.font='bold 14px "Lilita One",cursive';
+                ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.lineWidth=3;
+                ctx.strokeText('⚓ HANGAR', bx+bw/2, by-14);
+                ctx.fillText('⚓ HANGAR', bx+bw/2, by-14);
+
+                // Flag masts (separated from building, to the right)
                 const flagCols=['#3498db','#e74c3c','#f1c40f'];
                 const flagNames=['A','B','C'];
+                const mastBaseX = bx+bw+38;
                 for(let i=0;i<3;i++){
-                    const mx=bx+bw+20+i*30, my=by+bh-10;
+                    const mx=mastBaseX+i*38, my=by+bh-8;
                     // Mast shadow
-                    ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=3;
+                    ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=2.5;
                     ctx.beginPath(); ctx.moveTo(mx+2,my+4); ctx.lineTo(mx+2,my-55); ctx.stroke();
                     // Mast
-                    ctx.strokeStyle='#c8a86b'; ctx.lineWidth=2.5;
+                    ctx.strokeStyle='#c8a86b'; ctx.lineWidth=2;
                     ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(mx,my-55); ctx.stroke();
-                    // Base bracket
+                    // Base
                     ctx.fillStyle='#8b6914'; ctx.strokeStyle='#5d4500'; ctx.lineWidth=1;
-                    ctx.beginPath(); ctx.roundRect(mx-7,my-6,14,8,2); ctx.fill(); ctx.stroke();
-                    // Flag or empty slot
-                    const f = ctfFlags[i];
-                    if(f && f.state==='CAPTURED'){
+                    ctx.beginPath(); ctx.roundRect(mx-8,my-5,16,8,2); ctx.fill(); ctx.stroke();
+                    // Flag or empty
+                    const f=ctfFlags[i];
+                    if(f&&f.state==='CAPTURED'){
                         ctx.fillStyle=flagCols[i]; ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8;
-                        ctx.beginPath(); ctx.moveTo(mx,my-55); ctx.lineTo(mx+20,my-47); ctx.lineTo(mx,my-39); ctx.closePath(); ctx.fill(); ctx.stroke();
-                        // Shine
+                        ctx.beginPath(); ctx.moveTo(mx,my-55); ctx.lineTo(mx+22,my-46); ctx.lineTo(mx,my-37); ctx.closePath(); ctx.fill(); ctx.stroke();
                         ctx.globalAlpha=0.3; ctx.fillStyle='#fff';
-                        ctx.beginPath(); ctx.moveTo(mx,my-55); ctx.lineTo(mx+10,my-52); ctx.lineTo(mx,my-47); ctx.closePath(); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(mx,my-55); ctx.lineTo(mx+11,my-52); ctx.lineTo(mx,my-48); ctx.closePath(); ctx.fill();
                         ctx.globalAlpha=1;
+                    } else if(f&&f.state==='CARRIED'){
+                        ctx.globalAlpha=0.5+Math.sin(frames*0.2)*0.35;
+                        ctx.strokeStyle=flagCols[i]; ctx.lineWidth=1.2; ctx.setLineDash([2,2]);
+                        ctx.beginPath(); ctx.moveTo(mx,my-55); ctx.lineTo(mx+22,my-46); ctx.lineTo(mx,my-37); ctx.closePath(); ctx.stroke();
+                        ctx.setLineDash([]); ctx.globalAlpha=1;
                     } else {
-                        // Empty slot indicator
-                        ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
-                        ctx.beginPath(); ctx.moveTo(mx,my-52); ctx.lineTo(mx+16,my-45); ctx.lineTo(mx,my-38); ctx.closePath(); ctx.stroke();
-                        ctx.setLineDash([]);
-                        ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.font='7px sans-serif'; ctx.textAlign='center';
-                        ctx.fillText(flagNames[i], mx+5, my-43);
+                        ctx.globalAlpha=0.18; ctx.fillStyle=flagCols[i];
+                        ctx.beginPath(); ctx.moveTo(mx,my-55); ctx.lineTo(mx+22,my-46); ctx.lineTo(mx,my-37); ctx.closePath(); ctx.fill();
+                        ctx.globalAlpha=1;
                     }
+                    ctx.fillStyle=flagCols[i]; ctx.font='bold 8px "Lilita One",cursive';
+                    ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.globalAlpha=f&&f.state==='CAPTURED'?1:0.45;
+                    ctx.fillText(flagNames[i],mx+6,my-44);
+                    ctx.globalAlpha=1;
                 }
-
-                // "HANGAR" label (×2 bigger)
-                ctx.fillStyle=`rgba(52,152,219,${0.7+Math.sin(this.pulse)*0.2})`;
-                ctx.font='bold 20px "Lilita One",cursive';
-                ctx.textAlign='center'; ctx.textBaseline='top';
-                ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.lineWidth=3;
-                ctx.strokeText('⚓ STREFA BEZPIECZNA', sx+this.w/2, sy+6);
-                ctx.fillText('⚓ STREFA BEZPIECZNA', sx+this.w/2, sy+6);
                 ctx.textAlign='left'; ctx.textBaseline='alphabetic';
             }
         }
@@ -3765,61 +3786,96 @@
                     }
                     createExplosion(this.x,this.y,'#ff5500',40);
                     AudioSys.playBombExplosion();
-                    craterMarks.push({x:this.x,y:this.y,timer:600,maxTimer:600,smoke:0});
+                    craterMarks.push({x:this.x,y:this.y,timer:600,maxTimer:600});
                 }
             }
             draw() {
-                const sx=this.x-camera.x, sy=this.y-camera.y;
-                const tsx=this.tx-camera.x, tsy=this.ty-camera.y;
                 if(this.exploded) return;
-                // Warning ring on ground (target shadow)
-                const p2=this.prog;
-                ctx.globalAlpha=0.35+Math.sin(frames*0.35)*0.15;
-                ctx.strokeStyle='#ff5500'; ctx.lineWidth=2; ctx.setLineDash([6,5]);
-                ctx.beginPath(); ctx.arc(tsx,tsy,250,0,Math.PI*2); ctx.stroke();
-                ctx.setLineDash([]); ctx.globalAlpha=0.25;
-                ctx.fillStyle='rgba(255,80,0,0.15)';
-                ctx.beginPath(); ctx.arc(tsx,tsy,250,0,Math.PI*2); ctx.fill();
+                // World coords — inside camera transform
+                const bx = this.x, by = this.y;
+                const tx = this.tx, ty = this.ty;
+
+                // Trajectory dashed line (boss → target)
+                ctx.save();
+                ctx.globalAlpha=0.35+Math.sin(frames*0.15)*0.1;
+                ctx.strokeStyle='#ff6600'; ctx.lineWidth=1.5; ctx.setLineDash([6,6]);
+                ctx.beginPath(); ctx.moveTo(this.sx, this.sy); ctx.lineTo(tx, ty); ctx.stroke();
+                ctx.setLineDash([]); ctx.globalAlpha=1;
+                ctx.restore();
+
+                // Warning ring on target ground
+                ctx.globalAlpha=0.32+Math.sin(frames*0.35)*0.12;
+                ctx.strokeStyle='#ff5500'; ctx.lineWidth=2; ctx.setLineDash([5,5]);
+                ctx.beginPath(); ctx.arc(tx,ty,250,0,Math.PI*2); ctx.stroke();
+                ctx.setLineDash([]); ctx.globalAlpha=0.15;
+                ctx.fillStyle='rgba(255,80,0,0.12)';
+                ctx.beginPath(); ctx.arc(tx,ty,250,0,Math.PI*2); ctx.fill();
                 ctx.globalAlpha=1;
-                // Bomb arc (parabola illusion via Y offset)
-                const arc=Math.sin(p2*Math.PI)*55;
-                const bsx=sx, bsy=sy-arc;
+
+                // Bomb arc (parabola via Y offset)
+                const arc=Math.sin(this.prog*Math.PI)*55;
                 ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#ff5500'; ctx.lineWidth=2.5;
-                ctx.beginPath(); ctx.arc(bsx,bsy,10,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(bx,by-arc,10,0,Math.PI*2); ctx.fill(); ctx.stroke();
                 // Fuse spark
                 ctx.fillStyle=`rgba(255,200,0,${0.8+Math.sin(frames*0.5)*0.2})`;
-                ctx.beginPath(); ctx.arc(bsx+8,bsy-8,4,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(bx+8,by-arc-8,4,0,Math.PI*2); ctx.fill();
+                // Speed trail
+                ctx.globalAlpha=0.25;
+                for(let i=1;i<=3;i++){
+                    const tp=Math.max(0,this.prog-i*0.06);
+                    const tx2=this.sx+(this.tx-this.sx)*tp, ty2=this.sy+(this.ty-this.sy)*tp;
+                    const arc2=Math.sin(tp*Math.PI)*55;
+                    ctx.fillStyle='#ff8800';
+                    ctx.beginPath(); ctx.arc(tx2,ty2-arc2,8-i*2,0,Math.PI*2); ctx.fill();
+                }
+                ctx.globalAlpha=1;
             }
         }
 
         function drawCraterMarks() {
             for(let cr of craterMarks) {
                 if(cr.timer<=0) continue;
-                const sx=cr.x-camera.x, sy=cr.y-camera.y;
-                const alpha=cr.timer/cr.maxTimer;
-                // Crater hole
-                ctx.globalAlpha=alpha*0.8;
-                ctx.fillStyle='rgba(20,10,0,0.7)';
-                ctx.beginPath(); ctx.ellipse(sx,sy,55,35,0,0,Math.PI*2); ctx.fill();
-                ctx.fillStyle='rgba(80,40,10,0.5)';
-                ctx.beginPath(); ctx.ellipse(sx+2,sy+2,42,26,0,0,Math.PI*2); ctx.fill();
+                // World coords — inside camera transform
+                const wx = cr.x, wy = cr.y;
+                const alpha = Math.min(1, cr.timer/cr.maxTimer);
+                const age = cr.maxTimer - cr.timer; // frames since explosion
+
+                ctx.save();
+                // Crater hole (-70% size: 55→17, 35→11)
+                ctx.globalAlpha = alpha * 0.85;
+                ctx.fillStyle = 'rgba(20,10,0,0.75)';
+                ctx.beginPath(); ctx.ellipse(wx,wy,17,11,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'rgba(80,40,10,0.5)';
+                ctx.beginPath(); ctx.ellipse(wx+1,wy+1,13,8,0,0,Math.PI*2); ctx.fill();
+
                 // Scorched ring
-                ctx.strokeStyle=`rgba(60,30,0,${alpha*0.6})`; ctx.lineWidth=6;
-                ctx.beginPath(); ctx.arc(sx,sy,58,0,Math.PI*2); ctx.stroke();
-                // Smoke puffs
-                for(let i=0;i<3;i++){
-                    const sp=cr.smoke+i*0.4;
-                    const smoke_y=sy-(sp%8)*18;
-                    const smoke_x=sx+Math.sin(sp)*15;
-                    const sa=alpha*(1-(sp%8)/8)*0.25;
-                    ctx.globalAlpha=sa;
-                    ctx.fillStyle='rgba(100,80,70,0.6)';
-                    ctx.beginPath(); ctx.arc(smoke_x,smoke_y,8+sp%4*3,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle=`rgba(60,30,0,${alpha*0.5})`; ctx.lineWidth=3;
+                ctx.beginPath(); ctx.arc(wx,wy,18,0,Math.PI*2); ctx.stroke();
+
+                // Settling earth particles (first 90 frames after explosion)
+                if(age < 90) {
+                    const progress = age / 90; // 0→1
+                    for(let i=0;i<8;i++){
+                        const angle = (i/8)*Math.PI*2 + i*0.3;
+                        const dist = (1-progress)*28 + Math.sin(age*0.2+i)*3;
+                        const px = wx + Math.cos(angle)*dist;
+                        const py = wy + Math.sin(angle)*dist*0.6;
+                        const psize = (1-progress)*4 + 1;
+                        ctx.globalAlpha = (1-progress)*0.8*alpha;
+                        ctx.fillStyle = i%2===0 ? '#8b6914' : '#6b4c2a';
+                        ctx.beginPath(); ctx.arc(px,py,psize,0,Math.PI*2); ctx.fill();
+                    }
+                    // Central dust puff
+                    ctx.globalAlpha = (1-progress)*0.3*alpha;
+                    ctx.fillStyle = 'rgba(150,120,80,0.6)';
+                    ctx.beginPath(); ctx.arc(wx,wy-age*0.15,6+age*0.08,0,Math.PI*2); ctx.fill();
                 }
-                cr.smoke+=0.04; cr.timer--;
-                ctx.globalAlpha=1;
+
+                ctx.globalAlpha = 1;
+                ctx.restore();
+                cr.timer--;
             }
-            craterMarks=craterMarks.filter(cr=>cr.timer>0);
+            craterMarks = craterMarks.filter(cr=>cr.timer>0);
         }
 
         function generateMap() {
@@ -4436,7 +4492,8 @@
             // Repair hangars and power wells
             repairHangars.forEach(rh => rh.draw());
             powerWells.forEach(pw => pw.draw());
-            // CTF: hangar building only via drawMiniHangar (HUD) — removed from world space
+            // CTF: hangar + flags drawn in world space (inside camera transform)
+            if(hangar) hangar.draw();
             // Boss bombs + craters
             bossBombs.forEach(b=>b.draw());
             drawCraterMarks();
@@ -4558,7 +4615,6 @@
             drawMiniRadar();
             drawFlagArrows();
             drawCTFMessage();
-            drawMiniHangar();
 
             // Flag carry visual: small flag on top of player when carrying
             if(playerCarryingFlag) {
@@ -4631,7 +4687,7 @@
                 new Flag(1, 2750,  400,  '#e74c3c', 'BRAVO'),
                 new Flag(2, 1500, 2780,  '#f1c40f', 'CHARLIE'),
             ];
-            hangar = new Hangar(30, WORLD_H/2 - 400, 500, 800);
+            hangar = new Hangar(30, WORLD_H/2 - 250, 500, 500);
 
             // Spawn 3 super bosses (one per flag)
             const flagZonePos = [{fx:520,fy:350},{fx:2750,fy:400},{fx:1500,fy:2780}];
