@@ -661,7 +661,10 @@
         const bgMusic = document.getElementById('bgMusic');
         bgMusic.volume = 0.4;
         bgMusic.play().catch(() => {
-            document.addEventListener('click', () => { bgMusic.play().catch(e => console.log(e)); }, { once: true });
+            // Only resume bgMusic on click if still in menu
+            document.addEventListener('click', () => {
+                if(gameState === 'MENU') bgMusic.play().catch(e => console.log(e));
+            }, { once: true });
         });
 
         document.getElementById('enterBtn').addEventListener('click', () => {
@@ -705,9 +708,42 @@
             playGem: function() {
                 if(!this.ctx) return;
                 const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-                osc.type = 'sine'; osc.frequency.setValueAtTime(659.25, this.ctx.currentTime); 
+                osc.type = 'sine'; osc.frequency.setValueAtTime(659.25, this.ctx.currentTime);
                 gain.gain.setValueAtTime(0.2, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
                 osc.connect(gain); gain.connect(this.ctx.destination); osc.start(); osc.stop(this.ctx.currentTime + 0.3);
+            },
+            playFlagPickup: function() {
+                if(!this.ctx) return;
+                // Ascending arpeggio C-E-G-C
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime + i*0.1);
+                    gain.gain.linearRampToValueAtTime(0.28, this.ctx.currentTime + i*0.1 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + i*0.1 + 0.18);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + i*0.1);
+                    osc.stop(this.ctx.currentTime + i*0.1 + 0.2);
+                });
+            },
+            playFlagCapture: function() {
+                if(!this.ctx) return;
+                // Short fanfare: C-E-G-C(high) + sustain
+                const notes = [261.63, 329.63, 392.00, 523.25, 523.25];
+                const times =  [0,      0.1,    0.2,    0.32,   0.32];
+                const durs =   [0.15,   0.15,   0.15,   0.5,    0.5];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                    osc.type = i===4?'square':'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + times[i]);
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime + times[i]);
+                    gain.gain.linearRampToValueAtTime(0.3, this.ctx.currentTime + times[i] + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + times[i] + durs[i]);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + times[i]);
+                    osc.stop(this.ctx.currentTime + times[i] + durs[i] + 0.05);
+                });
             }
         };
 
@@ -753,13 +789,14 @@
         let ctfFlags = [];
         let ctfFlagsCaptured = 0;
         let playerCarryingFlag = null;
-        let ctfSuperBosses = [null, null, null]; // boss enemy ref per flag
-        let ctfBossRespawnTimers = [0, 0, 0];    // timestamps
-        let ctfBossRespawnDuration = 60000;       // 60s respawn
+        let ctfSuperBosses = [null, null, null];
+        let ctfBossRespawnTimers = [0, 0, 0];
+        let ctfBossRespawnDuration = 60000;
         let ctfBossKilled = [false, false, false];
-        let ctfEscalation = 0; // 0,1,2 based on flags captured
+        let ctfEscalation = 0;
         let ctfCarryWarningTimer = 0;
         let hangar = null;
+        let ctfMessage = { text: '', color: '#fff', timer: 0, maxTimer: 180 };
 
         const keys = { w: false, a: false, s: false, d: false };
         const mouse = { screenX: screenW/2, screenY: screenH/2, worldX: 0, worldY: 0, isDown: false };
@@ -3093,6 +3130,80 @@
             ctx.textAlign='left'; ctx.textBaseline='alphabetic';
         }
 
+        function drawFlagArrows() {
+            // Edge-of-screen directional arrows when flags are off-screen
+            for(let f of ctfFlags) {
+                if(f.state === 'CAPTURED') continue;
+                const sx = f.x - camera.x, sy = f.y - camera.y;
+                const margin = 52;
+                // Is flag on screen?
+                if(sx >= margin && sx <= screenW-margin && sy >= margin && sy <= screenH-margin) continue;
+                // Calculate arrow position at screen edge
+                const cx = screenW/2, cy = screenH/2;
+                const dx = sx - cx, dy = sy - cy;
+                const angle = Math.atan2(dy, dx);
+                const edgeX = Math.max(margin, Math.min(screenW-margin, cx + Math.cos(angle)*Math.min(Math.abs((screenW/2-margin)/Math.cos(angle)), Math.abs((screenH/2-margin)/Math.sin(angle)))));
+                const edgeY = Math.max(margin, Math.min(screenH-margin, cy + Math.sin(angle)*Math.min(Math.abs((screenW/2-margin)/Math.cos(angle)), Math.abs((screenH/2-margin)/Math.sin(angle)))));
+                // Draw arrow
+                ctx.save(); ctx.translate(edgeX, edgeY); ctx.rotate(angle);
+                ctx.globalAlpha=0.8+Math.sin(frames*0.12)*0.18;
+                ctx.fillStyle=f.state==='CARRIED'?'#ffffff':f.color;
+                ctx.strokeStyle='rgba(0,0,0,0.65)'; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.moveTo(20,0); ctx.lineTo(-10,-9); ctx.lineTo(-10,9); ctx.closePath();
+                ctx.fill(); ctx.stroke();
+                // Distance
+                const dist = Math.round(Math.hypot(f.x-player.x, f.y-player.y)/30);
+                ctx.rotate(-angle);
+                ctx.globalAlpha=1; ctx.fillStyle=f.color;
+                ctx.font='bold 9px "Lilita One",cursive'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=2.5;
+                ctx.strokeText(`${f.name} ${dist}m`, 0, -20);
+                ctx.fillText(`${f.name} ${dist}m`, 0, -20);
+                ctx.restore();
+            }
+            // Also arrow toward hangar when carrying flag
+            if(playerCarryingFlag && hangar) {
+                const hcx = hangar.x + hangar.w/2, hcy = hangar.y + hangar.h/2;
+                const hsx = hcx - camera.x, hsy = hcy - camera.y;
+                if(hsx < 60 || hsx > screenW-60 || hsy < 60 || hsy > screenH-60) {
+                    const cx2=screenW/2, cy2=screenH/2;
+                    const dx2=hsx-cx2, dy2=hsy-cy2, ang2=Math.atan2(dy2,dx2);
+                    const ex2=Math.max(60,Math.min(screenW-60,cx2+Math.cos(ang2)*Math.min(Math.abs((screenW/2-60)/Math.cos(ang2)),Math.abs((screenH/2-60)/Math.sin(ang2)))));
+                    const ey2=Math.max(60,Math.min(screenH-60,cy2+Math.sin(ang2)*Math.min(Math.abs((screenW/2-60)/Math.cos(ang2)),Math.abs((screenH/2-60)/Math.sin(ang2)))));
+                    ctx.save(); ctx.translate(ex2,ey2); ctx.rotate(ang2);
+                    ctx.globalAlpha=0.9+Math.sin(frames*0.2)*0.1;
+                    ctx.fillStyle='#3498db'; ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.lineWidth=2;
+                    ctx.beginPath(); ctx.moveTo(22,0); ctx.lineTo(-10,-10); ctx.lineTo(-10,10); ctx.closePath();
+                    ctx.fill(); ctx.stroke();
+                    ctx.rotate(-ang2);
+                    ctx.fillStyle='#3498db'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=2;
+                    ctx.strokeText('⚓ BAZA', 0,-22); ctx.fillText('⚓ BAZA', 0,-22);
+                    ctx.restore();
+                }
+            }
+        }
+
+        function drawCTFMessage() {
+            if(ctfMessage.timer <= 0) return;
+            ctfMessage.timer--;
+            const alpha = Math.min(1, ctfMessage.timer/30) * Math.min(1, (ctfMessage.maxTimer-ctfMessage.timer+30)/30);
+            ctx.save(); ctx.globalAlpha = alpha;
+            ctx.font = 'bold 28px "Lilita One",cursive';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const tw = ctx.measureText(ctfMessage.text).width;
+            const pw = tw+32, ph = 44, px = screenW/2-pw/2, py = screenH/2-80;
+            ctx.fillStyle = 'rgba(0,0,0,0.65)';
+            ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 12); ctx.fill();
+            ctx.fillStyle = ctfMessage.color;
+            ctx.beginPath(); ctx.roundRect(px, py, 6, ph, [12,0,0,12]); ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 4;
+            ctx.strokeText(ctfMessage.text, screenW/2, py+ph/2);
+            ctx.fillStyle = ctfMessage.color;
+            ctx.fillText(ctfMessage.text, screenW/2, py+ph/2);
+            ctx.restore();
+        }
+
         function drawCTFCarryWarning() {
             // Safe zone indicator — always visible on left edge
             const inSafe = hangar && hangar.containsWorld(player.x, player.y);
@@ -3712,12 +3823,11 @@
                     if(f.state === 'IDLE' && Math.hypot(player.x - f.x, player.y - f.y) < 80) {
                         f.state = 'CARRIED';
                         playerCarryingFlag = f;
-                        floatingTexts.push(new FloatingText(player.x, player.y-60, `🚩 FLAGA ${f.name}!`, f.color));
-                        // Switch to chase music
+                        ctfMessage = { text: `🚩 FLAGA ${f.name} POBRANA!`, color: f.color, timer: 210, maxTimer: 210 };
+                        AudioSys.playFlagPickup();
                         const gm = document.getElementById('gameMusic');
                         gm.src = 'Move.ogg'; gm.volume = 0.5; gm.play().catch(e=>{});
                         createExplosion(f.x, f.y, f.color, 16);
-                        // Alert all guards for this flag
                         enemies.forEach(e => { if(e.isGuard && e.guardFlagId === f.id) e.guardState = 'ALERT'; });
                         break;
                     }
@@ -3730,11 +3840,11 @@
                 playerCarryingFlag = null;
                 ctfFlagsCaptured++;
                 ctfEscalation = Math.min(2, ctfFlagsCaptured);
-                player.hp = player.maxHp || player.brawler.hp; // full heal on delivery
-                floatingTexts.push(new FloatingText(player.x, player.y-70, `✅ FLAGA ${f.name} SCHWYTANA!`, f.color));
+                player.hp = player.maxHp || player.brawler.hp;
+                ctfMessage = { text: `✅ FLAGA ${f.name} ZDOBYTA!`, color: f.color, timer: 270, maxTimer: 270 };
+                AudioSys.playFlagCapture();
                 shakeTimer = 20;
                 createExplosion(player.x, player.y, f.color, 24);
-                // Switch back to main music
                 const gm = document.getElementById('gameMusic');
                 gm.src = 'Pirates.ogg'; gm.volume = 0.4; gm.play().catch(e=>{});
                 if(ctfFlagsCaptured >= 3) { triggerVictory(); return; }
@@ -3988,24 +4098,29 @@
 
             updateCamera();
 
+            // Silence bgMusic during gameplay
+            const bgMusicEl = document.getElementById('bgMusic');
+            if(bgMusicEl && !bgMusicEl.paused) bgMusicEl.pause();
+
             ctx.fillStyle = selectedMap.bg;
             ctx.fillRect(0, 0, screenW, screenH);
-            // CTF: Safe zone permanent ground marker (world space, always at left of map)
+            // CTF: Safe zone permanent ground marker — bounded to hangar area only
             if(hangar) {
-                const szX = hangar.x - camera.x, szW = hangar.w + 30;
-                // Solid coloured ground
-                ctx.fillStyle='rgba(30,80,140,0.18)';
-                ctx.fillRect(szX, 0, szW, screenH);
+                const szX = hangar.x - camera.x;
+                const szY = hangar.y - camera.y;
+                const szW = hangar.w + 30;
+                const szH = hangar.h;
+                ctx.fillStyle='rgba(30,80,140,0.20)';
+                ctx.fillRect(szX, szY, szW, szH);
                 // Left border stripe
-                const bx2 = szX + szW - 6;
                 ctx.fillStyle=`rgba(52,152,219,${0.35+Math.sin(frames*0.04)*0.12})`;
-                ctx.fillRect(bx2, 0, 6, screenH);
-                // "BEZPIECZNA STREFA" ground text (vertical, faint)
+                ctx.fillRect(szX+szW-6, szY, 6, szH);
+                // Watermark text
                 ctx.save();
-                ctx.globalAlpha=0.12;
-                ctx.font='bold 28px "Lilita One",cursive';
+                ctx.globalAlpha=0.1;
+                ctx.font='bold 24px "Lilita One",cursive';
                 ctx.fillStyle='#3498db'; ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.translate(szX+szW/2, screenH/2); ctx.rotate(-Math.PI/2);
+                ctx.translate(szX+szW/2, szY+szH/2); ctx.rotate(-Math.PI/2);
                 ctx.fillText('⚓ STREFA BEZPIECZNA ⚓', 0, 0);
                 ctx.restore(); ctx.globalAlpha=1;
             }
@@ -4151,6 +4266,20 @@
             drawTurboHUD();
             drawCTFCarryWarning();
             drawMiniRadar();
+            drawFlagArrows();
+            drawCTFMessage();
+
+            // Flag carry visual: small flag on top of player when carrying
+            if(playerCarryingFlag) {
+                const f = playerCarryingFlag;
+                const px = player.x - camera.x, py = player.y - camera.y;
+                const wave = Math.sin(frames*0.18)*3;
+                ctx.strokeStyle='#c8a86b'; ctx.lineWidth=2.5; ctx.lineCap='round';
+                ctx.beginPath(); ctx.moveTo(px, py-24); ctx.lineTo(px, py-48); ctx.stroke();
+                ctx.fillStyle='#e74c3c'; ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=0.8;
+                ctx.beginPath(); ctx.moveTo(px,py-48); ctx.lineTo(px+18,py-40+wave); ctx.lineTo(px,py-32); ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.lineCap='butt';
+            }
 
             // Combo toast
             if(comboTextTimer > 0) {
@@ -4204,12 +4333,13 @@
             // CTF init
             ctfFlagsCaptured = 0; playerCarryingFlag = null; ctfEscalation = 0;
             ctfBossKilled = [false,false,false]; ctfBossRespawnTimers = [0,0,0];
+            ctfMessage = { text:'', color:'#fff', timer:0, maxTimer:180 };
             ctfFlags = [
                 new Flag(0,  750,  380,  '#3498db', 'ALFA'),
                 new Flag(1, 2600,  580,  '#e74c3c', 'BRAVO'),
                 new Flag(2, 1500, 2650,  '#f1c40f', 'CHARLIE'),
             ];
-            hangar = new Hangar(30, WORLD_H/2 - 200, 400, 400);
+            hangar = new Hangar(30, WORLD_H/2 - 400, 500, 800);
 
             // Spawn 3 super bosses (one per flag)
             const flagZonePos = [{fx:750,fy:380},{fx:2600,fy:580},{fx:1500,fy:2650}];
