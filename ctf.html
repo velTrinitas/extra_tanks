@@ -805,6 +805,7 @@
         let magnetActive = false, magnetEndTime = 0;
         let comboCount = 0, comboEndTime = 0, comboText = '', comboTextTimer = 0;
         let victoryFlashAlpha = 0;
+        let hudNotifs = [];
         let selectedScenario = 'ctf';
         // CTF state
         let ctfFlags = [];
@@ -858,8 +859,12 @@
                     ctx.strokeRect(this.x+5, this.y+5, this.w-10, this.h-10);
                 } else {
                     ctx.fillRect(this.x, this.y, this.w, this.h);
-                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-                    ctx.fillRect(this.x, this.y + this.h - 12, this.w, 12);
+                    ctx.fillStyle = 'rgba(255,255,255,0.10)';
+                    ctx.fillRect(this.x, this.y, this.w, 4);
+                    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+                    ctx.fillRect(this.x, this.y + this.h - 8, this.w, 8);
+                    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+                    ctx.fillRect(this.x + this.w, this.y, 5, this.h);
                     ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
                     ctx.strokeRect(this.x, this.y, this.w, this.h);
                 }
@@ -904,6 +909,10 @@
             const hhl=HL/2, hhw=HW/2;
             const serials={twardy:'T-07',heavy:'H-01',scout:'S-12',sniper:'SN3',plasma:'TX99',pyro:'PY6',shadow:'00',king:'KG1'};
 
+            // 2.5D drop shadow
+            c.fillStyle='rgba(0,0,0,0.22)';
+            c.beginPath(); c.ellipse(2, 10, 28, 11, 0, 0, Math.PI*2); c.fill();
+
             // Tracks
             function drawTrack(sy) {
                 c.fillStyle='#1c1c1c'; c.strokeStyle='#2e2e2e'; c.lineWidth=1;
@@ -928,6 +937,12 @@
             c.fillStyle=col; c.beginPath(); c.roundRect(-hhl,-hhw,HL,HW,3); c.fill(); c.stroke();
             c.fillStyle=cL; c.globalAlpha=0.28; c.beginPath(); c.roundRect(-hhl,-hhw,HL*0.2,HW,3); c.fill(); c.globalAlpha=1;
             c.fillStyle=cD; c.globalAlpha=0.38; c.beginPath(); c.roundRect(hhl-HL*0.28,-hhw,HL*0.28,HW,3); c.fill(); c.globalAlpha=1;
+            // 2.5D rim light
+            c.globalAlpha=0.22;
+            const rl=c.createLinearGradient(0,-hhw,0,0);
+            rl.addColorStop(0,'rgba(255,255,255,0.9)'); rl.addColorStop(1,'rgba(255,255,255,0)');
+            c.fillStyle=rl; c.beginPath(); c.roundRect(-hhl,-hhw,HL,HW/2,3); c.fill();
+            c.globalAlpha=1;
 
             // Engine deck grilles (rear)
             c.fillStyle=cD; c.strokeStyle='rgba(0,0,0,0.55)'; c.lineWidth=0.8;
@@ -2394,7 +2409,7 @@
                     else if(now-this.repairStartTime>=3000){
                         if(player.hp<player.brawler.hp){
                             player.hp=Math.min(player.brawler.hp,player.hp+1);
-                            floatingTexts.push(new FloatingText(player.x,player.y-45,'🔧 +1 HP','#2ecc71'));
+                            addHudNotif('🔧 +1 HP', '#2ecc71');
                             AudioSys.playGem(); updateHUD();
                         }
                         this.repairing=false; this.cooldownEnd=now+60000;
@@ -3472,6 +3487,38 @@
 
 
         // HP color: green (full) → orange (half) → red (empty)
+        function addHudNotif(text, color) {
+            if(hudNotifs.length >= 3) hudNotifs.shift();
+            hudNotifs.push({text, color, timer:200, maxTimer:200});
+        }
+
+        function drawHudNotifs() {
+            if(hudNotifs.length === 0) return;
+            const FONT='"Lilita One",cursive';
+            ctx.font=`bold 15px ${FONT}`;
+            hudNotifs.forEach((n, i) => {
+                if(n.timer <= 0) return;
+                n.timer--;
+                const alpha = Math.min(1, n.timer/30) * Math.min(1, (n.maxTimer-n.timer+20)/20);
+                const tw = ctx.measureText(n.text).width;
+                const pw=tw+16, ph=24, pr=12;
+                const px=222, py=8 + i*28;
+                ctx.save(); ctx.globalAlpha=alpha;
+                ctx.fillStyle='rgba(0,0,0,0.55)';
+                ctx.beginPath(); ctx.roundRect(px,py,pw,ph,pr); ctx.fill();
+                ctx.fillStyle=n.color;
+                ctx.beginPath(); ctx.roundRect(px,py,4,ph,[pr,0,0,pr]); ctx.fill();
+                ctx.textAlign='left'; ctx.textBaseline='middle';
+                ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=3;
+                ctx.strokeText(n.text, px+10, py+ph/2);
+                ctx.fillStyle=n.color;
+                ctx.fillText(n.text, px+10, py+ph/2);
+                ctx.restore();
+            });
+            hudNotifs = hudNotifs.filter(n => n.timer > 0);
+            ctx.textAlign='left'; ctx.globalAlpha=1;
+        }
+
         function hpColorRGB(t) {
             if(t >= 0.5) {
                 const s=(1-t)*2;
@@ -4374,11 +4421,11 @@
                     stats.cubesTotal++;
                     if(pc.type === 'dmg') {
                         stats.dmgBonus += 0.05;
-                        floatingTexts.push(new FloatingText(player.x, player.y - 30, '+DMG! ⚔', '#e74c3c'));
+                        addHudNotif('+DMG! ⚔', '#e74c3c');
                     } else {
                         player.hp += 0.25;
                         player.maxHp += 0.25;
-                        floatingTexts.push(new FloatingText(player.x, player.y - 30, '+HP! 💙', '#74b9ff'));
+                        addHudNotif('+HP! 💙', '#74b9ff');
                     }
                     createExplosion(player.x, player.y, pc.type==='dmg'?'#e74c3c':'#3498db', 12);
                     AudioSys.playGem(); updateHUD();
@@ -4543,6 +4590,7 @@
                 ctx.globalAlpha=1;
                 if(br>=maxR) bombExplosion=null;
             }
+            enemies.sort((a,b) => a.y - b.y); // Y-sort for 2.5D depth
             enemies.forEach(e => e.draw());
             environment.forEach(env => { if(env.type === 'bush') env.draw(); });
             // CTF flags drawn AFTER bushes so they're always visible on top
@@ -4587,6 +4635,7 @@
 
             // HP pill — top left canvas (200×54, same as other pills)
             drawHPPill(14, 8, 200, 54, 16);
+            drawHudNotifs();
 
             // Gem counter — top center (restored)
             {
@@ -4673,7 +4722,7 @@
             shakeX = 0; shakeY = 0; shakeTimer = 0;
             regularKills = 0; megaBossSpawned = true; megaBossKilled = true; megaBossNotified = true;
             comboCount = 0; comboEndTime = 0; comboText = ''; comboTextTimer = 0;
-            victoryFlashAlpha = 0; magnetActive = false; magnetEndTime = 0;
+            victoryFlashAlpha = 0; magnetActive = false; magnetEndTime = 0; hudNotifs = [];
             turboCooldown = 0; turboActive = false; turboEndTime = 0;
             player.speedBoostMult = 1; player.speedBoostEnd = 0;
 
