@@ -75,20 +75,45 @@
 
         /* Nowy Ekran Powitalny na cały ekran */
         #introScreen {
-            background-image: url('Brawl_Tanks.jpg');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: top center;
-            width: 100vw;
-            max-width: 100vw;
-            height: 100vh;
-            max-height: 100vh;
-            border: none;
-            border-radius: 0;
+            background-color: #1a1a2e;
+            width: 100vw; max-width: 100vw;
+            height: 100vh; max-height: 100vh;
+            border: none; border-radius: 0;
             justify-content: flex-end;
             padding-bottom: 12vh;
             box-sizing: border-box;
+            position: relative; overflow: hidden;
+        }
+        /* Slideshow layers — 5 images rotating */
+        .intro-slide {
+            position: absolute; inset: 0;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: top center;
             background-color: #1a1a2e;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            z-index: 0;
+        }
+        .intro-slide.active { opacity: 1; z-index: 1; }
+        .intro-slide:nth-child(1) { background-image: url('Brawl_Tanks.jpg'); }
+        .intro-slide:nth-child(2) { background-image: url('Brawl_Tanks2.jpg'); }
+        .intro-slide:nth-child(3) { background-image: url('Brawl_Tanks3.jpg'); }
+        .intro-slide:nth-child(4) { background-image: url('Brawl_Tanks4.jpg'); }
+        .intro-slide:nth-child(5) { background-image: url('Brawl_Tanks5.jpg'); }
+        /* Ensure START btn + profile info stay on top */
+        #introScreen > *:not(.intro-slide) { position: relative; z-index: 10; }
+
+        /* profileScreen — full background image */
+        #profileScreen {
+            background-image: url('profileScreen.jpg');
+            background-size: cover;
+            background-position: center;
+            border: none; border-radius: 0;
+            width: 100vw; max-width: 100vw;
+            height: 100vh; max-height: 100vh;
+            box-sizing: border-box;
+            justify-content: center;
         }
 
         h1 {
@@ -496,7 +521,18 @@
 
         <!-- INTRO SCREEN -->
         <div id="introScreen" class="screen active-screen">
-            <button class="brawl-btn" id="enterBtn" style="font-size: 4.5rem; padding: 20px 80px; box-shadow: 0 15px 0 #d35400, 0 25px 40px rgba(0,0,0,0.8);">START</button>
+            <!-- Slideshow layers -->
+            <div class="intro-slide active"></div>
+            <div class="intro-slide"></div>
+            <div class="intro-slide"></div>
+            <div class="intro-slide"></div>
+            <div class="intro-slide"></div>
+            <!-- Content on top -->
+            <button class="brawl-btn" id="enterBtn" style="font-size:4.5rem;padding:20px 80px;box-shadow:0 15px 0 #d35400,0 25px 40px rgba(0,0,0,0.8);">START</button>
+            <div id="introProfileBar" style="margin-top:18px;display:flex;align-items:center;gap:12px;opacity:0;transition:opacity 0.4s;">
+                <span id="introProfileName" style="font-family:'Lilita One',cursive;font-size:1.2rem;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,0.6);"></span>
+                <button id="introChangeBtn" style="font-family:'Lilita One',cursive;font-size:0.85rem;padding:5px 14px;background:rgba(0,0,0,0.45);border:2px solid rgba(255,255,255,0.35);border-radius:10px;color:#f1c40f;cursor:pointer;transition:background 0.2s;">Zmień →</button>
+            </div>
         </div>
 
         <!-- PROFILE SELECTION SCREEN -->
@@ -510,9 +546,9 @@
         <!-- MENU WYBORU -->
         <div id="welcomeScreen" class="screen">
             <h1>Menu Główne</h1>
-            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:-4px 0 12px;">
-                <div id="activeProfileLabel" style="font-family:'Lilita One',cursive;font-size:1.1rem;color:#f1c40f;text-shadow:0 2px 0 rgba(0,0,0,0.4);"></div>
-                <button id="changeProfileBtn" style="font-family:'Lilita One',cursive;font-size:0.72rem;padding:3px 10px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);border-radius:8px;color:rgba(255,255,255,0.65);cursor:pointer;">👤 Zmień profil</button>
+            <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:-8px 0 8px;">
+                <div id="activeProfileLabel" style="font-family:'Lilita One',cursive;font-size:1.5rem;color:#f1c40f;text-shadow:0 3px 0 rgba(0,0,0,0.5);letter-spacing:0.5px;"></div>
+                <button id="changeProfileBtn" style="font-family:'Lilita One',cursive;font-size:0.85rem;padding:5px 14px;background:rgba(0,0,0,0.35);border:2px solid rgba(241,196,15,0.45);border-radius:10px;color:#f1c40f;cursor:pointer;transition:background 0.2s;">👤 Zmień gracza</button>
             </div>
             <div id="totalPowerBar">⚡ Power: <span id="totalPowerVal">0</span></div>
             
@@ -898,11 +934,21 @@
 
         document.getElementById('enterBtn').addEventListener('click', () => {
             document.getElementById('introScreen').classList.remove('active-screen');
-            document.getElementById('welcomeScreen').classList.add('active-screen');
             document.getElementById('welcomeScreenWrapper').style.display = 'block';
             document.body.classList.add('show-credits');
             AudioSys.init();
             bgMusic.play().catch(e => console.log(e));
+            const savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+            const hasSaved = PROFILES.find(p => p.id === savedId);
+            if(hasSaved) {
+                activeProfile = hasSaved.id;
+                document.getElementById('welcomeScreen').classList.add('active-screen');
+                updateActiveProfileLabel();
+                refreshBrawlerCards();
+            } else {
+                document.getElementById('profileScreen').classList.add('active-screen');
+                renderProfileScreen();
+            }
         });
 
         const AudioSys = {
@@ -4180,6 +4226,17 @@
             bgMusic.play().catch(e => console.log(e));
         });
         
+        // ── INTRO SLIDESHOW ──────────────────────────────────────────
+        (function(){
+            const slides = document.querySelectorAll('.intro-slide');
+            let cur = 0;
+            setInterval(() => {
+                slides[cur].classList.remove('active');
+                cur = (cur + 1) % slides.length;
+                slides[cur].classList.add('active');
+            }, 5000);
+        })();
+
         // ── PROFILE SCREEN LOGIC ─────────────────────────────────────
         function renderProfileScreen() {
             const grid = document.getElementById('profileGrid');
@@ -4223,8 +4280,26 @@
         function updateActiveProfileLabel() {
             const p = PROFILES.find(x => x.id === activeProfile);
             if(!p) return;
+            // welcomeScreen label
             const el = document.getElementById('activeProfileLabel');
             if(el) el.textContent = `${p.emoji} ${p.name}`;
+            // introScreen profile bar
+            const bar = document.getElementById('introProfileBar');
+            const nm = document.getElementById('introProfileName');
+            if(bar && nm) {
+                nm.textContent = `${p.emoji} Grasz jako: ${p.name}`;
+                bar.style.opacity = '1';
+            }
+        }
+
+        // introChangeBtn — switch profile from intro screen
+        const introChangeBtn = document.getElementById('introChangeBtn');
+        if(introChangeBtn) {
+            introChangeBtn.addEventListener('click', () => {
+                document.getElementById('introScreen').classList.remove('active-screen');
+                document.getElementById('profileScreen').classList.add('active-screen');
+                renderProfileScreen();
+            });
         }
 
         // "Zmień profil" button
@@ -4237,19 +4312,14 @@
             });
         }
 
-        // Init: check for saved profile
+        // Init: restore saved profile if exists (intro screen remains first)
         const savedProfileId = localStorage.getItem(ACTIVE_PROFILE_KEY);
         const savedProfile = PROFILES.find(p => p.id === savedProfileId);
         if(savedProfile) {
-            // Auto-load saved profile, skip profile screen
             activeProfile = savedProfile.id;
-            // introScreen remains active (normal flow)
-        } else {
-            // No profile yet — show profile screen
-            document.getElementById('introScreen').classList.remove('active-screen');
-            document.getElementById('profileScreen').classList.add('active-screen');
-            renderProfileScreen();
+            // introScreen shows normally — profile auto-loaded silently
         }
+        // If no saved profile: enterBtn will route to profileScreen (see enterBtn handler)
 
         document.getElementById('charGrid').children[0].classList.add('selected');
         document.getElementById('mapGrid').children[0].classList.add('selected');
