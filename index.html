@@ -152,31 +152,78 @@
             text-transform: uppercase; position: relative; z-index: 2;
         }
 
-        /* ── Redesign: stats + trophy pod kartą czołgu ── */
-        .card-stats-row {
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-            background: rgba(0,0,0,0.18); border-radius: 8px; padding: 4px 6px;
-            margin: 4px 0; font-family: 'Lilita One', cursive;
+        /* ── Profile cards ── */
+        .profile-card {
+            background: #ecf0f1; border: 4px solid #2c3e50; border-radius: 20px;
+            padding: 18px 10px 14px; cursor: pointer; text-align: center;
+            box-shadow: 0 6px 0 #2c3e50;
+            transition: transform 0.12s, box-shadow 0.12s;
+            position: relative;
         }
-        .card-stat { font-size: 0.82rem; color: #fff; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
-        .card-stat-sep { color: rgba(255,255,255,0.35); font-size: 0.7rem; }
-        .card-trophy-row {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 3px 4px 0; gap: 4px;
+        .profile-card:hover { transform: translateY(-5px); box-shadow: 0 11px 0 #2c3e50; }
+        .profile-card:active { transform: translateY(6px); box-shadow: 0 0 0 #2c3e50; }
+        .profile-card.last-used {
+            background: linear-gradient(160deg, #fff8dc, #fff3b0);
+            border-color: #f1c40f;
+            box-shadow: 0 6px 0 #d35400, 0 0 16px rgba(241,196,15,0.5);
         }
-        .card-rank-label {
+        .profile-avatar { font-size: 3rem; line-height: 1; margin-bottom: 8px; display: block; }
+        .profile-name {
+            font-family: 'Lilita One', cursive; font-size: 1.1rem; color: #fff;
+            -webkit-text-stroke: 0.5px #000; text-shadow: 2px 2px 0 #000;
+            text-transform: uppercase; letter-spacing: 0.3px;
+            background: #2c3e50; border-radius: 8px; padding: 3px 6px;
+            display: block; margin-bottom: 6px;
+        }
+        .profile-power {
             font-family: 'Lilita One', cursive; font-size: 0.85rem;
-            text-shadow: 1px 1px 0 rgba(0,0,0,0.7); letter-spacing: 0.2px;
+            color: #f1c40f; text-shadow: 0 1px 0 rgba(0,0,0,0.4);
         }
-        .card-trophy-num {
-            font-family: 'Lilita One', cursive; font-size: 0.95rem; font-weight: bold;
-            text-shadow: 1px 1px 0 rgba(0,0,0,0.7);
+        .profile-last-badge {
+            position: absolute; top: -8px; right: -4px;
+            background: #f1c40f; color: #000; font-family: 'Lilita One', cursive;
+            font-size: 0.6rem; padding: 2px 6px; border-radius: 8px;
+            border: 1.5px solid #000;
         }
-        .trophy-bar-wrap {
-            width: calc(100% - 8px); height: 5px;
-            background: rgba(0,0,0,0.20); border-radius: 3px;
-            margin: 3px 4px 0; overflow: hidden;
+        /* ── Profile selection screen ── */
+        #profileGrid { display: grid; grid-template-columns: repeat(2, 155px); gap: 16px; justify-content: center; margin: 16px auto 24px; }
+        .profile-card {
+            background: #ecf0f1; border: 4px solid #2c3e50; border-radius: 20px;
+            padding: 22px 12px 16px; cursor: pointer; text-align: center;
+            box-shadow: 0 6px 0 #2c3e50; transition: transform 0.12s, box-shadow 0.12s;
         }
+        .profile-card:hover { transform: translateY(-4px); }
+        .profile-card.selected {
+            background: #f1c40f; border-color: #d35400;
+            box-shadow: 0 8px 0 #d35400, 0 0 0 4px rgba(241,196,15,0.35);
+            transform: translateY(-6px) scale(1.06);
+        }
+        .profile-emoji { font-size: 3rem; display: block; margin-bottom: 10px; line-height: 1; }
+        .profile-name { font-family: 'Lilita One', cursive; font-size: 1.15rem; color: #2c3e50; text-transform: uppercase; }
+        .profile-card.selected .profile-name { color: #000; }
+        .profile-power { font-family: 'Lilita One', cursive; font-size: 0.75rem; color: #999; margin-top: 6px; }
+        .profile-card.selected .profile-power { color: #555; }
+        #profileSelectBtn { margin-top: 20px; opacity: 0.35; pointer-events: none; transition: opacity 0.2s; }
+        #profileSelectBtn.ready { opacity: 1 !important; pointer-events: all !important; }
+
+        /* ── Brawler card stats — equal columns, no shadow ── */
+        .card-stats-row {
+            display: flex; align-items: center;
+            background: rgba(0,0,0,0.18); border-radius: 8px; padding: 4px 0;
+            margin: 4px 0;
+        }
+        .card-stat {
+            flex: 1; text-align: center;
+            font-family: 'Lilita One', cursive; font-size: 0.75rem;
+            color: #fff; white-space: nowrap;
+        }
+        .card-stat-sep { color: rgba(255,255,255,0.3); font-size: 0.65rem; flex-shrink: 0; }
+        /* ── Trophy row — +10%, no shadow ── */
+        .card-trophy-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0; }
+        .card-rank-label { font-family: 'Lilita One', cursive; font-size: 0.93rem; }
+        .card-trophy-num  { font-family: 'Lilita One', cursive; font-size: 1.05rem; }
+        /* ── Progress bar — clean ── */
+        .trophy-bar-wrap { width: calc(100% - 8px); height: 5px; background: rgba(255,255,255,0.18); border-radius: 3px; margin: 3px 4px 0; overflow: hidden; }
         .trophy-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
 
         /* ── Post-game trophy box (juicy) ── */
@@ -451,10 +498,22 @@
         <div id="introScreen" class="screen active-screen">
             <button class="brawl-btn" id="enterBtn" style="font-size: 4.5rem; padding: 20px 80px; box-shadow: 0 15px 0 #d35400, 0 25px 40px rgba(0,0,0,0.8);">START</button>
         </div>
-        
+
+        <!-- PROFILE SELECTION SCREEN -->
+        <div id="profileScreen" class="screen">
+            <h1>👋 Kto gra?</h1>
+            <p style="font-family:sans-serif;color:rgba(255,255,255,0.5);font-size:0.9rem;margin:-8px 0 4px;">Wybierz swój profil — trofea zapisane oddzielnie dla każdego</p>
+            <div id="profileGrid"></div>
+            <button class="brawl-btn" id="profileSelectBtn">Graj! →</button>
+        </div>
+
         <!-- MENU WYBORU -->
         <div id="welcomeScreen" class="screen">
             <h1>Menu Główne</h1>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:-4px 0 12px;">
+                <div id="activeProfileLabel" style="font-family:'Lilita One',cursive;font-size:1.1rem;color:#f1c40f;text-shadow:0 2px 0 rgba(0,0,0,0.4);"></div>
+                <button id="changeProfileBtn" style="font-family:'Lilita One',cursive;font-size:0.72rem;padding:3px 10px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);border-radius:8px;color:rgba(255,255,255,0.65);cursor:pointer;">👤 Zmień profil</button>
+            </div>
             <div id="totalPowerBar">⚡ Power: <span id="totalPowerVal">0</span></div>
             
             <h2>Wybierz swój czołg</h2>
@@ -681,19 +740,29 @@
 
         let selectedBrawler = BRAWLERS[0];
 
+        // ── PROFILE SYSTEM ─────────────────────────────────────────────
+        const PROFILES = [
+            { id: 'mariusz',    name: 'Mariusz',    emoji: '👨', color: '#3498db', shadow: '#1a5276' },
+            { id: 'michal',     name: 'Michał',     emoji: '👦', color: '#27ae60', shadow: '#1a5c2e' },
+            { id: 'wiktor',     name: 'Wiktor',     emoji: '🧒', color: '#e67e22', shadow: '#a04000' },
+            { id: 'nieznajomy', name: 'Nieznajomy',  emoji: '👤', color: '#7f8c8d', shadow: '#4a5c5d' },
+        ];
+        const ACTIVE_PROFILE_KEY = 'brawltanks_active_profile';
+        let activeProfile = null; // will be set by profile screen or localStorage
+
         // ── TROPHY SYSTEM ──────────────────────────────────────────────
-        const TROPHY_KEY = 'brawltanks_trophies_v1';
+        const TROPHY_KEY_BASE = 'brawltanks_trophies_v1_';
         const RANKS = [
-            {min:0,   name:'Rekrut',      icon:'🔩', color:'#aaa',     border:'rgba(150,150,150,0.5)'},
-            {min:10,  name:'Brąz',        icon:'🥉', color:'#cd7f32',  border:'rgba(205,127,50,0.8)'},
-            {min:30,  name:'Srebro',      icon:'🥈', color:'#bdbdbd',  border:'rgba(200,200,200,0.85)'},
-            {min:60,  name:'Złoto',       icon:'🥇', color:'#ffd700',  border:'rgba(255,215,0,0.9)'},
-            {min:100, name:'Diament',     icon:'💎', color:'#7ef7ff',  border:'rgba(0,200,230,0.9)'},
-            {min:150, name:'Mistrzowski', icon:'🏆', color:'#ff8c42',  border:'rgba(231,76,60,0.9)'},
+            {min:0,   name:'Rekrut',      icon:'🔩', color:'#aaa',     border:'rgba(150,150,150,0.55)'},
+            {min:10,  name:'Brąz',        icon:'🥉', color:'#cd7f32',  border:'rgba(205,127,50,0.85)'},
+            {min:30,  name:'Srebro',      icon:'🥈', color:'#bdbdbd',  border:'rgba(200,200,200,0.9)'},
+            {min:60,  name:'Złoto',       icon:'🥇', color:'#ffd700',  border:'rgba(255,215,0,0.95)'},
+            {min:100, name:'Diament',     icon:'💎', color:'#7ef7ff',  border:'rgba(0,210,230,0.95)'},
+            {min:150, name:'Mistrzowski', icon:'🏆', color:'#ff8c42',  border:'rgba(231,76,60,0.95)'},
             {min:200, name:'Legenda',     icon:'👑', color:'#f1c40f',  border:'rgba(241,196,15,1.0)'},
         ];
-        function loadTrophies(){ try{return JSON.parse(localStorage.getItem(TROPHY_KEY))||{};}catch(e){return{};} }
-        function saveTrophies(obj){ try{localStorage.setItem(TROPHY_KEY,JSON.stringify(obj));}catch(e){} }
+        function loadTrophies(){ try{return JSON.parse(localStorage.getItem(TROPHY_KEY_BASE+(activeProfile||'default')))||{};}catch(e){return{};} }
+        function saveTrophies(obj){ try{localStorage.setItem(TROPHY_KEY_BASE+(activeProfile||'default'),JSON.stringify(obj));}catch(e){} }
         function getBrawlerTrophies(id){ return loadTrophies()[id]||0; }
         function getTotalPower(){ return Object.values(loadTrophies()).reduce((a,b)=>a+b,0); }
         function getRank(t){ for(let i=RANKS.length-1;i>=0;i--) if(t>=RANKS[i].min) return RANKS[i]; return RANKS[0]; }
@@ -4111,9 +4180,81 @@
             bgMusic.play().catch(e => console.log(e));
         });
         
+        // ── PROFILE SCREEN LOGIC ─────────────────────────────────────
+        function renderProfileScreen() {
+            const grid = document.getElementById('profileGrid');
+            grid.innerHTML = '';
+            let selectedId = null;
+            const btn = document.getElementById('profileSelectBtn');
+
+            PROFILES.forEach(p => {
+                const power = (() => {
+                    try { return Object.values(JSON.parse(localStorage.getItem(TROPHY_KEY_BASE+p.id))||{}).reduce((a,b)=>a+b,0); } catch(e){ return 0; }
+                })();
+                const card = document.createElement('div');
+                card.className = 'profile-card';
+                card.innerHTML = `
+                    <span class="profile-emoji">${p.emoji}</span>
+                    <div class="profile-name">${p.name}</div>
+                    <div class="profile-power">${power > 0 ? `⚡ Power: ${power}` : '🆕 Nowy gracz'}</div>
+                `;
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.profile-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    selectedId = p.id;
+                    btn.classList.add('ready');
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'all';
+                });
+                grid.appendChild(card);
+            });
+
+            btn.addEventListener('click', () => {
+                if(!selectedId) return;
+                activeProfile = selectedId;
+                localStorage.setItem(ACTIVE_PROFILE_KEY, selectedId);
+                document.getElementById('profileScreen').classList.remove('active-screen');
+                document.getElementById('welcomeScreen').classList.add('active-screen');
+                updateActiveProfileLabel();
+                refreshBrawlerCards();
+            }, { once: true });
+        }
+
+        function updateActiveProfileLabel() {
+            const p = PROFILES.find(x => x.id === activeProfile);
+            if(!p) return;
+            const el = document.getElementById('activeProfileLabel');
+            if(el) el.textContent = `${p.emoji} ${p.name}`;
+        }
+
+        // "Zmień profil" button
+        const changeBtn = document.getElementById('changeProfileBtn');
+        if(changeBtn) {
+            changeBtn.addEventListener('click', () => {
+                document.getElementById('welcomeScreen').classList.remove('active-screen');
+                document.getElementById('profileScreen').classList.add('active-screen');
+                renderProfileScreen();
+            });
+        }
+
+        // Init: check for saved profile
+        const savedProfileId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+        const savedProfile = PROFILES.find(p => p.id === savedProfileId);
+        if(savedProfile) {
+            // Auto-load saved profile, skip profile screen
+            activeProfile = savedProfile.id;
+            // introScreen remains active (normal flow)
+        } else {
+            // No profile yet — show profile screen
+            document.getElementById('introScreen').classList.remove('active-screen');
+            document.getElementById('profileScreen').classList.add('active-screen');
+            renderProfileScreen();
+        }
+
         document.getElementById('charGrid').children[0].classList.add('selected');
         document.getElementById('mapGrid').children[0].classList.add('selected');
         refreshBrawlerCards(); // Init trophy display + Total Power
+        updateActiveProfileLabel();
 
         // Brawler sound effects
         const BRAWLER_SOUNDS = { twardy: 'Sound_Effects/Twardy.mp3', pyro: 'Sound_Effects/Ogniarz.mp3' };
