@@ -74,6 +74,13 @@
         }
 
         /* Nowy Ekran Powitalny na cały ekran */
+        #totalPowerBar {
+            text-align: center; font-family: 'Lilita One', cursive;
+            font-size: 1rem; color: #f1c40f;
+            text-shadow: 0 2px 0 rgba(0,0,0,0.5);
+            margin: -4px 0 10px; letter-spacing: 0.5px;
+        }
+
         #introScreen {
             background-image: url('Brawl_Tanks.jpg');
             background-size: contain;
@@ -419,6 +426,7 @@
         <!-- MENU WYBORU -->
         <div id="welcomeScreen" class="screen">
             <h1>🏰 Defend the Castle</h1>
+            <div id="totalPowerBar">⚡ Power: <span id="totalPowerVal">0</span></div>
             
             <h2>Wybierz swój czołg</h2>
             <div class="grid-container char-grid" id="charGrid"></div>
@@ -2017,7 +2025,7 @@
 
                 // ── GUARD AI (CTF) ───────────────────────────────────
                 if(this.isGuard && !this.isBoss) {
-                    const flag = ctfFlags[this.guardFlagId];
+                    const flag = null; // CTF disabled in castle
                     const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
                     const detRadius = 280;
                     // State transitions
@@ -4077,7 +4085,7 @@
                     }
                     createExplosion(this.x,this.y,'#ff5500',40);
                     AudioSys.playBombExplosion();
-                    craterMarks.push({x:this.x,y:this.y,timer:600,maxTimer:600});
+                    // craterMarks.push disabled in castle;
                 }
             }
             draw() {
@@ -4569,6 +4577,7 @@
 
         function triggerVictory() {
             if(gameState==='VICTORY') return;
+            window._castleLoopRunning = false;
             gameState='VICTORY';
             clearInterval(gameTimerInterval);
             document.getElementById('hud').style.display='none';
@@ -4587,6 +4596,7 @@
 
         function triggerGameOver() {
             gameState='GAMEOVER';
+            window._castleLoopRunning = false;
             clearInterval(gameTimerInterval);
             document.getElementById('hud').style.display='none';
             document.getElementById('controlsHelper').style.display='none';
@@ -4629,7 +4639,7 @@
                 if(b.active && !b.isPlayer && b.x < 450) b.active = false;
             }
             // ── CTF: Flag pickup ──
-            if(false) { // CTF flag logic disabled in castle
+            if(false) { // CTF flag logic disabled in castle -- start
             for(let f of ctfFlags) {
                     if(f.state === 'IDLE' && Math.hypot(player.x - f.x, player.y - f.y) < 80) {
                         f.state = 'CARRIED';
@@ -4644,8 +4654,8 @@
                     }
                 }
             }
-            // ── CTF: Hangar delivery ──
-            if(playerCarryingFlag && hangar && hangar.containsWorld(player.x, player.y)) {
+            // ── CTF: Hangar delivery (DISABLED IN CASTLE) ──
+            if(false && playerCarryingFlag && hangar && hangar.containsWorld(player.x, player.y)) {
                 const f = playerCarryingFlag;
                 f.state = 'CAPTURED';
                 playerCarryingFlag = null;
@@ -4886,8 +4896,7 @@
             // CTF flag updates
             ctfFlags.forEach(f => f.update());
             // Boss bombs update + filter
-            bossBombs.forEach(b=>b.update());
-            bossBombs=bossBombs.filter(b=>b.active);
+            // bossBombs disabled in castle
             magnets.forEach(m => m.update());
             powerCubes.forEach(pc => pc.update()); floatingTexts.forEach(ft => ft.update());
             quicksandZones.forEach(qs => qs.update());
@@ -4923,7 +4932,7 @@
             ctx.fillStyle = selectedMap.bg;
             ctx.fillRect(0, 0, screenW, screenH);
             // CTF: Safe zone permanent ground marker — bounded to hangar area only
-            if(hangar) {
+            if(false && hangar) { // hangar disabled in castle
                 const szX = hangar.x - camera.x;
                 const szY = hangar.y - camera.y;
                 const szW = hangar.w + 30;
@@ -4970,7 +4979,7 @@
             // Castle: drawCastleBuilding handled after environment
             drawCastleBuilding();
             // Boss bombs + craters
-            bossBombs.forEach(b=>b.draw());
+            // bossBombs.draw disabled in castle
             drawCraterMarks();
             if(player.hp > 0) player.draw();
             // AURA visual (world space, around player)
@@ -5173,12 +5182,15 @@
             // Scatter some gems on map for early income
             for(let i=0; i<8; i++) gems.push(new Gem());
 
-            document.getElementById('welcomeScreen').classList.remove('active-screen');
+            // Clear all screens, show canvas
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+            document.getElementById('welcomeScreenWrapper').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
+            document.body.classList.remove('show-credits');
             gameState = 'PLAYING';
-            if(!gameLoopRunning) { gameLoopRunning = true; gameLoop(); }
             clearInterval(gameTimerInterval);
             gameTimerInterval = setInterval(() => { if(gameState==='PLAYING') gameTime++; }, 1000);
+            if(!window._castleLoopRunning) { window._castleLoopRunning = true; gameLoop(); }
         }
 
         document.getElementById('startBtn').addEventListener('click', initGame);
@@ -5234,12 +5246,12 @@
             }
             if(diff) selectedDifficulty = diff;
             if(bId) {
-                // Skip welcome screen — launch directly
-                requestAnimationFrame(initGame);
+                // Skip welcome screen — launch directly via initGame (which calls gameLoop)
+                setTimeout(initGame, 50);
+            } else {
+                window._castleLoopRunning = true; gameLoop(); // Menu animations
             }
         })();
-
-        gameLoop();
     </script>
 </body>
 </html>
