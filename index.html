@@ -507,8 +507,7 @@
 
     <!-- HUD -->
     <div id="hud">
-        <div class="hud-box" style="border-bottom-color: #8e44ad; display: none; background: #9b59b6; color: white; -webkit-text-stroke: 1px #000;" id="superBox">SUPER: <span id="superDisplay">0</span></div>
-        <div class="hud-box" style="border-bottom-color: #3498db; display: none; background: #2980b9; color: white; -webkit-text-stroke: 1px #000;" id="cubeBox">⚡ <span id="cubeDisplay">0</span></div>
+        <!-- HUD rendered on canvas — HP, gems, kills, super powers -->
     </div>
     
     <div id="controlsHelper">
@@ -564,18 +563,18 @@
 
             <h2>Wybierz scenariusz</h2>
             <div class="scenario-grid">
-                <div class="scenario-card selected" data-scenario="boss" id="sc-boss">
-                    <span class="sc-icon">💀</span>
-                    <span class="sc-name">KILL THE BOSS</span>
+                <div class="select-card scenario-card selected" id="scen-ktb" data-scen="ktb">
+                    <div style="font-size:2.2rem">💀</div>
+                    <div class="name" style="background:#e74c3c;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Kill the Boss</div>
                 </div>
-                <div class="scenario-card" data-scenario="flag" id="sc-flag">
-                    <span class="sc-icon">🚩</span>
-                    <span class="sc-name">CAPTURE THE FLAG</span>
+                <div class="select-card scenario-card" id="scen-flag" data-scen="flag">
+                    <div style="font-size:2.2rem">🚩</div>
+                    <div class="name" style="background:#3498db;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Capture the Flag</div>
                 </div>
-                <div class="scenario-card locked" data-scenario="king" id="sc-king">
-                    <span class="sc-badge">W BUDOWIE</span>
-                    <span class="sc-icon">👑</span>
-                    <span class="sc-name">SAVE THE KING</span>
+                <div class="select-card scenario-card" id="scen-castle" data-scen="castle">
+                    <div style="font-size:2.2rem">🏰</div>
+                    <div class="name" style="background:#2d5016;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Defend the Castle</div>
+                    <div style="font-family:'Lilita One',cursive;font-size:0.62rem;color:rgba(255,255,255,0.55);margin-top:3px;background:rgba(0,0,0,0.25);border-radius:4px;padding:1px 4px;">🚧 Wkrótce</div>
                 </div>
             </div>
 
@@ -1033,7 +1032,22 @@
         let victoryFlashAlpha = 0;
         let hudNotifs = []; // Power cube HUD notifications (screen-space, next to HP pill)
         // Scenario
-        let selectedScenario = 'boss';
+        let selectedScenario = 'ktb';
+
+        // Scenario card click handlers
+        ['ktb','flag','castle'].forEach(scen => {
+            const el = document.getElementById('scen-'+scen);
+            if(!el) return;
+            el.addEventListener('click', () => {
+                if(scen === 'castle') return; // Coming soon — no action
+                document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+                el.classList.add('selected');
+                selectedScenario = scen;
+                // CTF disables map selection
+                const mapSection = document.getElementById('mapSection');
+                if(mapSection) mapSection.classList.toggle('map-disabled', scen === 'flag');
+            });
+        });
         // Power icon images
         const powerIcons = { aura: new Image(), bomb: new Image(), freeze: new Image() };
         powerIcons.aura.src  = 'Aura128.jpg';
@@ -3610,25 +3624,7 @@
         }
 
         function updateHUD() {
-            // HP and score now drawn on canvas — only update HTML super/cube boxes
-            const superBox = document.getElementById('superBox');
-            if(superCharges > 0) {
-                superBox.style.display = 'block';
-                document.getElementById('superDisplay').innerText = superCharges;
-                superBox.style.transform = 'scale(1.1)';
-                setTimeout(() => superBox.style.transform = 'scale(1)', 200);
-            } else {
-                superBox.style.display = 'none';
-            }
-            const cubeBox = document.getElementById('cubeBox');
-            if(stats.cubesTotal > 0) {
-                cubeBox.style.display = 'block';
-                let cubeLabel = `⚡ x${stats.cubesTotal}`;
-                if(stats.dmgBonus > 0) cubeLabel += ` +${Math.round(stats.dmgBonus*100)}%DMG`;
-                document.getElementById('cubeDisplay').innerText = cubeLabel.replace('⚡ ','');
-            } else {
-                cubeBox.style.display = 'none';
-            }
+            // HP and score drawn on canvas — no HTML elements to update
         }
 
         function checkCollisions() {
@@ -4173,6 +4169,7 @@
         }
 
         document.getElementById('startBtn').addEventListener('click', () => {
+            if(selectedScenario === 'castle') return; // Coming soon
             if(selectedScenario === 'flag') {
                 window.location.href = `ctf.html?brawler=${encodeURIComponent(selectedBrawler.id)}&diff=${encodeURIComponent(selectedDifficulty)}`;
                 return;
@@ -4180,21 +4177,6 @@
             initGame();
         });
 
-        // Scenario card selection
-        document.querySelectorAll('.scenario-card:not(.locked)').forEach(card => {
-            card.addEventListener('click', () => {
-                document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                selectedScenario = card.dataset.scenario;
-                // Disable map selection for CTF (fixed map)
-                const mapSec = document.getElementById('mapSection');
-                if(selectedScenario === 'flag') {
-                    mapSec.classList.add('map-disabled');
-                } else {
-                    mapSec.classList.remove('map-disabled');
-                }
-            });
-        });
 
         // Victory button
         document.getElementById('victoryBtn').addEventListener('click', () => {
