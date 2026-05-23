@@ -398,7 +398,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: CTF v1.0
+        Game version: v4.0.1.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4132,7 +4132,8 @@
         }
 
         function drawCraterMarks() {
-                    }
+            // crater marks disabled in castle
+        }
 
         // ── CASTLE BUILDING DRAW ─────────────────────────────────
         function drawCastleBuilding() {
@@ -4765,11 +4766,7 @@
                             if(player.hp <= 0) {
                                 // CTF: drop flag on death
                                 if(playerCarryingFlag) {
-                                    playerCarryingFlag.state='IDLE';
-                                    playerCarryingFlag.x=player.x; playerCarryingFlag.y=player.y;
-                                    playerCarryingFlag.dropTimer=Date.now()+10000;
-                                    playerCarryingFlag=null;
-                                    const gm=document.getElementById('gameMusic');
+                                playerCarryingFlag = null; // castle: no flag carrying
                                     gm.src='Pirates.ogg'; gm.volume=0.4; gm.play().catch(e=>{});
                                 }
                                 triggerGameOver();
@@ -4789,11 +4786,7 @@
                         if(player.hp <= 0) {
                             if(playerCarryingFlag) {
                                 playerCarryingFlag.state='IDLE';
-                                playerCarryingFlag.x=player.x; playerCarryingFlag.y=player.y;
-                                playerCarryingFlag.dropTimer=Date.now()+10000;
-                                playerCarryingFlag=null;
-                                const gm=document.getElementById('gameMusic');
-                                gm.src='Pirates.ogg'; gm.volume=0.4; gm.play().catch(e=>{});
+                            playerCarryingFlag = null; // castle: no flag carrying
                             }
                             triggerGameOver();
                         }
@@ -5103,7 +5096,7 @@
             drawWaveMessage();
 
             // Flag carry visual: small flag on top of player when carrying
-            if(playerCarryingFlag) {
+            if(false && playerCarryingFlag) { // castle: no flag carrying
                 const f = playerCarryingFlag;
                 const px = player.x - camera.x, py = player.y - camera.y;
                 const wave = Math.sin(frames*0.18)*3;
@@ -5162,6 +5155,7 @@
             victoryFlashAlpha = 0; magnetActive = false; magnetEndTime = 0; hudNotifs = [];
             player.speedBoostMult = 1; player.speedBoostEnd = 0;
 
+            let playerCarryingFlag = null; // declared — castle has no flag carrying
             // Castle init
             castleHP = castleMaxHP = 25;
             wallHP   = wallMaxHP   = 15;
