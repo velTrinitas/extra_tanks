@@ -983,6 +983,18 @@
         // Castle damage cooldown
         let castleDamageCooldown = {};  // enemyId → lastDamageTime
 
+        // ── CTF COMPATIBILITY — declared as safe defaults (never used in castle) ──
+        let playerCarryingFlag = null;
+        let ctfFlagsCaptured = 0;
+        let ctfBossKilled = [false, false, false];
+        let ctfBossRespawnTimers = [0, 0, 0];
+        let ctfSuperBosses = [null, null, null];
+        let ctfBossRespawnDuration = 60000;
+        let ctfEscalation = 0;
+        let ctfMessage = { text: '', color: '#fff', timer: 0, maxTimer: 180 };
+        let hangar = null;
+        let lakeZones = [];  // declared — used in player movement (impassable water)
+
         const keys = { w: false, a: false, s: false, d: false };
         const mouse = { screenX: screenW/2, screenY: screenH/2, worldX: 0, worldY: 0, isDown: false };
 
@@ -5155,7 +5167,6 @@
             victoryFlashAlpha = 0; magnetActive = false; magnetEndTime = 0; hudNotifs = [];
             player.speedBoostMult = 1; player.speedBoostEnd = 0;
 
-            let playerCarryingFlag = null; // declared — castle has no flag carrying
             // Castle init
             castleHP = castleMaxHP = 25;
             wallHP   = wallMaxHP   = 15;
