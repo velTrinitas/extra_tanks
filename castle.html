@@ -958,13 +958,13 @@
         // CTF state
         // ── BRAWLER VIDEO SYSTEM ─────────────────────────────────────────
         const BRAWLER_LOSE_VIDEOS = {
-            'pyro': 'Movie/Ogniarz_lose.mp4',
+            'pyro': 'Movies/Ogniarz_lose.mp4',
             // 'twardy':'Twardy_lose.mp4', 'heavy':'Pancerny_lose.mp4',
             // 'scout':'Zwiad_lose.mp4', 'sniper':'Snajper_lose.mp4',
             // 'plasma':'Tech_lose.mp4', 'shadow':'Shadow_lose.mp4', 'king':'Krol_lose.mp4'
         };
         const BRAWLER_WIN_VIDEOS = {
-            'pyro': 'Movie/Ogniarz_win.mp4',
+            'pyro': 'Movies/Ogniarz_win.mp4',
         };
         function fadeOutMusic(duration=1500) {
             const tracks = ['bgMusic','gameMusic'].map(id=>document.getElementById(id)).filter(Boolean);
@@ -2297,8 +2297,9 @@
                         AudioSys.playShoot('standard');
                     }
                     if (dist > (this.castleTarget ? 80 : 150)) {
-                        let nextX = this.x + Math.cos(this.angle) * this.speed;
-                        let nextY = this.y + Math.sin(this.angle) * this.speed;
+                        const moveSpd = this.castleTarget ? this.speed * 1.25 : this.speed;
+                        let nextX = this.x + Math.cos(this.angle) * moveSpd;
+                        let nextY = this.y + Math.sin(this.angle) * moveSpd;
                         let canMoveX = true, canMoveY = true;
                         for(let env of environment) {
                             if(env.type === 'wall' || (env.type === 'gate' && !gateDestroyed) || env.type === 'furtka') {
@@ -4450,8 +4451,8 @@
 
         // ── WAVE SYSTEM ──────────────────────────────────────────────
         const WAVE_CONFIGS = [
-            { count:5,  guards:0, boss:false, mega:false, fromSides:[2] },
-            { count:8,  guards:2, boss:false, mega:false, fromSides:[2,1] },
+            { count:8,  guards:1, boss:false, mega:false, fromSides:[2,3] }, // Wave 1: więcej, z 2 stron
+            { count:10, guards:2, boss:false, mega:false, fromSides:[2,1] },
             { count:11, guards:3, boss:true,  mega:false, fromSides:[0,1,2,3] },
             { count:14, guards:4, boss:true,  mega:false, fromSides:[0,1,2,3] },
             { count:18, guards:5, boss:true,  mega:false, fromSides:[0,1,2,3] },
@@ -4521,7 +4522,7 @@
                 if(currentWave >= WAVES_TOTAL) {
                     setTimeout(triggerVictory, 1500);
                 } else {
-                    const interWave = currentWave === 0 ? 120 : 2400; // 2s first, 40s rest
+                    const interWave = currentWave === 0 ? 120 : 1800; // 2s first, 30s rest
                     waveTimerFrames = interWave;
                     waveMessage = {text:'✅ Fala odparta!', color:'#2ecc71', timer:180};
                     addHudNotif('✅ Fala odparta!', '#2ecc71');
@@ -4561,8 +4562,8 @@
             } else if(pw.id === 'barricade') {
                 barricadeActive = true;
                 barricadeEndTime = now + 6000;
-                const bx = player.x + Math.cos(player.angle)*60;
-                const by = player.y + Math.sin(player.angle)*60;
+                const bx = player.x + Math.cos(player.angle)*90; // 90px — poza radius gracza
+                const by = player.y + Math.sin(player.angle)*90;
                 barricadeBlock = {x:bx-40,y:by-40,w:80,h:80,endTime:barricadeEndTime};
                 environment.push(new EnvironmentBlock(barricadeBlock.x, barricadeBlock.y, 80, 80, 'wall', '#5a8ab8'));
                 addHudNotif('🛡️ Barykada!', '#3498db');
@@ -4594,7 +4595,7 @@
 
         function fireArtillery(wx, wy) {
             artilleryMode = false;
-            artilleryTarget = {x:wx, y:wy, timer:120}; // 2s = 120 frames
+            artilleryTarget = {x:wx, y:wy, timer:80};  // 1.3s = 80 frames
             addHudNotif('💣 Szybujący!', '#e67e22');
             AudioSys.playBombWhistle();
         }
@@ -5212,6 +5213,69 @@
             }
             updateWaveSystem();
             castleDamageCheck();
+            // ── Enemy bullets damage castle/wall ──────────────────────────
+            const bDmgCooldown = 500; // ms between bullet-structure damage
+            bullets.forEach(b => {
+                if(!b.active || b.isPlayer) return;
+                const bx = b.x, by = b.y;
+                // Hit castle building
+                const inCastle = bx > CASTLE_CX-CASTLE_W/2 && bx < CASTLE_CX+CASTLE_W/2 &&
+                                  by > CASTLE_CY-CASTLE_H/2 && by < CASTLE_CY+CASTLE_H/2;
+                if(inCastle) {
+                    b.active = false;
+                    const now2 = Date.now();
+                    const lastC = castleDamageCooldown['bullet_castle'] || 0;
+                    if(now2 - lastC > bDmgCooldown) {
+                        castleHP = Math.max(0, castleHP - 0.5);
+                        castleDamageCooldown['bullet_castle'] = now2;
+                        if(castleHP <= 0) setTimeout(triggerGameOver, 500);
+                    }
+                    return;
+                }
+                // Hit wall (check against wall env blocks)
+                if(!wallDestroyed) {
+                    for(let env of environment) {
+                        if(env.type !== 'wall') continue;
+                        if(bx > env.x && bx < env.x+env.w && by > env.y && by < env.y+env.h) {
+                            b.active = false;
+                            const now2 = Date.now();
+                            const lastW = castleDamageCooldown['bullet_wall'] || 0;
+                            if(now2 - lastW > bDmgCooldown) {
+                                wallHP = Math.max(0, wallHP - 0.3);
+                                castleDamageCooldown['bullet_wall'] = now2;
+                                if(wallHP <= 0) {
+                                    wallDestroyed = true;
+                                    environment = environment.filter(e => e.type !== 'furtka');
+                                    floatingTexts.push(new FloatingText(CASTLE_CX, CASTLE_CY-60, '💥 MUR ZNISZCZONY!', '#e74c3c'));
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                // Hit gate
+                if(!gateDestroyed) {
+                    for(let env of environment) {
+                        if(env.type !== 'gate') continue;
+                        if(bx > env.x && bx < env.x+env.w && by > env.y && by < env.y+env.h) {
+                            b.active = false;
+                            const now2 = Date.now();
+                            const lastG = castleDamageCooldown['bullet_gate'] || 0;
+                            if(now2 - lastG > bDmgCooldown) {
+                                gateHP = Math.max(0, gateHP - 0.5);
+                                castleDamageCooldown['bullet_gate'] = now2;
+                                if(gateHP <= 0) {
+                                    gateDestroyed = true;
+                                    environment = environment.filter(e => e.type !== 'gate');
+                                    floatingTexts.push(new FloatingText(CASTLE_CX, CASTLE_CY+WALL_MARGIN-30, '💥 BRAMA WYŁAMANA!', '#e67e22'));
+                                    shakeTimer = 25;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
             updateBarricade();
             updateArtilleryTarget();
             hearts.forEach(h => h.update()); particles.forEach(p => p.update());
@@ -5358,6 +5422,28 @@
             bullets.forEach(b => b.draw()); particles.forEach(p => p.draw());
             floatingTexts.forEach(ft => ft.draw());
 
+            // ── Artillery incoming indicator (world space) ────────────────
+            if(artilleryTarget) {
+                const at = artilleryTarget;
+                const ax = at.x, ay = at.y;
+                const pct = at.timer / 80;
+                ctx.globalAlpha = 0.4 + Math.sin(frames*0.3)*0.2;
+                ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 2.5;
+                const rSize = 40 + (1-pct)*20;
+                ctx.beginPath(); ctx.moveTo(ax-rSize,ay); ctx.lineTo(ax+rSize,ay);
+                ctx.moveTo(ax,ay-rSize); ctx.lineTo(ax,ay+rSize); ctx.stroke();
+                ctx.beginPath(); ctx.arc(ax,ay,rSize*0.6,0,Math.PI*2); ctx.stroke();
+                // Falling bomb — drops from 300px above
+                const bombY = ay - 300*pct;
+                ctx.globalAlpha = Math.min(1,(1-pct)*2);
+                ctx.fillStyle='#e67e22'; ctx.strokeStyle='#8b3a0a'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.ellipse(ax,bombY,7,11,Math.PI*0.1,0,Math.PI*2);
+                ctx.fill(); ctx.stroke();
+                ctx.strokeStyle='rgba(230,120,20,0.4)'; ctx.lineWidth=3;
+                ctx.beginPath(); ctx.moveTo(ax,bombY+11); ctx.lineTo(ax+4,bombY+30); ctx.stroke();
+                ctx.globalAlpha=1;
+            }
+
             ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
             ctx.restore();
 
@@ -5425,6 +5511,34 @@
             drawWaveHUD();
             drawCastlePowersHUD();
             drawWaveMessage();
+            // Artillery aim crosshair when selecting target (screen space)
+            if(artilleryMode) {
+                const mx=mouse.screenX, my=mouse.screenY;
+                ctx.strokeStyle='rgba(231,76,60,0.85)'; ctx.lineWidth=2;
+                ctx.setLineDash([6,4]);
+                ctx.beginPath(); ctx.moveTo(mx-28,my); ctx.lineTo(mx+28,my); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(mx,my-28); ctx.lineTo(mx,my+28); ctx.stroke();
+                ctx.beginPath(); ctx.arc(mx,my,16,0,Math.PI*2); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.font='bold 11px "Lilita One",cursive';
+                ctx.textAlign='center'; ctx.textBaseline='bottom';
+                ctx.fillStyle='#e74c3c'; ctx.fillText('💣 KLIKNIJ CEL', mx, my-32);
+                ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+            }
+            // Artillery aim crosshair when selecting target
+            if(artilleryMode && gameState==='PLAYING') {
+                const mx = mouse.screenX, my = mouse.screenY;
+                ctx.strokeStyle='rgba(231,76,60,0.8)'; ctx.lineWidth=2;
+                ctx.setLineDash([6,4]);
+                ctx.beginPath(); ctx.moveTo(mx-24,my); ctx.lineTo(mx+24,my); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(mx,my-24); ctx.lineTo(mx,my+24); ctx.stroke();
+                ctx.beginPath(); ctx.arc(mx,my,14,0,Math.PI*2); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.font='bold 11px "Lilita One",cursive';
+                ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillStyle='#e74c3c';
+                ctx.fillText('💣 KLIKNIJ CEL', mx, my-28);
+                ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+            }
 
             // Flag carry visual: small flag on top of player when carrying
             if(false && playerCarryingFlag) { // castle: no flag carrying
