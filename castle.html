@@ -958,13 +958,13 @@
         // CTF state
         // ── BRAWLER VIDEO SYSTEM ─────────────────────────────────────────
         const BRAWLER_LOSE_VIDEOS = {
-            'pyro': 'Ogniarz_lose.mp4',
+            'pyro': 'Movie/Ogniarz_lose.mp4',
             // 'twardy':'Twardy_lose.mp4', 'heavy':'Pancerny_lose.mp4',
             // 'scout':'Zwiad_lose.mp4', 'sniper':'Snajper_lose.mp4',
             // 'plasma':'Tech_lose.mp4', 'shadow':'Shadow_lose.mp4', 'king':'Krol_lose.mp4'
         };
         const BRAWLER_WIN_VIDEOS = {
-            'pyro': 'Ogniarz_win.mp4',
+            'pyro': 'Movie/Ogniarz_win.mp4',
         };
         function fadeOutMusic(duration=1500) {
             const tracks = ['bgMusic','gameMusic'].map(id=>document.getElementById(id)).filter(Boolean);
@@ -1015,6 +1015,10 @@
 
         // Barricade super
         let barricadeActive = false, barricadeEndTime = 0;
+        // Gate auto-open system
+        let gateIsOpen = false;
+        let gateOpenProgress = 0;  // 0=fully closed, 1=fully open
+        let gateOpenTimer = 0;     // frames remaining before auto-close
         let barricadeBlock = null;
 
         // Artillery super
@@ -2297,7 +2301,7 @@
                         let nextY = this.y + Math.sin(this.angle) * this.speed;
                         let canMoveX = true, canMoveY = true;
                         for(let env of environment) {
-                            if(env.type === 'wall' || (env.type === 'gate' && !gateDestroyed)) {
+                            if(env.type === 'wall' || (env.type === 'gate' && !gateDestroyed) || env.type === 'furtka') {
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, nextX, this.y, this.height/2)) canMoveX = false;
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2)) canMoveY = false;
                             }
@@ -4221,65 +4225,123 @@
 
         // ── CASTLE BUILDING DRAW ─────────────────────────────────
         function drawGateArches() {
-            // Draw wooden gate arches at N/S/E/W bridge positions
             const CX=CASTLE_CX, CY=CASTLE_CY;
             const WM=WALL_MARGIN, T=24, gW=140, halfG=gW/2;
-            const archH=32, pillarW=14, pillarH=36;
             const woodDark='#5a3a10', woodMid='#7a5020', woodLight='#9a6a30';
-            const metalCol='#888'; 
+            const metalCol='#8a8060';
 
-            // Gate positions: [centerX, centerY, horizontal(true) or vertical(false)]
-            const gates = [
-                {x:CX, y:CY-WM, horiz:true},   // N gate
-                {x:CX, y:CY+WM, horiz:true},   // S gate
-                {x:CX-WM, y:CY, horiz:false},  // W gate
-                {x:CX+WM, y:CY, horiz:false},  // E gate
+            // ── FURTKI (N/W/E) — simple stone arch, always passable ──
+            const furtki = [
+                {x:CX, y:CY-WM, horiz:true},
+                {x:CX-WM, y:CY, horiz:false},
+                {x:CX+WM, y:CY, horiz:false},
             ];
-
-            gates.forEach(g => {
-                ctx.save();
-                ctx.translate(g.x, g.y);
+            furtki.forEach(g => {
+                ctx.save(); ctx.translate(g.x, g.y);
                 if(!g.horiz) ctx.rotate(Math.PI/2);
-
-                // Left pillar
-                const pg=ctx.createLinearGradient(-halfG,-pillarH,-halfG+pillarW,-pillarH);
-                pg.addColorStop(0,woodDark); pg.addColorStop(0.5,woodMid); pg.addColorStop(1,woodDark);
-                ctx.fillStyle=pg; ctx.strokeStyle=woodDark; ctx.lineWidth=1.5;
-                ctx.beginPath(); ctx.roundRect(-halfG,-pillarH,pillarW,pillarH+T/2,3);
-                ctx.fill(); ctx.stroke();
-
-                // Right pillar
-                ctx.beginPath(); ctx.roundRect(halfG-pillarW,-pillarH,pillarW,pillarH+T/2,3);
-                ctx.fill(); ctx.stroke();
-
-                // Arch beam across top
-                const ag=ctx.createLinearGradient(-halfG,-pillarH-8,-halfG,archH-pillarH-8);
-                ag.addColorStop(0,woodLight); ag.addColorStop(1,woodDark);
-                ctx.fillStyle=ag;
-                ctx.beginPath(); ctx.roundRect(-halfG,-pillarH-8,gW,archH,5);
-                ctx.fill(); ctx.stroke();
-
-                // Cross brace
-                ctx.strokeStyle=woodDark; ctx.lineWidth=3;
-                ctx.beginPath(); 
-                ctx.moveTo(-halfG+pillarW,-pillarH+5); ctx.lineTo(halfG-pillarW,-pillarH+5);
-                ctx.stroke();
-
-                // Metal studs on pillars
-                [[(-halfG+pillarW/2), -pillarH+10],[(-halfG+pillarW/2),-pillarH+24],
-                 [(halfG-pillarW/2),-pillarH+10],[(halfG-pillarW/2),-pillarH+24]].forEach(([sx,sy])=>{
-                    ctx.fillStyle=metalCol;
-                    ctx.beginPath(); ctx.arc(sx,sy,3,0,Math.PI*2); ctx.fill();
-                    ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=0.8; ctx.stroke();
-                });
-
-                // Arch label
-                ctx.font='bold 8px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillStyle='rgba(255,220,100,0.5)';
-                ctx.fillText('⚔', 0, -pillarH-8+archH/2);
-
+                // Stone pillars
+                ctx.fillStyle='#7a6a50'; ctx.strokeStyle='#5a4a38'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.roundRect(-halfG,-28,16,28+T/2,2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(halfG-16,-28,16,28+T/2,2); ctx.fill(); ctx.stroke();
+                // Stone lintel
+                ctx.fillStyle='#8a7a60';
+                ctx.beginPath(); ctx.roundRect(-halfG,-36,gW,12,3); ctx.fill(); ctx.stroke();
                 ctx.restore();
             });
+
+            // ── SOUTH GATE (main, animated, HP states) ──
+            if(gateDestroyed) {
+                // Destroyed: charred stumps only
+                ctx.save(); ctx.translate(CX, CY+WM);
+                ctx.fillStyle='#2a1a08'; ctx.strokeStyle='#8b3a0a'; ctx.lineWidth=1.5;
+                [-halfG+6, halfG-16].forEach(px => {
+                    ctx.beginPath(); ctx.roundRect(px,-22,10,22+T/2,2); ctx.fill(); ctx.stroke();
+                    // Char marks
+                    ctx.strokeStyle='#e74c3c'; ctx.lineWidth=0.8;
+                    for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(px+2,-18+i*6);ctx.lineTo(px+8,-14+i*6);ctx.stroke();}
+                });
+                ctx.restore();
+                return;
+            }
+
+            const openPx = gateOpenProgress * halfG * 0.92; // how far each half slides
+
+            // Determine HP color / crack level
+            const hpPct = gateMaxHP>0 ? gateHP/gateMaxHP : 1;
+            const planksCol = hpPct>0.6 ? woodMid : hpPct>0.3 ? '#6b4a18' : '#4a2a08';
+            const crackAlpha = Math.min(1, (1-hpPct)*1.4);
+
+            ctx.save(); ctx.translate(CX, CY+WM);
+
+            // Left half (slides left when opening)
+            ctx.save(); ctx.translate(-openPx, 0);
+            // Left pillar
+            const pg=ctx.createLinearGradient(-halfG,-36,-halfG+14,0);
+            pg.addColorStop(0,woodDark); pg.addColorStop(0.5,woodMid); pg.addColorStop(1,woodDark);
+            ctx.fillStyle=pg; ctx.strokeStyle=woodDark; ctx.lineWidth=1.5;
+            ctx.beginPath(); ctx.roundRect(-halfG,-36,14,36+T/2,3); ctx.fill(); ctx.stroke();
+            // Left door plank
+            ctx.fillStyle=planksCol; ctx.strokeStyle=woodDark; ctx.lineWidth=1;
+            ctx.beginPath(); ctx.roundRect(-halfG+14,-T/2,halfG-14,T+4,2); ctx.fill(); ctx.stroke();
+            // Horizontal door braces
+            ctx.strokeStyle=woodDark; ctx.lineWidth=2.5;
+            [-T/2+4, 4, T/2+6].forEach(by => {
+                ctx.beginPath(); ctx.moveTo(-halfG+16,by); ctx.lineTo(-4,by); ctx.stroke();
+            });
+            // Metal studs left pillar
+            [[-halfG+7,-24],[-halfG+7,-10]].forEach(([sx,sy])=>{
+                ctx.fillStyle=metalCol; ctx.beginPath(); ctx.arc(sx,sy,3,0,Math.PI*2); ctx.fill();
+            });
+            // Cracks when damaged
+            if(crackAlpha > 0.1) {
+                ctx.strokeStyle=`rgba(0,0,0,${crackAlpha*0.7})`; ctx.lineWidth=1.2;
+                ctx.beginPath(); ctx.moveTo(-halfG+20,-8); ctx.lineTo(-halfG+32,2); ctx.stroke();
+                if(crackAlpha>0.5){ctx.beginPath();ctx.moveTo(-halfG+24,-2);ctx.lineTo(-halfG+18,10);ctx.stroke();}
+            }
+            ctx.restore();
+
+            // Right half (slides right when opening)
+            ctx.save(); ctx.translate(openPx, 0);
+            // Right pillar
+            ctx.fillStyle=pg; ctx.strokeStyle=woodDark; ctx.lineWidth=1.5;
+            ctx.beginPath(); ctx.roundRect(halfG-14,-36,14,36+T/2,3); ctx.fill(); ctx.stroke();
+            // Right door plank
+            ctx.fillStyle=planksCol; ctx.strokeStyle=woodDark; ctx.lineWidth=1;
+            ctx.beginPath(); ctx.roundRect(4,-T/2,halfG-14,T+4,2); ctx.fill(); ctx.stroke();
+            // Horizontal door braces right
+            ctx.strokeStyle=woodDark; ctx.lineWidth=2.5;
+            [-T/2+4, 4, T/2+6].forEach(by => {
+                ctx.beginPath(); ctx.moveTo(4,by); ctx.lineTo(halfG-16,by); ctx.stroke();
+            });
+            // Metal studs right pillar
+            [[halfG-7,-24],[halfG-7,-10]].forEach(([sx,sy])=>{
+                ctx.fillStyle=metalCol; ctx.beginPath(); ctx.arc(sx,sy,3,0,Math.PI*2); ctx.fill();
+            });
+            // Central lock bracket (only when closed)
+            if(gateOpenProgress < 0.15) {
+                ctx.fillStyle=metalCol; ctx.strokeStyle='#5a5030'; ctx.lineWidth=1;
+                ctx.beginPath(); ctx.roundRect(-10,-6,20,12,3); ctx.fill(); ctx.stroke();
+                ctx.fillStyle='#333'; ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
+            }
+            if(crackAlpha>0.1){
+                ctx.strokeStyle=`rgba(0,0,0,${crackAlpha*0.7})`; ctx.lineWidth=1.2;
+                ctx.beginPath(); ctx.moveTo(halfG-20,-6); ctx.lineTo(halfG-30,4); ctx.stroke();
+            }
+            ctx.restore();
+
+            // Arch beam above (stays fixed)
+            const ag=ctx.createLinearGradient(-halfG,-44,-halfG,0);
+            ag.addColorStop(0,woodLight); ag.addColorStop(1,woodDark);
+            ctx.fillStyle=ag; ctx.strokeStyle=woodDark; ctx.lineWidth=1.5;
+            ctx.beginPath(); ctx.roundRect(-halfG,-44,gW,14,4); ctx.fill(); ctx.stroke();
+            // Arch label
+            if(hpPct<0.4){
+                ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillStyle=`rgba(231,76,60,${0.6+Math.sin(frames*0.2)*0.3})`;
+                ctx.fillText('⚠', 0,-38);
+            }
+
+            ctx.restore();
         }
         function drawCastleBuilding() {
             // World-space 2.5D castle at center
@@ -4491,6 +4553,7 @@
             if(pw.id === 'repair') {
                 wallHP = Math.min(wallMaxHP, wallHP + 4);
                 if(wallHP > 0) wallDestroyed = false;
+                if(!gateDestroyed) gateHP = Math.min(gateMaxHP, gateHP + 2); // repair gate too (not if destroyed)
                 createExplosion(player.x, player.y, '#2ecc71', 14);
                 addHudNotif('🔧 +4 HP Muru', '#2ecc71');
                 AudioSys.playGem();
@@ -4588,7 +4651,12 @@
                 } else if(!wallDestroyed && distWall < 30 && distCastle > 140) {
                     wallHP = Math.max(0, wallHP - 1);
                     castleDamageCooldown[id] = now;
-                    if(wallHP <= 0) { wallDestroyed = true; floatingTexts.push(new FloatingText(CASTLE_CX, CASTLE_CY-60, '💥 MUR ZNISZCZONY!', '#e74c3c')); }
+                    if(wallHP <= 0) {
+                                    wallDestroyed = true;
+                                    // Remove furtki — wall fell, N/E/W passages open for enemies
+                                    environment = environment.filter(e => e.type !== 'furtka');
+                                    floatingTexts.push(new FloatingText(CASTLE_CX, CASTLE_CY-60, '💥 MUR ZNISZCZONY!', '#e74c3c'));
+                                }
                 } else if(!gateDestroyed && Math.abs(e.x-CASTLE_CX)<70 && Math.abs(e.y-(CASTLE_CY+WALL_MARGIN))<40) {
                     gateHP = Math.max(0, gateHP - 1);
                     castleDamageCooldown[id] = now;
@@ -4642,6 +4710,14 @@
                 environment.push(new EnvironmentBlock(tx,ty,28,28,'wall','#5a4a3a'));
                 mapDecorations.push({x:tx+14, y:ty+14, mapId:'castle_tower', seed:Math.random()});
             });
+
+            // ── N/E/W FURTKI (type='furtka') — player only, enemies always blocked ──
+            // North furtka
+            environment.push(new EnvironmentBlock(CX-gapW/2, wy, gapW, T, 'furtka', '#7a6a50'));
+            // West furtka
+            environment.push(new EnvironmentBlock(wx, CY-gapW/2, T, gapW, 'furtka', '#7a6a50'));
+            // East furtka
+            environment.push(new EnvironmentBlock(wx+ww2-T, CY-gapW/2, T, gapW, 'furtka', '#7a6a50'));
 
             // ── SOUTH GATE BLOCK (type='gate') — blocks enemies until gateDestroyed ──
             // Player movement only checks 'wall', so player passes through freely
@@ -5116,6 +5192,24 @@
 
             player.update(); bullets.forEach(b => b.update());
             enemies.forEach(e => e.update()); gems.forEach(g => g.update());
+            // ── SOUTH GATE AUTO-OPEN/CLOSE ────────────────────────────────
+            if(!gateDestroyed) {
+                const gateCX = CASTLE_CX, gateCY = CASTLE_CY + WALL_MARGIN - 12;
+                const distGate = Math.hypot(player.x - gateCX, player.y - gateCY);
+                if(distGate < 100) {
+                    gateIsOpen = true;
+                    gateOpenTimer = 180; // 3s @ 60fps reset while close
+                }
+                if(gateOpenTimer > 0) {
+                    gateOpenTimer--;
+                    if(gateOpenTimer === 0) gateIsOpen = false;
+                }
+                // Animate open/close progress
+                const target = gateIsOpen ? 1 : 0;
+                gateOpenProgress += (target - gateOpenProgress) * 0.12;
+            } else {
+                gateOpenProgress = 1; // destroyed = fully open
+            }
             updateWaveSystem();
             castleDamageCheck();
             updateBarricade();
@@ -5403,6 +5497,7 @@
             waveMessage = { text:'', color:'#fff', timer:0 };
             castlePowerCooldowns = [0, 0, 0];
             barricadeActive = false; barricadeBlock = null;
+            gateIsOpen = false; gateOpenProgress = 0; gateOpenTimer = 0;
             artilleryMode = false; artilleryTarget = null;
             castleDamageCooldown = {}; repairsUsed = 0;
             megaBossSpawnedCastle = false;
