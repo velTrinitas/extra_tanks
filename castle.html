@@ -985,6 +985,7 @@
 
         // ── CTF COMPATIBILITY — declared as safe defaults (never used in castle) ──
         let playerCarryingFlag = null;
+        let selectedPower = 0; // 0=Repair, 1=Barricade, 2=Artillery
         let ctfFlagsCaptured = 0;
         let ctfBossKilled = [false, false, false];
         let ctfBossRespawnTimers = [0, 0, 0];
@@ -1008,9 +1009,9 @@
             if(gameState === 'PLAYING' && EMOTES[key]) player.showEmote(EMOTES[key]);
             // Castle super powers
             if(gameState === 'PLAYING') {
-                if(e.code==='KeyQ') activateCastlePower(0);
-                if(e.code==='KeyW') activateCastlePower(1);
-                if(e.code==='KeyE') activateCastlePower(2);
+                if(e.code==='KeyQ') activateCastlePower(0); // 🔧 Repair
+                if(e.code==='KeyE') activateCastlePower(1); // 🛡️ Barricade
+                if(e.code==='KeyR') activateCastlePower(2); // 💣 Artillery
             }
         });
         window.addEventListener('keyup', e => { 
@@ -1023,15 +1024,23 @@
         window.addEventListener('mouseup', (e) => { if(e.button===0) mouse.isDown = false; });
         canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            if(gameState==='PLAYING' && artilleryMode) {
-                // Fire artillery at right-click position
+            if(gameState !== 'PLAYING') return;
+            if(artilleryMode) {
+                // Artillery targeting mode — PPM fires at cursor
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
                 const sx = (e.clientX - rect.left) * scaleX;
                 const sy = (e.clientY - rect.top) * scaleY;
                 fireArtillery(sx + camera.x, sy + camera.y);
+            } else {
+                // PPM activates currently selected power (scroll to choose)
+                activateCastlePower(selectedPower);
             }
         });
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            selectedPower = (selectedPower + (e.deltaY > 0 ? 1 : -1) + CASTLE_POWERS.length) % CASTLE_POWERS.length;
+        }, { passive: false });
 
         class EnvironmentBlock {
             constructor(x, y, w, h, type, color) {
@@ -3692,8 +3701,9 @@
 
                 ctx.fillStyle = onCd ? 'rgba(8,8,18,0.7)' : 'rgba(8,8,18,0.85)';
                 ctx.beginPath(); ctx.roundRect(x, sy, slotW, slotH, 10); ctx.fill();
-                ctx.strokeStyle = onCd ? 'rgba(255,255,255,0.15)' : pw.col;
-                ctx.lineWidth = onCd ? 1 : 2;
+                const isSelected = (i === selectedPower);
+                ctx.strokeStyle = onCd ? 'rgba(255,255,255,0.15)' : isSelected ? '#fff' : pw.col;
+                ctx.lineWidth = onCd ? 1 : isSelected ? 3 : 2;
                 ctx.beginPath(); ctx.roundRect(x, sy, slotW, slotH, 10); ctx.stroke();
 
                 // Icon
@@ -3704,7 +3714,7 @@
                 // Slot number
                 ctx.font='bold 10px "Lilita One",cursive';
                 ctx.fillStyle='rgba(255,255,255,0.45)';
-                ctx.fillText(i===0?'Q':i===1?'W':'E', x+6, sy+slotH-6);
+                ctx.fillText(i===0?'Q':i===1?'E':'R', x+6, sy+slotH-6);
                 ctx.globalAlpha=1;
 
                 // Cooldown overlay
@@ -3726,6 +3736,10 @@
                     ctx.globalAlpha=1;
                 }
             });
+            // PPM hint
+            ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillText('scroll = wybierz   PPM = użyj', screenW/2, sy + slotH + 4);
             ctx.textAlign='left'; ctx.textBaseline='alphabetic';
         }
 
