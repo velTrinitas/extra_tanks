@@ -4484,7 +4484,7 @@
 
             // ── CASTLE WALL (square ring with gaps for bridges) ──────
             const wx = CX-WM, wy = CY-WM, ww2 = WM*2, wh2 = WM*2;
-            const gapW = 70; // bridge gap width
+            const gapW = 140; // bridge gap width — wide enough for player to navigate
             const gapX = CX-gapW/2, gapY = CY-gapW/2;
             const WALLCOL = '#6b5d4a';
             // Top wall
@@ -5154,7 +5154,7 @@
             AudioSys.init();
             player.applyBrawler(selectedBrawler);
             // Spawn player inside castle walls
-            player.x = CASTLE_CX; player.y = CASTLE_CY + 60;
+            player.x = CASTLE_CX; player.y = CASTLE_CY - 50; // Spawn inside castle, north of gate
             generateMap();
             bullets = []; enemies = []; gems = []; hearts = []; particles = [];
             powerCubes = []; floatingTexts = []; trackMarks = []; bombExplosion = null; magnets = [];
