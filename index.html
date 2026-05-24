@@ -4309,6 +4309,12 @@
         refreshBrawlerCards(); // Init trophy display + Total Power
         updateActiveProfileLabel();
 
+        // Skip intro when returning from game (castle/ctf sent ?skipintro=1)
+        if(new URLSearchParams(window.location.search).get('skipintro')==='1' && activeProfile) {
+            document.getElementById('introScreen').classList.remove('active-screen');
+            document.getElementById('welcomeScreen').classList.add('active-screen');
+        }
+
         // Brawler sound effects
         const BRAWLER_SOUNDS = { twardy: 'Sound_Effects/Twardy.mp3', pyro: 'Sound_Effects/Ogniarz.mp3' };
         document.querySelectorAll('#charGrid .select-card').forEach(card => {

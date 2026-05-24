@@ -466,6 +466,9 @@
         <!-- VICTORY SCREEN -->
         <div id="victoryScreen" class="screen">
             <h1>🏆 VICTORY!</h1>
+            <div id="victoryScreenVideoWrap" style="display:none;margin:8px auto;border-radius:10px;overflow:hidden;width:240px;border:2px solid #f1c40f;">
+                <video id="victoryScreenVideo" width="240" autoplay loop preload="none" playsinline style="display:block;"></video>
+            </div>
             <canvas id="victoryCanvas" width="300" height="200"></canvas>
             <p style="font-family:sans-serif;font-size:1rem;color:#a8d87c;margin:4px 0 6px;">Flagi schwytane!</p>
             <div id="victoryTrophyDisplay" class="trophy-change-box"></div>
@@ -475,7 +478,7 @@
                 <tr><td>💥 Zniszczeni wrogowie</td><td id="vStatKills">0</td></tr>
                 <tr><td>⏱️ Czas</td><td id="vStatTime">0s</td></tr>
             </table>
-            <button class="brawl-btn" id="victoryBtn" style="background:#27ae60;box-shadow:0 8px 0 #1a7a40;">Powrót do Menu</button>
+            <button class="brawl-btn" id="victoryBtn" onclick="window.location.href='index.html?skipintro=1'" style="background:#27ae60;box-shadow:0 8px 0 #1a7a40;">Powrót do Menu</button>
         </div>
 
         <!-- INSTRUCTIONS SCREEN -->
@@ -587,17 +590,21 @@
         </div>
 
         <!-- GAME OVER SCREEN -->
-        <div id="gameOverScreen" class="screen" style="background:rgba(8,4,4,0.82);border:2px solid #c0392b;backdrop-filter:blur(3px);max-width:420px;">
-            <h1 style="font-family:'Lilita One',cursive;font-size:3rem;color:#e74c3c;text-shadow:0 0 20px rgba(231,76,60,0.8),2px 2px 0 #000;margin:0 0 4px;letter-spacing:2px;">💥 PRZEGRANA</h1>
-            <p style="font-family:'Lilita One',cursive;color:rgba(255,255,255,0.5);font-size:0.85rem;margin:0 0 12px;">Zamek upadł w falę <span id="statFlags" style="color:#e67e22;font-size:1.1em;"></span></p>
-            <div id="trophyChangeDisplay" class="trophy-change-box" style="margin-bottom:10px;"></div>
+        <div id="gameOverScreen" class="screen">
+            <h1 style="color:#e74c3c;text-shadow:2px 2px 0 #000;">💥 PRZEGRANA</h1>
+            <div id="gameOverScreenVideoWrap" style="display:none;margin:8px auto;border-radius:10px;overflow:hidden;width:240px;border:2px solid #e74c3c;">
+                <video id="gameOverScreenVideo" width="240" autoplay loop preload="none" playsinline style="display:block;"></video>
+            </div>
+            <div id="starRating" style="font-size:3.5rem;line-height:1;margin:6px 0;"></div>
+            <div id="rankTitle" style="font-size:1.4rem;color:#e67e22;font-family:sans-serif;font-weight:bold;margin-bottom:6px;text-shadow:1px 1px 0 #000;"></div>
+            <div id="trophyChangeDisplay" class="trophy-change-box"></div>
             <table class="stats-table">
-                <tr><td>⚔️ Fale przetrwane</td><td id="statWaves" style="color:#e67e22;">0</td></tr>
+                <tr><td>⚔️ Fale przetrwane</td><td id="statWaves">0</td></tr>
                 <tr><td>💎 Zebrane gemy</td><td id="statScore">0</td></tr>
                 <tr><td>💥 Zniszczeni wrogowie</td><td id="statKills">0</td></tr>
                 <tr><td>⏱️ Czas przetrwania</td><td id="statTime">0s</td></tr>
             </table>
-            <button class="brawl-btn" id="restartBtn" onclick="window.location.href='index.html'" style="margin-top:14px;background:linear-gradient(135deg,#c0392b,#922b21);border-bottom-color:#7b241c;">
+            <button class="brawl-btn" id="restartBtn" onclick="window.location.href='index.html?skipintro=1'">
                 ← Menu Główne
             </button>
         </div>
@@ -949,6 +956,41 @@
         let hudNotifs = [];
         let selectedScenario = 'ctf';
         // CTF state
+        // ── BRAWLER VIDEO SYSTEM ─────────────────────────────────────────
+        const BRAWLER_LOSE_VIDEOS = {
+            'pyro': 'Ogniarz_lose.mp4',
+            // 'twardy':'Twardy_lose.mp4', 'heavy':'Pancerny_lose.mp4',
+            // 'scout':'Zwiad_lose.mp4', 'sniper':'Snajper_lose.mp4',
+            // 'plasma':'Tech_lose.mp4', 'shadow':'Shadow_lose.mp4', 'king':'Krol_lose.mp4'
+        };
+        const BRAWLER_WIN_VIDEOS = {
+            'pyro': 'Ogniarz_win.mp4',
+        };
+        function fadeOutMusic(duration=1500) {
+            const tracks = ['bgMusic','gameMusic'].map(id=>document.getElementById(id)).filter(Boolean);
+            tracks.forEach(t => {
+                if(t.paused) return;
+                const step = t.volume / (duration/50);
+                const fade = setInterval(()=>{
+                    if(t.volume > step) t.volume -= step;
+                    else { t.volume=0; t.pause(); clearInterval(fade); }
+                }, 50);
+            });
+        }
+        function showBrawlerVideo(screenId, mapObj) {
+            const vid = document.getElementById(screenId+'Video');
+            const wrap = document.getElementById(screenId+'VideoWrap');
+            if(!vid || !wrap) return;
+            const file = mapObj[selectedBrawler.id];
+            if(file) {
+                vid.src = file;
+                wrap.style.display = 'block';
+                vid.load();
+                vid.play().catch(()=>{});
+            } else {
+                wrap.style.display = 'none';
+            }
+        }
         // ── CASTLE GLOBALS ─────────────────────────────────────────
         const CASTLE_CX = WORLD_W/2, CASTLE_CY = WORLD_H/2;
         const CASTLE_W = 280, CASTLE_H = 160;
@@ -2229,6 +2271,7 @@
                     // Always shoot at player if close enough
                     const dxP2 = player.x - this.x, dyP2 = player.y - this.y;
                     const distP2 = Math.sqrt(dxP2*dxP2 + dyP2*dyP2);
+                    // Shoot at player if close
                     if(distP2 < 380 && Date.now() - this.lastShot > (this.isBoss ? 800 : 1500)) {
                         this.lastShot = Date.now();
                         const shootAngle = Math.atan2(dyP2, dxP2);
@@ -2240,13 +2283,21 @@
                             bullets.push(new Bullet(this.x, this.y, shootAngle, false));
                         }
                         AudioSys.playShoot('standard');
+                    // Shoot at gate/wall when near and player is far
+                    } else if(distP2 >= 380 && dist < 220 && !gateDestroyed &&
+                               Date.now() - this.lastShot > (this.isBoss ? 1200 : 2200)) {
+                        this.lastShot = Date.now();
+                        const gx = CASTLE_CX, gy = CASTLE_CY + WALL_MARGIN - T/2;
+                        const gAngle = Math.atan2(gy - this.y, gx - this.x);
+                        bullets.push(new Bullet(this.x, this.y, gAngle, false));
+                        AudioSys.playShoot('standard');
                     }
                     if (dist > (this.castleTarget ? 80 : 150)) {
                         let nextX = this.x + Math.cos(this.angle) * this.speed;
                         let nextY = this.y + Math.sin(this.angle) * this.speed;
                         let canMoveX = true, canMoveY = true;
                         for(let env of environment) {
-                            if(env.type === 'wall') {
+                            if(env.type === 'wall' || (env.type === 'gate' && !gateDestroyed)) {
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, nextX, this.y, this.height/2)) canMoveX = false;
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2)) canMoveY = false;
                             }
@@ -4541,7 +4592,13 @@
                 } else if(!gateDestroyed && Math.abs(e.x-CASTLE_CX)<70 && Math.abs(e.y-(CASTLE_CY+WALL_MARGIN))<40) {
                     gateHP = Math.max(0, gateHP - 1);
                     castleDamageCooldown[id] = now;
-                    if(gateHP <= 0) { gateDestroyed = true; floatingTexts.push(new FloatingText(CASTLE_CX, CASTLE_CY+WALL_MARGIN-30, '💥 BRAMA WYŁAMANA!', '#e67e22')); }
+                    if(gateHP <= 0) {
+                                    gateDestroyed = true;
+                                    // Remove gate collision block — enemies can now pass through
+                                    environment = environment.filter(e => e.type !== 'gate');
+                                    floatingTexts.push(new FloatingText(CASTLE_CX, CASTLE_CY+WALL_MARGIN-30, '💥 BRAMA WYŁAMANA!', '#e67e22'));
+                                    shakeTimer = 25;
+                                }
                 }
             });
         }
@@ -4585,6 +4642,14 @@
                 environment.push(new EnvironmentBlock(tx,ty,28,28,'wall','#5a4a3a'));
                 mapDecorations.push({x:tx+14, y:ty+14, mapId:'castle_tower', seed:Math.random()});
             });
+
+            // ── SOUTH GATE BLOCK (type='gate') — blocks enemies until gateDestroyed ──
+            // Player movement only checks 'wall', so player passes through freely
+            environment.push(new EnvironmentBlock(
+                CX - gapW/2, wy + wh2 - T, // same x,y as south wall gap
+                gapW, T,                    // 140×24px
+                'gate', '#8b6914'           // wood/brass color
+            ));
 
             // ── MOAT (impassable water ring) ─────────────────────────
             // ── MOAT — split into 2 per side, gap = bridge passage ──
@@ -4703,6 +4768,8 @@
 
         function triggerGameOver() {
             gameState='GAMEOVER';
+            fadeOutMusic(1500);
+            setTimeout(()=>showBrawlerVideo('gameOverScreen', BRAWLER_LOSE_VIDEOS), 800);
             gameOverAnim.x = player.x; gameOverAnim.y = player.y; gameOverAnim.age = 0; gameOverAnim.smokeP = [];
             createExplosion(player.x, player.y, '#e74c3c', 28);
             window._castleLoopRunning = false;
@@ -5379,9 +5446,7 @@
             document.getElementById('instructionsScreen').classList.remove('active-screen');
             document.getElementById('welcomeScreen').classList.add('active-screen');
         });
-        document.getElementById('restartBtn').addEventListener('click', () => {
-            window.location.href = 'index.html';
-        });
+        // restartBtn handled by onclick attribute
         
         document.getElementById('charGrid').children[0].classList.add('selected');
         document.getElementById('mapGrid').children[0].classList.add('selected');
