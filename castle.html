@@ -4520,11 +4520,23 @@
             });
 
             // ── MOAT (impassable water ring) ─────────────────────────
+            // ── MOAT — split into 2 per side, gap = bridge passage ──
+            const bridgeGap = 140; // same as wall gate gap
+            const bHalf = bridgeGap / 2;
+
             const moatPos = [
-                {x:CX-MM, y:CY-MM, w:MM*2, h:MM-WM-T},          // N strip
-                {x:CX-MM, y:CY+WM+T, w:MM*2, h:MM-WM-T},         // S strip
-                {x:CX-MM, y:CY-WM-T, w:MM-WM-T, h:WM*2+T*2},     // W strip
-                {x:CX+WM+T, y:CY-WM-T, w:MM-WM-T, h:WM*2+T*2},   // E strip
+                // N strip — left + right of north bridge
+                {x:CX-MM,        y:CY-MM, w:MM-bHalf,   h:MM-WM-T},
+                {x:CX+bHalf,     y:CY-MM, w:MM-bHalf,   h:MM-WM-T},
+                // S strip — left + right of south bridge (gate)
+                {x:CX-MM,        y:CY+WM+T, w:MM-bHalf, h:MM-WM-T},
+                {x:CX+bHalf,     y:CY+WM+T, w:MM-bHalf, h:MM-WM-T},
+                // W strip — top + bottom of west bridge
+                {x:CX-MM, y:CY-WM-T,    w:MM-WM-T, h:WM-bHalf},
+                {x:CX-MM, y:CY+bHalf,   w:MM-WM-T, h:WM-bHalf+T},
+                // E strip — top + bottom of east bridge
+                {x:CX+WM+T, y:CY-WM-T,  w:MM-WM-T, h:WM-bHalf},
+                {x:CX+WM+T, y:CY+bHalf, w:MM-WM-T, h:WM-bHalf+T},
             ];
             moatPos.forEach(m => {
                 lakeZones.push(m);
