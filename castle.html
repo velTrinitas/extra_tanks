@@ -587,20 +587,19 @@
         </div>
 
         <!-- GAME OVER SCREEN -->
-        <div id="gameOverScreen" class="screen">
-            <h1>Przegrana</h1>
-            <div id="starRating" style="font-size:3.5rem;line-height:1;margin:6px 0;"></div>
-            <div id="rankTitle" style="font-size:1.4rem;color:#e67e22;font-family:sans-serif;font-weight:bold;margin-bottom:6px;text-shadow:1px 1px 0 #000;"></div>
-            <div id="trophyChangeDisplay" class="trophy-change-box"></div>
-
+        <div id="gameOverScreen" class="screen" style="background:rgba(8,4,4,0.82);border:2px solid #c0392b;backdrop-filter:blur(3px);max-width:420px;">
+            <h1 style="font-family:'Lilita One',cursive;font-size:3rem;color:#e74c3c;text-shadow:0 0 20px rgba(231,76,60,0.8),2px 2px 0 #000;margin:0 0 4px;letter-spacing:2px;">💥 PRZEGRANA</h1>
+            <p style="font-family:'Lilita One',cursive;color:rgba(255,255,255,0.5);font-size:0.85rem;margin:0 0 12px;">Zamek upadł w falę <span id="statFlags" style="color:#e67e22;font-size:1.1em;"></span></p>
+            <div id="trophyChangeDisplay" class="trophy-change-box" style="margin-bottom:10px;"></div>
             <table class="stats-table">
-                <tr><td>🚩 Flagi schwytane</td><td id="statFlags">0/3</td></tr>
+                <tr><td>⚔️ Fale przetrwane</td><td id="statWaves" style="color:#e67e22;">0</td></tr>
                 <tr><td>💎 Zebrane gemy</td><td id="statScore">0</td></tr>
                 <tr><td>💥 Zniszczeni wrogowie</td><td id="statKills">0</td></tr>
                 <tr><td>⏱️ Czas przetrwania</td><td id="statTime">0s</td></tr>
             </table>
-
-            <button class="brawl-btn" id="restartBtn">Powrót do Menu Głównego</button>
+            <button class="brawl-btn" id="restartBtn" onclick="window.location.href='index.html'" style="margin-top:14px;background:linear-gradient(135deg,#c0392b,#922b21);border-bottom-color:#7b241c;">
+                ← Menu Główne
+            </button>
         </div>
 
     </div>
@@ -978,6 +977,7 @@
 
         // Artillery super
         let artilleryMode = false;
+        let gameOverAnim = { x:1200, y:1200, smokeP:[], age:0 }; // demolished tank anim
         let artilleryTarget = null, artilleryTimer = 0;
 
         // Castle damage cooldown
@@ -3653,8 +3653,8 @@
         }
 
         function drawWaveHUD() {
-            // Top right: wave counter
-            const KW=200, KH=54, kx=screenW-14-KW, ky=8;
+            // Top right: wave counter + timer
+            const KW=200, KH=72, kx=screenW-14-KW, ky=8;
             ctx.fillStyle='rgba(8,8,18,0.75)';
             ctx.beginPath(); ctx.roundRect(kx,ky,KW,KH,16); ctx.fill();
             ctx.strokeStyle='rgba(241,196,15,0.25)'; ctx.lineWidth=0.8;
@@ -3684,6 +3684,12 @@
                 ctx.fillStyle='#2ecc71';
                 ctx.fillText('✅ WSZYSTKIE FALE!', kx+KW/2, ky+KH/2);
             }
+            // Timer always shown at bottom of wave pill
+            const mins = Math.floor(gameTime/60), secs = gameTime%60;
+            const timeStr = '⏱ '+mins+':'+(secs<10?'0':'')+secs;
+            ctx.font='bold 11px "Lilita One",cursive'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillStyle='rgba(255,255,255,0.45)';
+            ctx.fillText(timeStr, kx+KW/2, ky+KH-10);
             ctx.textAlign='left'; ctx.textBaseline='alphabetic';
         }
 
@@ -4163,6 +4169,67 @@
         }
 
         // ── CASTLE BUILDING DRAW ─────────────────────────────────
+        function drawGateArches() {
+            // Draw wooden gate arches at N/S/E/W bridge positions
+            const CX=CASTLE_CX, CY=CASTLE_CY;
+            const WM=WALL_MARGIN, T=24, gW=140, halfG=gW/2;
+            const archH=32, pillarW=14, pillarH=36;
+            const woodDark='#5a3a10', woodMid='#7a5020', woodLight='#9a6a30';
+            const metalCol='#888'; 
+
+            // Gate positions: [centerX, centerY, horizontal(true) or vertical(false)]
+            const gates = [
+                {x:CX, y:CY-WM, horiz:true},   // N gate
+                {x:CX, y:CY+WM, horiz:true},   // S gate
+                {x:CX-WM, y:CY, horiz:false},  // W gate
+                {x:CX+WM, y:CY, horiz:false},  // E gate
+            ];
+
+            gates.forEach(g => {
+                ctx.save();
+                ctx.translate(g.x, g.y);
+                if(!g.horiz) ctx.rotate(Math.PI/2);
+
+                // Left pillar
+                const pg=ctx.createLinearGradient(-halfG,-pillarH,-halfG+pillarW,-pillarH);
+                pg.addColorStop(0,woodDark); pg.addColorStop(0.5,woodMid); pg.addColorStop(1,woodDark);
+                ctx.fillStyle=pg; ctx.strokeStyle=woodDark; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.roundRect(-halfG,-pillarH,pillarW,pillarH+T/2,3);
+                ctx.fill(); ctx.stroke();
+
+                // Right pillar
+                ctx.beginPath(); ctx.roundRect(halfG-pillarW,-pillarH,pillarW,pillarH+T/2,3);
+                ctx.fill(); ctx.stroke();
+
+                // Arch beam across top
+                const ag=ctx.createLinearGradient(-halfG,-pillarH-8,-halfG,archH-pillarH-8);
+                ag.addColorStop(0,woodLight); ag.addColorStop(1,woodDark);
+                ctx.fillStyle=ag;
+                ctx.beginPath(); ctx.roundRect(-halfG,-pillarH-8,gW,archH,5);
+                ctx.fill(); ctx.stroke();
+
+                // Cross brace
+                ctx.strokeStyle=woodDark; ctx.lineWidth=3;
+                ctx.beginPath(); 
+                ctx.moveTo(-halfG+pillarW,-pillarH+5); ctx.lineTo(halfG-pillarW,-pillarH+5);
+                ctx.stroke();
+
+                // Metal studs on pillars
+                [[(-halfG+pillarW/2), -pillarH+10],[(-halfG+pillarW/2),-pillarH+24],
+                 [(halfG-pillarW/2),-pillarH+10],[(halfG-pillarW/2),-pillarH+24]].forEach(([sx,sy])=>{
+                    ctx.fillStyle=metalCol;
+                    ctx.beginPath(); ctx.arc(sx,sy,3,0,Math.PI*2); ctx.fill();
+                    ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=0.8; ctx.stroke();
+                });
+
+                // Arch label
+                ctx.font='bold 8px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillStyle='rgba(255,220,100,0.5)';
+                ctx.fillText('⚔', 0, -pillarH-8+archH/2);
+
+                ctx.restore();
+            });
+        }
         function drawCastleBuilding() {
             // World-space 2.5D castle at center
             const cx = CASTLE_CX, cy = CASTLE_CY;
@@ -4259,13 +4326,13 @@
                 ctx.beginPath(); ctx.moveTo(bx+bw*0.5,by+bh*0.4); ctx.lineTo(bx+bw*0.6,by+bh*0.8); ctx.stroke();
             }
 
-            // Castle HP pill above building
-            const pillW=160, pillH=20, pillX=cx-pillW/2, pillY=by-36;
-            ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.roundRect(pillX,pillY,pillW,pillH,10); ctx.fill();
+            // Castle HP bar — below south wall, thin 8px bar
+            const pillW=160, pillH=8, pillX=cx-pillW/2, pillY=by+bh+6;
+            ctx.fillStyle='rgba(0,0,0,0.50)'; ctx.beginPath(); ctx.roundRect(pillX,pillY,pillW,pillH,4); ctx.fill();
             const cpct=castleMaxHP>0?castleHP/castleMaxHP:0;
             const hcol=cpct>0.5?'#e74c3c':cpct>0.25?'#e67e22':'#c0392b';
-            ctx.fillStyle=hcol; ctx.beginPath(); ctx.roundRect(pillX+2,pillY+2,(pillW-4)*cpct,pillH-4,8); ctx.fill();
-            if(cpct<=0.25&&cpct>0){ctx.globalAlpha=0.4+Math.sin(frames*0.2)*0.3;ctx.fillStyle='#e74c3c';ctx.beginPath();ctx.roundRect(pillX,pillY,pillW,pillH,10);ctx.fill();ctx.globalAlpha=1;}
+            ctx.fillStyle=hcol; ctx.beginPath(); ctx.roundRect(pillX+1,pillY+1,(pillW-2)*cpct,pillH-2,3); ctx.fill();
+            if(cpct<=0.25&&cpct>0){ctx.globalAlpha=0.3+Math.sin(frames*0.2)*0.25;ctx.fillStyle='#e74c3c';ctx.beginPath();ctx.roundRect(pillX,pillY,pillW,pillH,4);ctx.fill();ctx.globalAlpha=1;}
         }
 
         // ── WAVE SYSTEM ──────────────────────────────────────────────
@@ -4636,6 +4703,8 @@
 
         function triggerGameOver() {
             gameState='GAMEOVER';
+            gameOverAnim.x = player.x; gameOverAnim.y = player.y; gameOverAnim.age = 0; gameOverAnim.smokeP = [];
+            createExplosion(player.x, player.y, '#e74c3c', 28);
             window._castleLoopRunning = false;
             clearInterval(gameTimerInterval);
             document.getElementById('hud').style.display='none';
@@ -4645,7 +4714,8 @@
             const tNew = applyTrophyChange(tChange);
             renderTrophyBox('trophyChangeDisplay', tChange, tNew);
             refreshBrawlerCards();
-            const fEl=document.getElementById('statFlags'); if(fEl) fEl.innerText=currentWave+'/'+WAVES_TOTAL+' fal';
+            const fEl=document.getElementById('statFlags'); if(fEl) fEl.innerText=currentWave+'/'+WAVES_TOTAL;
+            const wEl=document.getElementById('statWaves'); if(wEl) wEl.innerText=currentWave+'/'+WAVES_TOTAL+' fal';
             const sEl=document.getElementById('statScore'); if(sEl) sEl.innerText=stats.gems||stats.score||0;
             const kEl=document.getElementById('statKills'); if(kEl) kEl.innerText=stats.kills;
             const tEl=document.getElementById('statTime'); if(tEl) tEl.innerText=gameTime+'s';
@@ -4906,14 +4976,73 @@
             camera.y = Math.max(0, Math.min(WORLD_H - screenH, camera.y));
         }
 
+        function drawGameOverFrame() {
+            // Dark overlay
+            ctx.fillStyle='rgba(10,5,5,0.92)';
+            ctx.fillRect(0,0,screenW,screenH);
+
+            // Smoke particles rising from wreck
+            gameOverAnim.age++;
+            if(gameOverAnim.age % 4 === 0 && gameOverAnim.smokeP.length < 40) {
+                gameOverAnim.smokeP.push({
+                    x: gameOverAnim.x - camera.x + (Math.random()-0.5)*30,
+                    y: gameOverAnim.y - camera.y,
+                    vx:(Math.random()-0.5)*0.6, vy:-1.2-Math.random()*0.8,
+                    r:6+Math.random()*10, life:1.0, col:Math.random()<0.4?'#ff6b35':'#555'
+                });
+            }
+            gameOverAnim.smokeP.forEach(p=>{
+                p.x+=p.vx; p.y+=p.vy; p.life-=0.012; p.r+=0.3;
+            });
+            gameOverAnim.smokeP = gameOverAnim.smokeP.filter(p=>p.life>0);
+            gameOverAnim.smokeP.forEach(p=>{
+                ctx.globalAlpha = p.life * 0.55;
+                ctx.fillStyle = p.col;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Demolished tank — tilted 45°, cracked
+            const tx = gameOverAnim.x - camera.x;
+            const ty = gameOverAnim.y - camera.y;
+            ctx.save();
+            ctx.translate(tx, ty);
+            ctx.rotate(Math.PI*0.22);
+            ctx.globalAlpha = 0.75;
+            // Burnt hull
+            ctx.fillStyle='#2a1a10'; ctx.strokeStyle='#e74c3c'; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.roundRect(-34,-18,68,36,6); ctx.fill(); ctx.stroke();
+            // Cracks
+            ctx.strokeStyle='rgba(255,60,20,0.7)'; ctx.lineWidth=1.5;
+            [[-20,-8,0,10],[10,-12,-5,8],[-5,0,18,-10]].forEach(([x1,y1,x2,y2])=>{
+                ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+            });
+            // Broken turret
+            ctx.fillStyle='#1a1008'; ctx.strokeStyle='#c0392b'; ctx.lineWidth=1.5;
+            ctx.beginPath(); ctx.arc(8, -6, 13, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            // Barrel — bent
+            ctx.strokeStyle='#333'; ctx.lineWidth=5; ctx.lineCap='round';
+            ctx.beginPath(); ctx.moveTo(8,-6); ctx.quadraticCurveTo(28,-2,32,8); ctx.stroke();
+            ctx.restore();
+            ctx.globalAlpha=1;
+
+            // Orange fire glow beneath smoke
+            if(gameOverAnim.age < 180) {
+                const glow=ctx.createRadialGradient(tx,ty,0,tx,ty,45);
+                glow.addColorStop(0,'rgba(255,120,0,0.35)');
+                glow.addColorStop(1,'rgba(255,80,0,0)');
+                ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(tx,ty,45,0,Math.PI*2); ctx.fill();
+            }
+        }
         function gameLoop() {
             requestAnimationFrame(gameLoop);
+            if(gameState === 'GAMEOVER') { drawGameOverFrame(); return; }
             if(gameState !== 'PLAYING') return;
 
             frames++;
             let diffBase = selectedDifficulty === 'easy' ? 200 : (selectedDifficulty === 'hard' ? 60 : 120);
             let spawnRate = Math.max(20, diffBase - Math.floor(gameTime * 1.5));
-            if (frames % spawnRate === 0 && enemies.filter(e=>!e.isBoss&&!e.isGuard).length < 10) enemies.push(new Enemy());
+            // Castle: regular spawn removed — only wave enemies target castle
             // CTF: no mega boss spawning
             if (frames % 522 === 0) hearts.push(new Heart());
             if (frames % 1125 === 0) magnets.push(new MagnetItem());
@@ -5010,6 +5139,7 @@
             powerWells.forEach(pw => pw.draw());
             // Castle: drawCastleBuilding handled after environment
             drawCastleBuilding();
+            drawGateArches();
             // Boss bombs + craters
             // bossBombs.draw disabled in castle
             drawCraterMarks();
@@ -5106,15 +5236,15 @@
             drawHPPill(14, 8, 200, 54, 16);
             drawHudNotifs();
 
-            // Gem counter — top center (restored)
+            // Gem counter — left side, below HP pill
             {
-                const GW=200,GH=54,gx2=Math.round(screenW/2-GW/2),gy2=8,r2=16;
+                const GW=160,GH=32,gx2=14,gy2=70,r2=10;
                 ctx.fillStyle='rgba(8,8,18,0.75)';
                 ctx.beginPath();ctx.roundRect(gx2,gy2,GW,GH,r2);ctx.fill();
                 ctx.strokeStyle='rgba(241,196,15,0.28)';ctx.lineWidth=0.8;
                 ctx.beginPath();ctx.roundRect(gx2,gy2,GW,GH,r2);ctx.stroke();
                 // Gem icon
-                const gix=gx2+38,giy=gy2+GH/2;
+                const gix=gx2+22,giy=gy2+GH/2;
                 ctx.fillStyle='#2ecc71';ctx.strokeStyle='#1a7a40';ctx.lineWidth=1.5;
                 ctx.beginPath();ctx.moveTo(gix,giy-12);ctx.lineTo(gix+9,giy-4);ctx.lineTo(gix+9,giy+4);ctx.lineTo(gix,giy+12);ctx.lineTo(gix-9,giy+4);ctx.lineTo(gix-9,giy-4);ctx.closePath();ctx.fill();ctx.stroke();
                 ctx.fillStyle='rgba(255,255,255,0.5)';ctx.beginPath();ctx.ellipse(gix-3,giy-6,4,2.5,-0.5,0,Math.PI*2);ctx.fill();
@@ -5122,7 +5252,8 @@
                 ctx.fillStyle='#f1c40f';ctx.font='32px "Lilita One",cursive';
                 ctx.textAlign='left';ctx.textBaseline='middle';
                 ctx.strokeStyle='rgba(0,0,0,0.7)';ctx.lineWidth=4;
-                ctx.strokeText(stats.score,gx2+58,gy2+GH/2+1);ctx.fillText(stats.score,gx2+58,gy2+GH/2+1);
+                ctx.font='bold 18px "Lilita One",cursive';
+                ctx.strokeText(stats.score,gx2+40,gy2+GH/2+1);ctx.fillText(stats.score,gx2+40,gy2+GH/2+1);
                 ctx.textAlign='left';
             }
 
