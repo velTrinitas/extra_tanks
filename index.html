@@ -300,7 +300,7 @@
             content: ' — mapa CTF: Fortified Ruins'; font-size: 0.62em;
             color: #3498db; font-family: sans-serif; font-weight: normal;
         }
-        .map-card { padding: 10px 6px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .map-card { padding: 12px 8px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 90px; justify-content: center; }
         .map-icon-svg { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
         .map-icon-svg svg { filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.4)); }
         .map-label { font-family: 'Lilita One', cursive; font-size: 0.7rem; color: #fff; text-align: center; letter-spacing: 0.5px; text-shadow: 1px 1px 0 rgba(0,0,0,0.6); }
@@ -482,7 +482,7 @@
             display: none;
         }
         #credits .credits-names { color: #e67e22; }
-        body.show-credits #credits { display: block; }
+        body:has(#introScreen.active-screen) #credits { display: block; }
 
         button.brawl-btn-sm {
             padding: 10px 28px; font-size: 1.3rem; color: #fff;
@@ -508,9 +508,9 @@
 
     <!-- Credits -->
     <div id="credits">
-        Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
-        Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v4.0.1
+        Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
+        Created with ❤️ in Bielsko-Biała, PL<br>
+        Game version: v4.2
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -999,7 +999,6 @@
         document.getElementById('enterBtn').addEventListener('click', () => {
             document.getElementById('introScreen').classList.remove('active-screen');
             document.getElementById('welcomeScreenWrapper').style.display = 'block';
-            document.body.classList.add('show-credits');
             AudioSys.init();
             bgMusic.play().catch(e => console.log(e));
             const savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
@@ -3587,7 +3586,6 @@
             document.getElementById('hud').style.display = 'none';
             document.getElementById('controlsHelper').style.display = 'none';
             document.getElementById('victoryScreen').classList.add('active-screen');
-            document.body.classList.add('show-credits');
             // Trophy calculation (win)
             const tChange = calcTrophyChangeKTB(true);
             const tNew = applyTrophyChange(tChange);
@@ -4226,7 +4224,6 @@
             const ch = document.getElementById('controlsHelper');
             ch.style.display = 'block'; ch.style.opacity = '1';
             setTimeout(() => { ch.style.transition='opacity 1s'; ch.style.opacity='0'; setTimeout(()=>{ch.style.display='none';},1000); }, 3000);
-            document.body.classList.remove('show-credits');
             updateHUD();
             clearInterval(gameTimerInterval);
             gameTimerInterval = setInterval(() => { if(gameState === 'PLAYING') gameTime++; }, 1000);
@@ -4267,7 +4264,6 @@
             document.getElementById('gameOverScreen').classList.remove('active-screen');
             document.getElementById('welcomeScreenWrapper').style.display = 'block';
             document.getElementById('welcomeScreen').classList.add('active-screen');
-            document.body.classList.add('show-credits');
             const gameMusic = document.getElementById('gameMusic');
             gameMusic.pause();
             gameMusic.currentTime = 0;

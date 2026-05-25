@@ -416,6 +416,12 @@
     </div>
 
     <!-- UI LAYER -->
+    <!-- Fixed video overlay — z:9999, zawsze nad wszystkim -->
+    <div id="videoOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:rgba(0,0,0,0.88);align-items:center;justify-content:center;flex-direction:column;gap:14px;">
+        <video id="overlayVideo" width="400" height="225" autoplay preload="auto" playsinline
+            style="border-radius:14px;box-shadow:0 0 60px rgba(0,0,0,0.8),0 0 0 3px rgba(255,255,255,0.12);display:block;"></video>
+        <div id="overlaySkip" style="color:rgba(255,255,255,0.45);font-size:0.75rem;font-family:'Lilita One',cursive;letter-spacing:1px;cursor:pointer;">KLIKNIJ ABY POMINĄĆ</div>
+    </div>
     <div id="uiLayer">
 
         <!-- INTRO SCREEN -->
@@ -937,7 +943,7 @@
         // ── CASTLE SUPER POWERS ────────────────────────────────────
         const CASTLE_POWERS = [
             { id:'repair',    icon:'🔧', name:'Naprawa Muru',      col:'#2ecc71', cd:15000 },
-            { id:'barricade', icon:'🛡️', name:'Barykada',          col:'#3498db', cd:30000 },
+            { id:'freeze',    icon:'❄️',  name:'Freeze',            col:'#70ccff', cd:25000 },
             { id:'artillery', icon:'💣', name:'Atak Artyleryjski', col:'#e67e22', cd:30000 },
         ];
         let castlePowerCooldowns = [0, 0, 0]; // timestamps when cooldown expires
@@ -978,26 +984,36 @@
             });
         }
         function showBrawlerVideo(screenId, mapObj) {
-            const vid = document.getElementById(screenId+'Video');
-            const wrap = document.getElementById(screenId+'VideoWrap');
-            if(!vid || !wrap) return;
+            const overlay = document.getElementById('videoOverlay');
+            const vid = document.getElementById('overlayVideo');
+            if(!overlay || !vid) return;
             const file = mapObj[selectedBrawler ? selectedBrawler.id : ''];
-            if(file) {
-                wrap.style.display = 'block';
-                vid.src = file;
-                // Wait for canplay before calling play() — eliminates race condition
-                vid.oncanplay = () => {
-                    vid.play().catch(e => console.warn('Video play failed:', e));
-                    vid.oncanplay = null;
-                };
-                vid.onerror = () => {
-                    console.warn('Video failed to load:', file);
-                    wrap.style.display = 'none';
-                };
-                vid.load();
-            } else {
-                wrap.style.display = 'none';
-            }
+            if(!file) return;
+
+            // Show full-screen overlay — z:9999 above canvas + all HTML elements
+            overlay.style.display = 'flex';
+            overlay.style.opacity = '1';
+            vid.src = file;
+
+            const dismiss = () => {
+                overlay.style.transition = 'opacity 0.5s ease';
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    overlay.style.opacity = '1';
+                    overlay.style.transition = '';
+                    vid.pause(); vid.src = '';
+                }, 500);
+            };
+
+            vid.oncanplay = () => { vid.play().catch(e => console.warn('Video:', e)); vid.oncanplay = null; };
+            vid.onerror  = () => { console.warn('Video load failed:', file); overlay.style.display = 'none'; };
+            vid.onended  = () => dismiss();
+            vid.load();
+
+            // Auto-dismiss after 5s
+            const _t = setTimeout(dismiss, 5000);
+            overlay.onclick = () => { clearTimeout(_t); dismiss(); };
         }
         // ── CASTLE GLOBALS ─────────────────────────────────────────
         const CASTLE_CX = WORLD_W/2, CASTLE_CY = WORLD_H/2;
@@ -1022,12 +1038,10 @@
         let megaBossSpawnedCastle = false;
 
         // Barricade super
-        let barricadeActive = false, barricadeEndTime = 0;
         // Gate auto-open system
         let gateIsOpen = false;
         let gateOpenProgress = 0;  // 0=fully closed, 1=fully open
         let gateOpenTimer = 0;     // frames remaining before auto-close
-        let barricadeBlock = null;
 
         // Artillery super
         let artilleryMode = false;
@@ -1064,7 +1078,7 @@
             // Castle super powers
             if(gameState === 'PLAYING') {
                 if(e.code==='KeyQ') activateCastlePower(0); // 🔧 Repair
-                if(e.code==='KeyE') activateCastlePower(1); // 🛡️ Barricade
+                if(e.code==='KeyE') activateCastlePower(1); // ❄️ Freeze
                 if(e.code==='KeyR') activateCastlePower(2); // 💣 Artillery
             }
         });
@@ -2311,7 +2325,7 @@
                         let nextY = this.y + Math.sin(this.angle) * moveSpd;
                         let canMoveX = true, canMoveY = true;
                         for(let env of environment) {
-                            if(env.type === 'wall' || env.type === 'barricade' || (env.type === 'gate' && !gateDestroyed) || env.type === 'furtka') {
+                            if(env.type === 'wall' || (env.type === 'gate' && !gateDestroyed) || env.type === 'furtka') {
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, nextX, this.y, this.height/2)) canMoveX = false;
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2)) canMoveY = false;
                             }
@@ -4581,14 +4595,13 @@
                 addHudNotif('🔧 Mur+4 Zamek+2', '#2ecc71');
                 AudioSys.playGem();
                 repairsUsed++;
-            } else if(pw.id === 'barricade') {
-                barricadeActive = true;
-                barricadeEndTime = now + 6000;
-                const bx = player.x + Math.cos(player.angle)*90; // 90px — poza radius gracza
-                const by = player.y + Math.sin(player.angle)*90;
-                barricadeBlock = {x:bx-40,y:by-40,w:80,h:80,endTime:barricadeEndTime};
-                environment.push(new EnvironmentBlock(barricadeBlock.x, barricadeBlock.y, 80, 80, 'barricade', '#5a8ab8')); // player passes through
-                addHudNotif('🛡️ Barykada!', '#3498db');
+            } else if(pw.id === 'freeze') {
+                freezeActive = true;
+                freezeEndTime = now + 5000;
+                // Freeze all active bullets too
+                bullets.forEach(b => { if(!b.isPlayer) b.active = false; });
+                createExplosion(player.x, player.y, '#70ccff', 18);
+                addHudNotif('❄️ FREEZE! 5s', '#70ccff');
                 AudioSys.playGem();
             } else if(pw.id === 'artillery') {
                 artilleryMode = true;
@@ -4596,17 +4609,6 @@
             }
         }
 
-        function updateBarricade() {
-            if(!barricadeActive) return;
-            if(Date.now() > barricadeEndTime) {
-                barricadeActive = false;
-                // Remove the barricade block
-                if(barricadeBlock) {
-                    environment = environment.filter(e => e.type !== 'barricade');
-                    barricadeBlock = null;
-                }
-            }
-        }
 
         function updateArtillery() {
             if(!artilleryMode) return;
@@ -5281,7 +5283,6 @@
                     }
                 }
             });
-            updateBarricade();
             updateArtilleryTarget();
             hearts.forEach(h => h.update()); particles.forEach(p => p.update());
             // CTF flag updates
@@ -5370,48 +5371,6 @@
             // Castle: drawCastleBuilding handled after environment
             drawCastleBuilding();
             drawGateArches();
-            // Draw barricade blocks — after castle/gates, clearly visible
-            if(barricadeActive) {
-                environment.forEach(env => {
-                    if(env.type !== 'barricade') return;
-                    const pulse = 0.75 + Math.sin(frames * 0.18) * 0.25;
-                    // Outer glow
-                    ctx.shadowColor = '#74b9ff'; ctx.shadowBlur = 12;
-                    ctx.globalAlpha = pulse * 0.4;
-                    ctx.fillStyle = '#74b9ff';
-                    ctx.beginPath(); ctx.roundRect(env.x-4, env.y-4, env.w+8, env.h+8, 10); ctx.fill();
-                    ctx.shadowBlur = 0;
-                    // Main body
-                    ctx.globalAlpha = pulse;
-                    const bg = ctx.createLinearGradient(env.x, env.y, env.x, env.y+env.h);
-                    bg.addColorStop(0, '#5a9fd4'); bg.addColorStop(1, '#2d6a9f');
-                    ctx.fillStyle = bg;
-                    ctx.strokeStyle = '#a8d8ff'; ctx.lineWidth = 2.5;
-                    ctx.beginPath(); ctx.roundRect(env.x, env.y, env.w, env.h, 6);
-                    ctx.fill(); ctx.stroke();
-                    // Wood planks
-                    ctx.strokeStyle = 'rgba(0,40,80,0.35)'; ctx.lineWidth = 1.5;
-                    for(let row=1; row<3; row++) {
-                        ctx.beginPath();
-                        ctx.moveTo(env.x+4, env.y+env.h*row/3);
-                        ctx.lineTo(env.x+env.w-4, env.y+env.h*row/3);
-                        ctx.stroke();
-                    }
-                    // Cross bar
-                    ctx.strokeStyle = 'rgba(180,220,255,0.6)'; ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(env.x+8, env.y+env.h/2);
-                    ctx.lineTo(env.x+env.w-8, env.y+env.h/2);
-                    ctx.stroke();
-                    // Metal bolts
-                    [[env.x+12,env.y+12],[env.x+env.w-12,env.y+12],
-                     [env.x+12,env.y+env.h-12],[env.x+env.w-12,env.y+env.h-12]].forEach(([bx,by])=>{
-                        ctx.fillStyle='#b8d4f0'; ctx.beginPath(); ctx.arc(bx,by,4,0,Math.PI*2); ctx.fill();
-                        ctx.strokeStyle='#5080b0'; ctx.lineWidth=1; ctx.stroke();
-                    });
-                    ctx.globalAlpha = 1;
-                });
-            }
             // Boss bombs + craters
             // bossBombs.draw disabled in castle
             drawCraterMarks();
@@ -5657,7 +5616,6 @@
             waveEnemiesTotal = 0; waveEnemiesKilled = 0;
             waveMessage = { text:'', color:'#fff', timer:0 };
             castlePowerCooldowns = [0, 0, 0];
-            barricadeActive = false; barricadeBlock = null;
             gateIsOpen = false; gateOpenProgress = 0; gateOpenTimer = 0;
             artilleryMode = false; artilleryTarget = null;
             castleDamageCooldown = {}; repairsUsed = 0;
