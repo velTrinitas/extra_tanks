@@ -466,8 +466,8 @@
         <!-- VICTORY SCREEN -->
         <div id="victoryScreen" class="screen">
             <h1>🏆 VICTORY!</h1>
-            <div id="victoryScreenVideoWrap" style="display:none;margin:8px auto;border-radius:10px;overflow:hidden;width:240px;height:135px;border:2px solid #f1c40f;">
-                <video id="victoryScreenVideo" width="240" height="135" autoplay loop preload="auto" playsinline style="display:block;width:240px;height:135px;object-fit:cover;background:#000;"></video>
+            <div id="victoryScreenVideoWrap" style="display:none;margin:8px auto 4px;border-radius:10px;overflow:hidden;width:260px;height:146px;border:3px solid #f1c40f;box-shadow:0 0 20px rgba(241,196,15,0.5);">
+                <video id="victoryScreenVideo" width="260" height="146" autoplay loop preload="auto" playsinline style="display:block;width:260px;height:146px;object-fit:cover;background:#000;"></video>
             </div>
             <canvas id="victoryCanvas" width="300" height="200"></canvas>
             <p style="font-family:sans-serif;font-size:1rem;color:#a8d87c;margin:4px 0 6px;">Flagi schwytane!</p>
@@ -592,8 +592,8 @@
         <!-- GAME OVER SCREEN -->
         <div id="gameOverScreen" class="screen">
             <h1 style="color:#e74c3c;text-shadow:2px 2px 0 #000;">💥 PRZEGRANA</h1>
-            <div id="gameOverScreenVideoWrap" style="display:none;margin:8px auto;border-radius:10px;overflow:hidden;width:240px;height:135px;border:2px solid #e74c3c;">
-                <video id="gameOverScreenVideo" width="240" height="135" autoplay loop preload="auto" playsinline style="display:block;width:240px;height:135px;object-fit:cover;background:#000;"></video>
+            <div id="gameOverScreenVideoWrap" style="display:none;margin:8px auto 4px;border-radius:10px;overflow:hidden;width:260px;height:146px;border:3px solid #e74c3c;box-shadow:0 0 20px rgba(231,76,60,0.5);">
+                <video id="gameOverScreenVideo" width="260" height="146" autoplay loop preload="auto" playsinline style="display:block;width:260px;height:146px;object-fit:cover;background:#000;"></video>
             </div>
             <div id="starRating" style="font-size:3.5rem;line-height:1;margin:6px 0;"></div>
             <div id="rankTitle" style="font-size:1.4rem;color:#e67e22;font-family:sans-serif;font-weight:bold;margin-bottom:6px;text-shadow:1px 1px 0 #000;"></div>
@@ -5351,7 +5351,29 @@
             // Quicksand zones
             quicksandZones.forEach(qs => qs.draw());
 
-            environment.forEach(env => { if(env.type === 'wall') env.draw(); }); 
+            environment.forEach(env => {
+                if(env.type === 'wall') { env.draw(); return; }
+                if(env.type === 'barricade') {
+                    // Draw barricade — animated blue shield planks
+                    const pulse = 0.7 + Math.sin(frames * 0.15) * 0.3;
+                    ctx.globalAlpha = pulse;
+                    ctx.fillStyle = '#5a8ab8';
+                    ctx.strokeStyle = '#74b9ff'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.roundRect(env.x, env.y, env.w, env.h, 6);
+                    ctx.fill(); ctx.stroke();
+                    // Cross beams
+                    ctx.strokeStyle = '#2d6a9f'; ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(env.x+6, env.y+env.h/2); ctx.lineTo(env.x+env.w-6, env.y+env.h/2);
+                    ctx.moveTo(env.x+env.w/2, env.y+6); ctx.lineTo(env.x+env.w/2, env.y+env.h-6);
+                    ctx.stroke();
+                    // Shield icon
+                    ctx.font = '20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                    ctx.fillText('🛡️', env.x+env.w/2, env.y+env.h/2);
+                    ctx.globalAlpha = 1; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+                }
+            }); 
             // Track marks (below entities)
             trackMarks.forEach(tm => tm.draw());
             gems.forEach(g => g.draw());
