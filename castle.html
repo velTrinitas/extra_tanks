@@ -152,7 +152,7 @@
         .profile-emoji { font-size:3rem; display:block; margin-bottom:10px; line-height:1; }
         .profile-name { font-family:'Lilita One',cursive; font-size:1.15rem; color:#2c3e50; text-transform:uppercase; }
         .profile-card.selected .profile-name { color:#000; }
-        .profile-power { font-family:'Lilita One',cursive; font-size:0.75rem; color:#999; margin-top:6px; }
+        .profile-power { font-family:'Lilita One',cursive; font-size:0.75rem; color:#666; margin-top:6px; }
         /* Brawler card — equal cols, NO shadow */
         .card-stats-row { display:flex; align-items:center; background:rgba(0,0,0,0.18); border-radius:8px; padding:4px 0; margin:4px 0; }
         .card-stat { flex:1; text-align:center; font-family:'Lilita One',cursive; font-size:0.75rem; color:#fff; white-space:nowrap; }
@@ -398,7 +398,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v4.5.6
+        Game version: v4.6
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -589,7 +589,7 @@
         <!-- GAME OVER SCREEN -->
         <div id="gameOverScreen" class="screen">
             <h1 style="color:#e74c3c;text-shadow:2px 2px 0 #000;">💥 PRZEGRANA</h1>
-            <canvas id="gameOverCanvas" width="300" height="180" style="border-radius:12px;border:3px solid #e74c3c;display:block;margin:6px auto;box-shadow:0 0 20px rgba(231,76,60,0.4);"></canvas>
+            <canvas id="gameOverCanvas" width="300" height="180" style="border-radius:12px;border:3px solid #e74c3c;display:block;margin:6px auto;width:100%;max-width:360px;box-shadow:0 0 20px rgba(231,76,60,0.4);"></canvas>
             <div id="starRating" style="font-size:3.5rem;line-height:1;margin:6px 0;"></div>
             <div id="rankTitle" style="font-size:1.4rem;color:#e67e22;font-family:sans-serif;font-weight:bold;margin-bottom:6px;text-shadow:1px 1px 0 #000;"></div>
             <div id="trophyChangeDisplay" class="trophy-change-box"></div>
@@ -3711,10 +3711,11 @@
                 ctx.fillStyle=gpct>0.5?'#c8a86b':gpct>0.25?'#e67e22':'#e74c3c';
                 ctx.fillText(gStr, gateX+gPW/2, cy+38);
             } else {
-                ctx.fillStyle='rgba(8,8,18,0.80)';
-                ctx.beginPath(); ctx.roundRect(gateX, cy, gPW, PH, r); ctx.fill();
+                const gfl=0.55+Math.sin(frames*0.12)*0.35;
+                ctx.globalAlpha=gfl; ctx.fillStyle='#8b1a00';
+                ctx.beginPath(); ctx.roundRect(gateX,cy,gPW,PH,r); ctx.fill(); ctx.globalAlpha=1;
                 ctx.font='bold 10px "Lilita One",cursive'; ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillStyle='rgba(139,101,20,0.7)'; ctx.fillText('🚪 WYŁAMANA', gateX+gPW/2, cy+PH/2);
+                ctx.fillStyle='#fff'; ctx.fillText('🚪 WYŁAMANA', gateX+gPW/2, cy+PH/2);
             }
 
             ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.lineWidth=1;
@@ -3847,7 +3848,7 @@
             });
 
             // Hint
-            ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.font='8px sans-serif';
+            ctx.fillStyle='rgba(255,255,255,0.50)'; ctx.font='9px sans-serif';
             ctx.textAlign='center'; ctx.textBaseline='alphabetic';
             ctx.fillText('scroll ← →  wybierz    PPM = użyj', screenW/2, sy-6);
             ctx.textAlign='left'; ctx.textBaseline='alphabetic';

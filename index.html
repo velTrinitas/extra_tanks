@@ -96,6 +96,8 @@
             z-index: 0;
         }
         .intro-slide.active { opacity: 1; z-index: 1; }
+        @keyframes firstSlideIn { from { opacity:0; } to { opacity:1; } }
+        .intro-slide:nth-child(1).active { animation: firstSlideIn 0.8s ease; }
         .intro-slide:nth-child(1) { background-image: url('Brawl_Tanks.jpg'); }
         .intro-slide:nth-child(2) { background-image: url('Brawl_Tanks2.jpg'); }
         .intro-slide:nth-child(3) { background-image: url('Brawl_Tanks3.jpg'); }
@@ -226,8 +228,8 @@
         .profile-emoji { font-size: 3rem; display: block; margin-bottom: 10px; line-height: 1; }
         .profile-name { font-family: 'Lilita One', cursive; font-size: 1.15rem; color: #2c3e50; text-transform: uppercase; }
         .profile-card.selected .profile-name { color: #000; }
-        .profile-power { font-family: 'Lilita One', cursive; font-size: 0.75rem; color: #999; margin-top: 6px; }
-        .profile-card.selected .profile-power { color: #555; }
+        .profile-power { font-family: 'Lilita One', cursive; font-size: 0.75rem; color: #666; margin-top: 6px; }
+        .profile-card.selected .profile-power { color: #666; }
         #profileSelectBtn { margin-top: 20px; opacity: 0.35; pointer-events: none; transition: opacity 0.2s; }
         #profileSelectBtn.ready { opacity: 1 !important; pointer-events: all !important; }
 
@@ -302,28 +304,30 @@
             color: #3498db; font-family: sans-serif; font-weight: normal;
         }
         .map-card { background: #1e2a3a; border: 3px solid #4a5a6a; border-radius: 14px;
-            padding: 10px 12px; text-align: center; cursor: pointer;
+            padding: 11px 14px; text-align: center; cursor: pointer;
             transition: transform .1s, border-color .1s; display: flex; flex-direction: row;
-            align-items: center; justify-content: center; gap: 8px; }
+            align-items: center; justify-content: center; gap: 9px; }
         .map-card:hover { border-color: #f1c40f; transform: scale(1.03); }
         .map-card.selected { background: #2a2000; border-color: #f1c40f; }
-        .map-icon-svg { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .map-icon-svg svg { filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.5)); width: 26px; height: 26px; }
+        .map-icon-svg { width: 29px; height: 29px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .map-icon-svg svg { filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.5)); width: 29px; height: 29px; }
         .map-label { font-family: 'Lilita One', cursive; font-size: 0.95rem; color: #fff;
             -webkit-text-stroke: 0.5px rgba(0,0,0,0.4); display: block; }
         .diff-card {
             font-family: 'Lilita One', cursive;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             text-transform: uppercase;
             color: #fff;
             letter-spacing: 1px;
             display: flex; flex-direction: row;
             align-items: center; justify-content: center;
-            gap: 7px; padding: 10px 12px;
+            gap: 8px; padding: 11px 14px;
         }
-        .diff-card[data-diff="nightmare"] { background: #1a0a0a !important; border: 2px solid #c0392b; color: #ff4444; }
-        .diff-card[data-diff="nightmare"].selected { border-color: #ff4444; box-shadow: 0 8px 0 #7b0000, 0 0 16px rgba(231,76,60,0.6); }
+        .diff-card:hover { border-color: #f1c40f; transform: scale(1.03); }
+        .diff-card.selected { background: #2a2000 !important; border-color: #f1c40f; }
+        .diff-card[data-diff="nightmare"].selected { background: #1a0000 !important; border-color: #ff4444; }
 
+        #changeProfileBtn, #introChangeBtn { min-height: 44px !important; padding: 10px 20px !important; font-size: 0.9rem !important; }
         /* Przycisk Główny */
         button.brawl-btn {
             padding: 15px 60px;
@@ -462,16 +466,18 @@
         .scenario-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; width: 100%; margin-bottom: 8px; }
         .scenario-card {
             background: #1e2a3a; border: 3px solid #4a5a6a; border-radius: 14px;
-            padding: 10px 12px; text-align: center; cursor: pointer;
+            padding: 11px 14px; text-align: center; cursor: pointer;
             transition: transform .1s, border-color .1s; position: relative;
             display: flex; flex-direction: row; align-items: center;
-            justify-content: center; gap: 8px;
+            justify-content: center; gap: 9px;
         }
         .scenario-card:hover:not(.locked) { border-color: #f1c40f; transform: scale(1.03); }
         .scenario-card.selected { border-color: #f1c40f; background: #2a2000; }
         .scenario-card.locked { opacity: 0.42; cursor: not-allowed; pointer-events: none; }
         .scenario-card .sc-icon { font-size: 2.2rem; display: block; margin-bottom: 6px; }
         .scenario-card .sc-name { font-family: 'Lilita One', cursive; font-size: 0.95rem; color: #fff; -webkit-text-stroke: 0.5px #000; display: block; }
+        .sc-content { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; }
+        .sc-desc { font-size: 0.65rem; color: rgba(255,255,255,0.55); font-family: sans-serif; letter-spacing: 0.3px; }
         .scenario-card .name { font-family: 'Lilita One', cursive; font-size: 0.9rem; color: #fff; }
         .scenario-card .sc-badge {
             position: absolute; top: -8px; right: -8px;
@@ -523,7 +529,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.5.7
+        Game version: v4.6
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -580,28 +586,28 @@
 
             <h2>Poziom trudu</h2>
             <div class="grid-container diff-grid" id="diffGrid">
-                <div class="select-card diff-card" style="background:#27ae60;" data-diff="easy"><span>🌱</span><span>EASY</span></div>
-                <div class="select-card diff-card selected" style="background:#e67e22;" data-diff="normal"><span>⚔️</span><span>NORMAL</span></div>
-                <div class="select-card diff-card" style="background:#c0392b;" data-diff="hard"><span>💥</span><span>HARD</span></div>
-                <div class="select-card diff-card" data-diff="nightmare"><span>☠️</span><span>NIGHTMARE</span></div>
+                <div class="select-card diff-card" style="background:#27ae60;" data-diff="easy"><span>🌱</span><div><span>EASY</span><span class="diff-sub">bez utraty trofeów</span></div></div>
+                <div class="select-card diff-card selected" style="background:#e67e22;" data-diff="normal"><span>⚔️</span><div><span>NORMAL</span><span class="diff-sub">±3 trofea</span></div></div>
+                <div class="select-card diff-card" style="background:#c0392b;" data-diff="hard"><span>💥</span><div><span>HARD</span><span class="diff-sub">×1.5 trofea</span></div></div>
+                <div class="select-card diff-card" data-diff="nightmare"><span>☠️</span><div><span>NIGHTMARE</span><span class="diff-sub">×2.5 · ☠️ bez litości</span></div></div>
             </div>
 
             <h2>Wybierz scenariusz</h2>
             <div class="scenario-grid">
                 <div class="select-card scenario-card selected" id="scen-ktb" data-scen="ktb">
-                    <span style="font-size:1.5rem;line-height:1;flex-shrink:0">💀</span>
-                    <div class="name" style="background:#e74c3c;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Kill the Boss</div>
+                    <span style="font-size:1.65rem;line-height:1;flex-shrink:0">💀</span>
+                    <div class="sc-content"><div class="name" style="background:#e74c3c;border-radius:8px;padding:3px 6px;font-size:0.9rem;">Kill the Boss</div><span class="sc-desc">Zniszcz Mega Bossa</span></div>
                 </div>
                 <div class="select-card scenario-card" id="scen-flag" data-scen="flag">
-                    <span style="font-size:1.5rem;line-height:1;flex-shrink:0">🚩</span>
-                    <div class="name" style="background:#3498db;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Capture the Flag</div>
+                    <span style="font-size:1.65rem;line-height:1;flex-shrink:0">🚩</span>
+                    <div class="sc-content"><div class="name" style="background:#3498db;border-radius:8px;padding:3px 6px;font-size:0.9rem;">Capture the Flag</div><span class="sc-desc">Zdobądź 3 flagi</span></div>
                 </div>
                 <div class="select-card scenario-card" id="scen-castle" data-scen="castle">
-                    <span style="font-size:1.5rem;line-height:1;flex-shrink:0">🏰</span>
-                    <div class="name" style="background:#2d5016;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Defend the Castle</div>
+                    <span style="font-size:1.65rem;line-height:1;flex-shrink:0">🏰</span>
+                    <div class="sc-content"><div class="name" style="background:#2d5016;border-radius:8px;padding:3px 6px;font-size:0.9rem;">Defend the Castle</div><span class="sc-desc">Broń zamku 6 fal</span></div>
                 </div>
                 <div class="select-card scenario-card locked" id="scen-save" data-scen="save" style="cursor:not-allowed;opacity:0.65;">
-                    <span class="sc-icon" style="font-size:1.5rem;line-height:1;flex-shrink:0">👑</span>
+                    <span class="sc-icon" style="font-size:1.65rem;line-height:1;flex-shrink:0">👑</span>
                     <div class="sc-name">SAVE THE KING</div>
                     <span class="sc-badge" style="background:#8e44ad;">W BUDOWIE</span>
                 </div>
