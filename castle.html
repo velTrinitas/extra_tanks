@@ -398,7 +398,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v4.3
+        Game version: v4.5.2
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -909,8 +909,8 @@
         const ctx = canvas.getContext('2d');
         let screenW, screenH;
         
-        const WORLD_W = 2400;
-        const WORLD_H = 2400;
+        const WORLD_W = 3000;
+        const WORLD_H = 3000;
         let camera = { x: 0, y: 0 };
 
         function resize() {
@@ -931,9 +931,9 @@
         // CTF — only Turbo Boost (no AURA/BOMB/FREEZE)
         // ── CASTLE SUPER POWERS ────────────────────────────────────
         const CASTLE_POWERS = [
-            { id:'repair',    icon:'🔧', name:'Naprawa Muru',      col:'#2ecc71', cd:15000 },
-            { id:'freeze',    icon:'❄️',  name:'Freeze',            col:'#70ccff', cd:25000 },
-            { id:'artillery', icon:'💣', name:'Atak Artyleryjski', col:'#e67e22', cd:30000 },
+            { id:'aura',    icon:'◎',  name:'Aura',    col:'#f1c40f', cd:30000 },
+            { id:'repair',  icon:'🔧', name:'Naprawa', col:'#2ecc71', cd:15000 },
+            { id:'freeze',  icon:'❄️', name:'Freeze',  col:'#70ccff', cd:25000 },
         ];
         let castlePowerCooldowns = [0, 0, 0]; // timestamps when cooldown expires
         let turboCooldown = 0; // timestamp when cooldown expires
@@ -967,7 +967,8 @@
         const CASTLE_CX = WORLD_W/2, CASTLE_CY = WORLD_H/2;
         const CASTLE_W = 280, CASTLE_H = 160;
         const WALL_MARGIN = 310; // wall square half-size from center
-        const MOAT_MARGIN = 360; // moat outer edge
+        const MOAT_MARGIN = 360; // kept for compatibility
+        const MOAT_W = 46; // moat width (26px × 1.75 ≈ 46px, starts at wall edge)
 
         let castleHP = 25,   castleMaxHP = 25;
         let wallHP   = 15,   wallMaxHP   = 15;
@@ -2273,7 +2274,7 @@
                         let nextY = this.y + Math.sin(this.angle) * moveSpd;
                         let canMoveX = true, canMoveY = true;
                         for(let env of environment) {
-                            if(env.type === 'wall' || (env.type === 'gate' && !gateDestroyed) || env.type === 'furtka') {
+                            if(env.type === 'wall' || env.type === 'gate' && !gateDestroyed || env.type === 'furtka') {
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, nextX, this.y, this.height/2)) canMoveX = false;
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2)) canMoveY = false;
                             }
@@ -3731,57 +3732,93 @@
 
         function drawCastlePowersHUD() {
             const now = Date.now();
-            const slotW=64, slotH=64, slotGap=10;
-            const totalW = CASTLE_POWERS.length*(slotW+slotGap)-slotGap;
-            const sx = screenW/2 - totalW/2;
-            const sy = screenH - slotH - 14;
+            const SW=96, SH=72, LBL=14, slotGap=10;
+            const totalW = CASTLE_POWERS.length*(SW+slotGap)-slotGap;
+            const sx = Math.round(screenW/2-totalW/2);
+            const sy = screenH - SW - LBL - 14;
 
             CASTLE_POWERS.forEach((pw, i) => {
-                const x = sx + i*(slotW+slotGap);
+                const x = sx + i*(SW+slotGap);
                 const cdLeft = Math.max(0, castlePowerCooldowns[i] - now);
                 const onCd = cdLeft > 0;
-
-                ctx.fillStyle = onCd ? 'rgba(8,8,18,0.7)' : 'rgba(8,8,18,0.85)';
-                ctx.beginPath(); ctx.roundRect(x, sy, slotW, slotH, 10); ctx.fill();
                 const isSelected = (i === selectedPower);
-                ctx.strokeStyle = onCd ? 'rgba(255,255,255,0.15)' : isSelected ? '#fff' : pw.col;
-                ctx.lineWidth = onCd ? 1 : isSelected ? 3 : 2;
-                ctx.beginPath(); ctx.roundRect(x, sy, slotW, slotH, 10); ctx.stroke();
+                const alpha = onCd ? 0.22 : 1;
 
-                // Icon
-                ctx.globalAlpha = onCd ? 0.35 : 1;
-                ctx.font='28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillText(pw.icon, x+slotW/2, sy+slotH/2-6);
+                // Drop shadow
+                ctx.fillStyle='rgba(0,0,0,0.38)';
+                ctx.beginPath(); ctx.roundRect(x+3,sy+3,SW,SH+LBL,8); ctx.fill();
 
-                // Slot number
-                ctx.font='bold 10px "Lilita One",cursive';
-                ctx.fillStyle='rgba(255,255,255,0.45)';
-                ctx.fillText(i===0?'Q':i===1?'E':'R', x+6, sy+slotH-6);
-                ctx.globalAlpha=1;
+                // Slot bg
+                ctx.globalAlpha = isSelected ? 0.96 : 0.72;
+                ctx.fillStyle = '#08080e';
+                ctx.beginPath(); ctx.roundRect(x,sy,SW,SH+LBL,8); ctx.fill();
+                ctx.globalAlpha = 1;
 
-                // Cooldown overlay
+                // Border — selected: colored glow, unselected: subtle
+                if(isSelected && !onCd) {
+                    ctx.save();
+                    ctx.shadowColor = pw.col; ctx.shadowBlur = 16;
+                    ctx.strokeStyle = pw.col; ctx.lineWidth = 3.5;
+                    ctx.globalAlpha = 0.75 + Math.sin(frames*0.09)*0.22;
+                    ctx.beginPath(); ctx.roundRect(x,sy,SW,SH+LBL,8); ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.strokeStyle = onCd ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.22)';
+                    ctx.lineWidth = 0.8; ctx.globalAlpha = alpha;
+                    ctx.beginPath(); ctx.roundRect(x,sy,SW,SH+LBL,8); ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+
+                // Canvas power icon
+                drawPowerIcon(ctx, pw.id, x+SW/2, sy+SH/2, 29, alpha);
+
+                // Name label bottom
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = isSelected && !onCd ? pw.col : 'rgba(255,255,255,0.55)';
+                ctx.font = 'bold 8px sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(pw.name.toUpperCase(), x+SW/2, sy+SH+LBL/2);
+                ctx.globalAlpha = 1;
+
+                // Keyboard shortcut corner
+                ctx.globalAlpha = 0.45; ctx.fillStyle = '#fff';
+                ctx.font = 'bold 9px "Lilita One",cursive';
+                ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+                ctx.fillText(['Q','E','R'][i]||'', x+5, sy+4);
+                ctx.globalAlpha = 1;
+
+                // Cooldown: pie wipe + seconds
                 if(onCd) {
-                    const cdFrac = cdLeft / pw.cd;
-                    ctx.globalAlpha=0.55;
-                    ctx.fillStyle='rgba(0,0,0,0.5)';
-                    ctx.beginPath(); ctx.roundRect(x,sy,slotW,slotH,10); ctx.fill();
-                    // Arc timer
-                    ctx.strokeStyle=pw.col; ctx.lineWidth=3; ctx.globalAlpha=0.9;
+                    const pct = cdLeft / pw.cd;
+                    ctx.save();
+                    ctx.beginPath(); ctx.roundRect(x+1,sy+1,SW-2,SH-2,7); ctx.clip();
+                    ctx.fillStyle = 'rgba(0,0,0,0.62)';
                     ctx.beginPath();
-                    ctx.arc(x+slotW/2, sy+slotH/2, slotW/2-5,
-                        -Math.PI/2, -Math.PI/2+Math.PI*2*(1-cdFrac));
-                    ctx.stroke();
-                    // Seconds
-                    ctx.fillStyle='#fff'; ctx.font='bold 14px "Lilita One",cursive';
+                    ctx.moveTo(x+SW/2, sy+SH/2);
+                    ctx.arc(x+SW/2, sy+SH/2, SW, -Math.PI/2, -Math.PI/2+Math.PI*2*pct);
+                    ctx.closePath(); ctx.fill(); ctx.restore();
+                    ctx.fillStyle='#fff'; ctx.font='bold 18px "Lilita One",cursive';
                     ctx.textAlign='center'; ctx.textBaseline='middle';
-                    ctx.fillText(Math.ceil(cdLeft/1000), x+slotW/2, sy+slotH/2+6);
-                    ctx.globalAlpha=1;
+                    ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.lineWidth=4;
+                    const cdS = Math.ceil(cdLeft/1000)+'s';
+                    ctx.strokeText(cdS, x+SW/2, sy+SH/2);
+                    ctx.fillText(cdS, x+SW/2, sy+SH/2);
+                }
+
+                // Selection arrow below
+                if(isSelected && !onCd) {
+                    ctx.fillStyle = pw.col; ctx.globalAlpha = 0.9;
+                    const tx=x+SW/2, ty=sy+SH+LBL+5;
+                    ctx.beginPath();
+                    ctx.moveTo(tx-7,ty); ctx.lineTo(tx+7,ty); ctx.lineTo(tx,ty+7);
+                    ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
                 }
             });
-            // PPM hint
-            ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
-            ctx.fillText('scroll = wybierz   PPM = użyj', screenW/2, sy + slotH + 4);
+
+            // Hint
+            ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.font='8px sans-serif';
+            ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+            ctx.fillText('scroll ← →  wybierz    PPM = użyj', screenW/2, sy-6);
             ctx.textAlign='left'; ctx.textBaseline='alphabetic';
         }
 
@@ -4439,12 +4476,22 @@
             { count:8,  guards:3, boss:false, mega:true,  fromSides:[0,1,2,3] },
         ];
         // Spawn sides: 0=N, 1=E, 2=S, 3=W
-        const SPAWN_POS = [
-            {x:CASTLE_CX,      y:280},            // N — poza kamerą, daleko od krawędzi
-            {x:WORLD_W-280,    y:CASTLE_CY},       // E
-            {x:CASTLE_CX,      y:WORLD_H-280},     // S
-            {x:280,            y:CASTLE_CY},        // W
-        ];
+        // Spawn positions = 400px outside camera edge (not world edge)
+        function getDynamicSpawnPos(side) {
+            const M = 400; // px outside screen edge
+            const cx=camera.x, cy=camera.y, sw=screenW, sh=screenH;
+            const raw = [
+                {x:cx+sw/2, y:cy-M},      // 0 N
+                {x:cx+sw+M, y:cy+sh/2},   // 1 E
+                {x:cx+sw/2, y:cy+sh+M},   // 2 S
+                {x:cx-M,   y:cy+sh/2},    // 3 W
+            ][side];
+            return {
+                x: Math.max(150, Math.min(WORLD_W-150, raw.x)),
+                y: Math.max(150, Math.min(WORLD_H-150, raw.y))
+            };
+        }
+        const SPAWN_POS = [0,1,2,3].map(i=>({x:CASTLE_CX,y:CASTLE_CY})); // fallback, overridden by getDynamicSpawnPos
 
         function spawnWave(waveIdx) {
             const cfg = WAVE_CONFIGS[waveIdx];
@@ -4458,32 +4505,32 @@
             // Regular enemies
             for(let i=0; i<cfg.count; i++){
                 const side = cfg.fromSides[i % cfg.fromSides.length];
-                const sp = SPAWN_POS[side];
+                const sp = getDynamicSpawnPos(side);
                 const e = new Enemy(false, false, false, false, -1,
-                    sp.x + (Math.random()-0.5)*120, sp.y + (Math.random()-0.5)*120);
+                    sp.x + (Math.random()-0.5)*80, sp.y + (Math.random()-0.5)*80);
                 e.castleTarget = true;
                 enemies.push(e);
             }
             // Guards
             for(let i=0; i<cfg.guards; i++){
                 const side = cfg.fromSides[i % cfg.fromSides.length];
-                const sp = SPAWN_POS[side];
+                const sp = getDynamicSpawnPos(side);
                 const e = new Enemy(false, false, false, true, -1,
-                    sp.x + (Math.random()-0.5)*100, sp.y + (Math.random()-0.5)*100);
+                    sp.x + (Math.random()-0.5)*80, sp.y + (Math.random()-0.5)*80);
                 e.castleTarget = true;
                 enemies.push(e);
             }
             // Boss
             if(cfg.boss && !cfg.mega) {
-                const sp = SPAWN_POS[2]; // always from south
-                const e = new Enemy(true, false, false, false, -1, sp.x, sp.y+50);
+                const sp = getDynamicSpawnPos(2); // south, always off-screen
+                const e = new Enemy(true, false, false, false, -1, sp.x, sp.y);
                 e.castleTarget = true;
                 enemies.push(e);
             }
             // Mega boss
             if(cfg.mega) {
-                const sp = SPAWN_POS[2];
-                const e = new Enemy(false, true, false, false, -1, sp.x, sp.y+50);
+                const sp = getDynamicSpawnPos(2);
+                const e = new Enemy(false, true, false, false, -1, sp.x, sp.y);
                 e.castleTarget = true;
                 megaBossSpawnedCastle = true;
                 enemies.push(e);
@@ -4502,8 +4549,9 @@
                 if(currentWave >= WAVES_TOTAL) {
                     setTimeout(triggerVictory, 1500);
                 } else {
-                    const interWave = currentWave === 0 ? 120 : selectedDifficulty === 'nightmare' ? 900 : 1800; // 2s first, 15s/30s rest
+                    const interWave = currentWave === 0 ? 120 : selectedDifficulty === 'nightmare' ? 900 : 1800;
                     waveTimerFrames = interWave;
+                    shakeTimer = 0; // reset shake — nie przenika do kolejnej fali
                     waveMessage = {text:'✅ Fala odparta!', color:'#2ecc71', timer:180};
                     addHudNotif('✅ Fala odparta!', '#2ecc71');
                 }
@@ -4540,17 +4588,19 @@
                 addHudNotif('🔧 Mur+4 Zamek+2', '#2ecc71');
                 AudioSys.playGem();
                 repairsUsed++;
+            } else if(pw.id === 'aura') {
+                auraActive = true;
+                auraEndTime = now + 5000;
+                createExplosion(player.x, player.y, '#f1c40f', 18);
+                addHudNotif('◎ AURA! 5s', '#f1c40f');
+                AudioSys.playGem();
             } else if(pw.id === 'freeze') {
                 freezeActive = true;
                 freezeEndTime = now + 5000;
-                // Freeze all active bullets too
                 bullets.forEach(b => { if(!b.isPlayer) b.active = false; });
                 createExplosion(player.x, player.y, '#70ccff', 18);
                 addHudNotif('❄️ FREEZE! 5s', '#70ccff');
                 AudioSys.playGem();
-            } else if(pw.id === 'artillery') {
-                artilleryMode = true;
-                addHudNotif('💣 Wybierz cel (PPM)', '#e67e22');
             }
         }
 
@@ -4700,19 +4750,20 @@
             const bridgeGap = 140; // same as wall gate gap
             const bHalf = bridgeGap / 2;
 
+            const MW = MOAT_W; // moat strip width 46px, adjacent to wall
             const moatPos = [
-                // N strip — left + right of north bridge
-                {x:CX-MM,        y:CY-MM, w:MM-bHalf,   h:MM-WM-T},
-                {x:CX+bHalf,     y:CY-MM, w:MM-bHalf,   h:MM-WM-T},
-                // S strip — left + right of south bridge (gate)
-                {x:CX-MM,        y:CY+WM+T, w:MM-bHalf, h:MM-WM-T},
-                {x:CX+bHalf,     y:CY+WM+T, w:MM-bHalf, h:MM-WM-T},
-                // W strip — top + bottom of west bridge
-                {x:CX-MM, y:CY-WM-T,    w:MM-WM-T, h:WM-bHalf},
-                {x:CX-MM, y:CY+bHalf,   w:MM-WM-T, h:WM-bHalf+T},
-                // E strip — top + bottom of east bridge
-                {x:CX+WM+T, y:CY-WM-T,  w:MM-WM-T, h:WM-bHalf},
-                {x:CX+WM+T, y:CY+bHalf, w:MM-WM-T, h:WM-bHalf+T},
+                // N strip — starts at CY-WM-MW, ends at CY-WM (touches north wall)
+                {x:CX-WM-MW,     y:CY-WM-MW, w:WM+MW-bHalf, h:MW},
+                {x:CX+bHalf,     y:CY-WM-MW, w:WM+MW-bHalf, h:MW},
+                // S strip — starts at CY+WM (south wall edge), width MW
+                {x:CX-WM-MW,     y:CY+WM,    w:WM+MW-bHalf, h:MW},
+                {x:CX+bHalf,     y:CY+WM,    w:WM+MW-bHalf, h:MW},
+                // W strip — starts at CX-WM-MW (west wall edge)
+                {x:CX-WM-MW, y:CY-WM-MW,     w:MW, h:WM+MW-bHalf},
+                {x:CX-WM-MW, y:CY+bHalf,     w:MW, h:WM+MW-bHalf},
+                // E strip — starts at CX+WM (east wall edge)
+                {x:CX+WM,    y:CY-WM-MW,     w:MW, h:WM+MW-bHalf},
+                {x:CX+WM,    y:CY+bHalf,     w:MW, h:WM+MW-bHalf},
             ];
             moatPos.forEach(m => {
                 lakeZones.push(m);
@@ -4738,25 +4789,37 @@
             });
 
             // ── TREES (3 types) ──────────────────────────────────────
-            // Oak NE/NW quadrant
+            // Oak trees — NE/NW + mid-field
             const oakPos = [
                 [CX-950,CY-800],[CX-800,CY-900],[CX-700,CY-750],[CX-900,CY-600],[CX-1000,CY-700],
                 [CX+700,CY-750],[CX+850,CY-800],[CX+950,CY-900],[CX+800,CY-650],[CX+700,CY-850],
+                // Extra oaks mid-field
+                [CX-550,CY-700],[CX+550,CY-700],[CX-1050,CY-400],[CX+1050,CY-350],
+                [CX-400,CY-600],[CX+400,CY-620],[CX-1100,CY-600],[CX+1100,CY-500],
+                [CX-1200,CY-200],[CX+1200,CY-150],[CX-300,CY-1050],[CX+350,CY-1100],
             ];
             oakPos.forEach(([x,y])=>mapDecorations.push({x,y,mapId:'castle_oak',seed:Math.random()}));
 
-            // Pine trees — south approaches
+            // Pine trees — south + east/west flanks
             const pinePos = [
                 [CX-800,CY+700],[CX-700,CY+850],[CX-900,CY+800],[CX-600,CY+750],
                 [CX+700,CY+750],[CX+800,CY+800],[CX+900,CY+700],[CX+600,CY+850],
                 [CX-950,CY+100],[CX+950,CY+200],[CX+50,CY-950],[CX-100,CY+950],
+                // Extra pines
+                [CX-1100,CY+400],[CX+1100,CY+350],[CX-500,CY+950],[CX+500,CY+900],
+                [CX-850,CY+500],[CX+850,CY+550],[CX-1200,CY+700],[CX+1200,CY+650],
+                [CX-300,CY+1000],[CX+300,CY+1050],[CX-700,CY+1000],[CX+700,CY+1050],
+                [CX-1300,CY+100],[CX+1300,CY+200],[CX-1350,CY-100],[CX+1350,CY-200],
             ];
             pinePos.forEach(([x,y])=>mapDecorations.push({x,y,mapId:'castle_pine',seed:Math.random()}));
 
-            // Willow trees — near moat
+            // Willow trees — near moat + water edges
             const willowPos = [
-                [CX-MM-40,CY-250],[CX-MM-40,CY+150],[CX+MM+40,CY-150],[CX+MM+40,CY+200],
-                [CX-200,CY-MM-40],[CX+150,CY-MM-40],[CX-100,CY+MM+40],[CX+200,CY+MM+40],
+                [CX-MM-50,CY-250],[CX-MM-50,CY+150],[CX+MM+50,CY-150],[CX+MM+50,CY+200],
+                [CX-200,CY-MM-50],[CX+150,CY-MM-50],[CX-100,CY+MM+50],[CX+200,CY+MM+50],
+                // Extra willows
+                [CX-MM-90,CY-400],[CX-MM-90,CY+350],[CX+MM+90,CY-350],[CX+MM+90,CY+400],
+                [CX-380,CY-MM-90],[CX+380,CY-MM-90],[CX-350,CY+MM+90],[CX+350,CY+MM+90],
             ];
             willowPos.forEach(([x,y])=>mapDecorations.push({x,y,mapId:'castle_willow',seed:Math.random()}));
 
@@ -5034,6 +5097,8 @@
         function triggerGameOver() {
             gameState='GAMEOVER';
             fadeOutMusic(1500);
+            stopCastleAnimations();
+            setTimeout(startDefeatAnimation, 600);
             gameOverAnim.x = player.x; gameOverAnim.y = player.y; gameOverAnim.age = 0; gameOverAnim.smokeP = [];
             createExplosion(player.x, player.y, '#e74c3c', 28);
             window._castleLoopRunning = false;
@@ -5159,18 +5224,19 @@
                                 // Screenshake on kill
                                 shakeTimer = Math.max(shakeTimer, e.isBoss ? 28 : 10);
                                 createExplosion(e.x, e.y, e.isBoss ? '#8e44ad' : '#e74c3c', e.isBoss ? 40 : 15);
-                                // Drop logic: 70% gem, 30% PowerCube (max 10 cubes per match)
+                                // Drop logic — use findSafeSpawn to avoid rocks/moat
+                                const dp = findSafeSpawn(e.x, e.y, 18);
                                 const dropRoll = Math.random();
                                 if(e.isBoss) {
-                                    gems.push(new Gem(e.x, e.y)); gems.push(new Gem(e.x+20, e.y));
-                                    if(stats.cubesTotal < 10) powerCubes.push(new PowerCube(e.x-20, e.y));
-                                    else gems.push(new Gem(e.x-20, e.y));
+                                    gems.push(new Gem(dp.x, dp.y)); gems.push(new Gem(dp.x+22, dp.y));
+                                    if(stats.cubesTotal < 10) powerCubes.push(new PowerCube(dp.x-22, dp.y));
+                                    else gems.push(new Gem(dp.x-22, dp.y));
                                 } else if(dropRoll < 0.7) {
-                                    gems.push(new Gem(e.x, e.y));
+                                    gems.push(new Gem(dp.x, dp.y));
                                 } else if(stats.cubesTotal < 10) {
-                                    powerCubes.push(new PowerCube(e.x, e.y));
+                                    powerCubes.push(new PowerCube(dp.x, dp.y));
                                 } else {
-                                    gems.push(new Gem(e.x, e.y));
+                                    gems.push(new Gem(dp.x, dp.y));
                                 }
                                 // CTF: no auto boss spawns (bosses are pre-placed per flag)
                             }
@@ -5360,7 +5426,7 @@
             let spawnRate = Math.max(10, Math.floor((diffBase - Math.floor(gameTime * 1.5)) / nmSpawnDiv));
             // Castle: regular spawn removed — only wave enemies target castle
             // CTF: no mega boss spawning
-            if (frames % 475 === 0) hearts.push(new Heart()); // +10% vs 522
+            if (frames % 475 === 0) { const hs=findSafeSpawn(CASTLE_CX+(Math.random()-0.5)*1400,CASTLE_CY+(Math.random()-0.5)*1400,16); hearts.push(new Heart(hs.x,hs.y)); }
             if (frames % 1125 === 0) magnets.push(new MagnetItem());
 
             player.update(); bullets.forEach(b => b.update());
@@ -5384,6 +5450,22 @@
                 gateOpenProgress = 1; // destroyed = fully open
             }
             updateWaveSystem();
+            // Push enemies out of walls (handles phase-through at high speed)
+            enemies.forEach(en => {
+                for(let env of environment) {
+                    if(env.type !== 'wall') continue;
+                    const ex=en.x, ey=en.y, er=18;
+                    if(ex>env.x-er && ex<env.x+env.w+er && ey>env.y-er && ey<env.y+env.h+er) {
+                        const dL=ex-(env.x-er), dR=(env.x+env.w+er)-ex;
+                        const dT=ey-(env.y-er), dB=(env.y+env.h+er)-ey;
+                        const minD=Math.min(dL,dR,dT,dB);
+                        if(minD===dL) en.x=env.x-er;
+                        else if(minD===dR) en.x=env.x+env.w+er;
+                        else if(minD===dT) en.y=env.y-er;
+                        else en.y=env.y+env.h+er;
+                    }
+                }
+            });
             castleDamageCheck();
             // ── Enemy bullets damage castle/wall ──────────────────────────
             const bDmgCooldown = 500; // ms between bullet-structure damage

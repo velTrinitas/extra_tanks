@@ -147,7 +147,7 @@
         }
 
         .char-grid { grid-template-columns: repeat(4, 1fr); }
-        .map-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .map-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; width: 100%; margin-bottom: 8px; }
         .diff-grid { grid-template-columns: repeat(4, 1fr); }
 
         /* Kreskówkowe Karty */
@@ -300,13 +300,15 @@
             content: ' — mapa CTF: Fortified Ruins'; font-size: 0.62em;
             color: #3498db; font-family: sans-serif; font-weight: normal;
         }
-        .map-card { padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px;
-            min-height: 90px; justify-content: center;
-            background: rgba(0,0,0,0.35) !important; border-radius: 12px; }
-        .map-icon-svg { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; }
+        .map-card { background: #1e2a3a; border: 3px solid #4a5a6a; border-radius: 14px;
+            padding: 14px 8px; text-align: center; cursor: pointer;
+            transition: transform .1s, border-color .1s; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 4px; min-height: 90px; }
+        .map-card:hover { border-color: #f1c40f; transform: scale(1.03); }
+        .map-icon-svg { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
         .map-icon-svg svg { filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.5)); }
         .map-label { font-family: 'Lilita One', cursive; font-size: 0.95rem; color: #fff;
-            -webkit-text-stroke: 0.5px rgba(0,0,0,0.6); text-align: center; display: block; }
+            -webkit-text-stroke: 0.5px rgba(0,0,0,0.4); display: block; }
         .diff-card {
             font-family: 'Lilita One', cursive;
             font-size: 1.3rem;
@@ -513,7 +515,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.3
+        Game version: v4.5.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -599,7 +601,7 @@
 
             <div id="mapSection">
                 <h2 id="mapLabel">Wybierz otoczenie</h2>
-                <div class="grid-container map-grid" id="mapGrid"></div>
+                <div class="map-grid" id="mapGrid"></div>
             </div>
 
             <button class="brawl-btn" id="startBtn">Graj!</button>
@@ -982,7 +984,10 @@
         MAPS.forEach(m => {
             let div = document.createElement('div');
             div.className = `select-card map-card ${m.id === selectedMap.id ? 'selected' : ''}`;
-            div.style.background = m.bg;
+            // NO inline background — kept dark #1e2a3a like scenario-card
+            // Map color shown as border-bottom accent
+            div.style.borderBottomColor = m.bg;
+            div.style.borderBottomWidth = '5px';
             div.innerHTML = `<div class="map-icon-svg">${MAP_ICONS[m.id]||''}</div><div class="map-label">${m.name}</div>`;
             div.onclick = () => {
                 document.querySelectorAll('.map-grid .select-card').forEach(el => el.classList.remove('selected'));
@@ -3296,9 +3301,9 @@
                 // Selected glow border
                 if(isSelected&&!onCD){
                     ctx.save();
-                    ctx.shadowColor=p.col; ctx.shadowBlur=14;
-                    ctx.strokeStyle=p.col; ctx.lineWidth=2.5;
-                    ctx.globalAlpha=0.7+Math.sin(frames*0.09)*0.25;
+                    ctx.shadowColor=p.col; ctx.shadowBlur=18;
+                    ctx.strokeStyle=p.col; ctx.lineWidth=4;
+                    ctx.globalAlpha=0.85+Math.sin(frames*0.09)*0.12;
                     ctx.beginPath(); ctx.roundRect(bx,by,SW,SH+LBL,8); ctx.stroke();
                     ctx.restore();
                 } else {
