@@ -981,12 +981,20 @@
             const vid = document.getElementById(screenId+'Video');
             const wrap = document.getElementById(screenId+'VideoWrap');
             if(!vid || !wrap) return;
-            const file = mapObj[selectedBrawler.id];
+            const file = mapObj[selectedBrawler ? selectedBrawler.id : ''];
             if(file) {
-                vid.src = file;
                 wrap.style.display = 'block';
+                vid.src = file;
+                // Wait for canplay before calling play() — eliminates race condition
+                vid.oncanplay = () => {
+                    vid.play().catch(e => console.warn('Video play failed:', e));
+                    vid.oncanplay = null;
+                };
+                vid.onerror = () => {
+                    console.warn('Video failed to load:', file);
+                    wrap.style.display = 'none';
+                };
                 vid.load();
-                vid.play().catch(()=>{});
             } else {
                 wrap.style.display = 'none';
             }
@@ -3672,20 +3680,32 @@
             }
 
             // Wall HP — below castle HP (smaller pill)
-            if(!wallDestroyed) {
+            {
                 const wy = cy + ch2 + gap;
                 const ww = 120, wh = 28;
                 const wx = screenW/2 - ww/2 - 65;
-                ctx.fillStyle = 'rgba(8,8,18,0.70)';
-                ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, 8); ctx.fill();
-                const wpct = wallMaxHP>0?wallHP/wallMaxHP:0;
-                ctx.fillStyle='rgba(255,255,255,0.07)';
-                ctx.beginPath(); ctx.roundRect(wx+8,wy+18,ww-16,6,3); ctx.fill();
-                ctx.fillStyle=wpct>0.5?'#95a5a6':'#7f8c8d';
-                ctx.beginPath(); ctx.roundRect(wx+8,wy+18,(ww-16)*wpct,6,3); ctx.fill();
-                ctx.font='bold 9px "Lilita One",cursive'; ctx.textAlign='center'; ctx.textBaseline='middle';
-                ctx.fillStyle='rgba(255,255,255,0.7)';
-                ctx.fillText('🧱 MUR  '+Math.ceil(wallHP)+'/'+wallMaxHP, wx+ww/2, wy+11);
+                if(!wallDestroyed) {
+                    ctx.fillStyle = 'rgba(8,8,18,0.70)';
+                    ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, 8); ctx.fill();
+                    const wpct = wallMaxHP>0?wallHP/wallMaxHP:0;
+                    ctx.fillStyle='rgba(255,255,255,0.07)';
+                    ctx.beginPath(); ctx.roundRect(wx+8,wy+18,ww-16,6,3); ctx.fill();
+                    ctx.fillStyle=wpct>0.5?'#95a5a6':wpct>0.25?'#e67e22':'#e74c3c';
+                    ctx.beginPath(); ctx.roundRect(wx+8,wy+18,(ww-16)*wpct,6,3); ctx.fill();
+                    ctx.font='bold 9px "Lilita One",cursive'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillStyle='rgba(255,255,255,0.7)';
+                    ctx.fillText('🧱 MUR  '+Math.ceil(wallHP)+'/'+wallMaxHP, wx+ww/2, wy+11);
+                } else {
+                    // Wall destroyed — persistent red warning
+                    const flash = 0.55 + Math.sin(frames * 0.12) * 0.35;
+                    ctx.globalAlpha = flash;
+                    ctx.fillStyle = '#c0392b';
+                    ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, 8); ctx.fill();
+                    ctx.globalAlpha = 1;
+                    ctx.font='bold 9px "Lilita One",cursive'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillStyle='#fff';
+                    ctx.fillText('💥 MUR ZNISZCZONY', wx+ww/2, wy+wh/2);
+                }
             }
 
             // Gate HP
@@ -4865,25 +4885,9 @@
         }
 
         function updateHUD() {
-            // HP and score now drawn on canvas — only update HTML super/cube boxes
-            const superBox = document.getElementById('superBox');
-            if(superCharges > 0) {
-                superBox.style.display = 'block';
-                document.getElementById('superDisplay').innerText = superCharges;
-                superBox.style.transform = 'scale(1.1)';
-                setTimeout(() => superBox.style.transform = 'scale(1)', 200);
-            } else {
-                superBox.style.display = 'none';
-            }
-            const cubeBox = document.getElementById('cubeBox');
-            if(stats.cubesTotal > 0) {
-                cubeBox.style.display = 'block';
-                let cubeLabel = `⚡ x${stats.cubesTotal}`;
-                if(stats.dmgBonus > 0) cubeLabel += ` +${Math.round(stats.dmgBonus*100)}%DMG`;
-                document.getElementById('cubeDisplay').innerText = cubeLabel.replace('⚡ ','');
-            } else {
-                cubeBox.style.display = 'none';
-            }
+            // Castle uses 3-power system — cubeBox/superBox permanently hidden
+            const _cb = document.getElementById('cubeBox'); if(_cb) _cb.style.display='none';
+            const _sb = document.getElementById('superBox'); if(_sb) _sb.style.display='none';
         }
 
         function checkCollisions() {
@@ -5351,29 +5355,7 @@
             // Quicksand zones
             quicksandZones.forEach(qs => qs.draw());
 
-            environment.forEach(env => {
-                if(env.type === 'wall') { env.draw(); return; }
-                if(env.type === 'barricade') {
-                    // Draw barricade — animated blue shield planks
-                    const pulse = 0.7 + Math.sin(frames * 0.15) * 0.3;
-                    ctx.globalAlpha = pulse;
-                    ctx.fillStyle = '#5a8ab8';
-                    ctx.strokeStyle = '#74b9ff'; ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.roundRect(env.x, env.y, env.w, env.h, 6);
-                    ctx.fill(); ctx.stroke();
-                    // Cross beams
-                    ctx.strokeStyle = '#2d6a9f'; ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(env.x+6, env.y+env.h/2); ctx.lineTo(env.x+env.w-6, env.y+env.h/2);
-                    ctx.moveTo(env.x+env.w/2, env.y+6); ctx.lineTo(env.x+env.w/2, env.y+env.h-6);
-                    ctx.stroke();
-                    // Shield icon
-                    ctx.font = '20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-                    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-                    ctx.fillText('🛡️', env.x+env.w/2, env.y+env.h/2);
-                    ctx.globalAlpha = 1; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-                }
-            }); 
+            environment.forEach(env => { if(env.type === 'wall') env.draw(); }); 
             // Track marks (below entities)
             trackMarks.forEach(tm => tm.draw());
             gems.forEach(g => g.draw());
@@ -5386,6 +5368,48 @@
             // Castle: drawCastleBuilding handled after environment
             drawCastleBuilding();
             drawGateArches();
+            // Draw barricade blocks — after castle/gates, clearly visible
+            if(barricadeActive) {
+                environment.forEach(env => {
+                    if(env.type !== 'barricade') return;
+                    const pulse = 0.75 + Math.sin(frames * 0.18) * 0.25;
+                    // Outer glow
+                    ctx.shadowColor = '#74b9ff'; ctx.shadowBlur = 12;
+                    ctx.globalAlpha = pulse * 0.4;
+                    ctx.fillStyle = '#74b9ff';
+                    ctx.beginPath(); ctx.roundRect(env.x-4, env.y-4, env.w+8, env.h+8, 10); ctx.fill();
+                    ctx.shadowBlur = 0;
+                    // Main body
+                    ctx.globalAlpha = pulse;
+                    const bg = ctx.createLinearGradient(env.x, env.y, env.x, env.y+env.h);
+                    bg.addColorStop(0, '#5a9fd4'); bg.addColorStop(1, '#2d6a9f');
+                    ctx.fillStyle = bg;
+                    ctx.strokeStyle = '#a8d8ff'; ctx.lineWidth = 2.5;
+                    ctx.beginPath(); ctx.roundRect(env.x, env.y, env.w, env.h, 6);
+                    ctx.fill(); ctx.stroke();
+                    // Wood planks
+                    ctx.strokeStyle = 'rgba(0,40,80,0.35)'; ctx.lineWidth = 1.5;
+                    for(let row=1; row<3; row++) {
+                        ctx.beginPath();
+                        ctx.moveTo(env.x+4, env.y+env.h*row/3);
+                        ctx.lineTo(env.x+env.w-4, env.y+env.h*row/3);
+                        ctx.stroke();
+                    }
+                    // Cross bar
+                    ctx.strokeStyle = 'rgba(180,220,255,0.6)'; ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(env.x+8, env.y+env.h/2);
+                    ctx.lineTo(env.x+env.w-8, env.y+env.h/2);
+                    ctx.stroke();
+                    // Metal bolts
+                    [[env.x+12,env.y+12],[env.x+env.w-12,env.y+12],
+                     [env.x+12,env.y+env.h-12],[env.x+env.w-12,env.y+env.h-12]].forEach(([bx,by])=>{
+                        ctx.fillStyle='#b8d4f0'; ctx.beginPath(); ctx.arc(bx,by,4,0,Math.PI*2); ctx.fill();
+                        ctx.strokeStyle='#5080b0'; ctx.lineWidth=1; ctx.stroke();
+                    });
+                    ctx.globalAlpha = 1;
+                });
+            }
             // Boss bombs + craters
             // bossBombs.draw disabled in castle
             drawCraterMarks();
