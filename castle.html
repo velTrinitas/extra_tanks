@@ -466,8 +466,8 @@
         <!-- VICTORY SCREEN -->
         <div id="victoryScreen" class="screen">
             <h1>🏆 VICTORY!</h1>
-            <div id="victoryScreenVideoWrap" style="display:none;margin:8px auto;border-radius:10px;overflow:hidden;width:240px;border:2px solid #f1c40f;">
-                <video id="victoryScreenVideo" width="240" autoplay loop preload="none" playsinline style="display:block;"></video>
+            <div id="victoryScreenVideoWrap" style="display:none;margin:8px auto;border-radius:10px;overflow:hidden;width:240px;height:135px;border:2px solid #f1c40f;">
+                <video id="victoryScreenVideo" width="240" height="135" autoplay loop preload="auto" playsinline style="display:block;width:240px;height:135px;object-fit:cover;background:#000;"></video>
             </div>
             <canvas id="victoryCanvas" width="300" height="200"></canvas>
             <p style="font-family:sans-serif;font-size:1rem;color:#a8d87c;margin:4px 0 6px;">Flagi schwytane!</p>
@@ -592,8 +592,8 @@
         <!-- GAME OVER SCREEN -->
         <div id="gameOverScreen" class="screen">
             <h1 style="color:#e74c3c;text-shadow:2px 2px 0 #000;">💥 PRZEGRANA</h1>
-            <div id="gameOverScreenVideoWrap" style="display:none;margin:8px auto;border-radius:10px;overflow:hidden;width:240px;border:2px solid #e74c3c;">
-                <video id="gameOverScreenVideo" width="240" autoplay loop preload="none" playsinline style="display:block;"></video>
+            <div id="gameOverScreenVideoWrap" style="display:none;margin:8px auto;border-radius:10px;overflow:hidden;width:240px;height:135px;border:2px solid #e74c3c;">
+                <video id="gameOverScreenVideo" width="240" height="135" autoplay loop preload="auto" playsinline style="display:block;width:240px;height:135px;object-fit:cover;background:#000;"></video>
             </div>
             <div id="starRating" style="font-size:3.5rem;line-height:1;margin:6px 0;"></div>
             <div id="rankTitle" style="font-size:1.4rem;color:#e67e22;font-family:sans-serif;font-weight:bold;margin-bottom:6px;text-shadow:1px 1px 0 #000;"></div>
@@ -2302,7 +2302,7 @@
                         let nextY = this.y + Math.sin(this.angle) * moveSpd;
                         let canMoveX = true, canMoveY = true;
                         for(let env of environment) {
-                            if(env.type === 'wall' || (env.type === 'gate' && !gateDestroyed) || env.type === 'furtka') {
+                            if(env.type === 'wall' || env.type === 'barricade' || (env.type === 'gate' && !gateDestroyed) || env.type === 'furtka') {
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, nextX, this.y, this.height/2)) canMoveX = false;
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2)) canMoveY = false;
                             }
@@ -4554,9 +4554,10 @@
             if(pw.id === 'repair') {
                 wallHP = Math.min(wallMaxHP, wallHP + 4);
                 if(wallHP > 0) wallDestroyed = false;
-                if(!gateDestroyed) gateHP = Math.min(gateMaxHP, gateHP + 2); // repair gate too (not if destroyed)
+                if(!gateDestroyed) gateHP = Math.min(gateMaxHP, gateHP + 2);
+                castleHP = Math.min(castleMaxHP, castleHP + 2); // repair castle too
                 createExplosion(player.x, player.y, '#2ecc71', 14);
-                addHudNotif('🔧 +4 HP Muru', '#2ecc71');
+                addHudNotif('🔧 Mur+4 Zamek+2', '#2ecc71');
                 AudioSys.playGem();
                 repairsUsed++;
             } else if(pw.id === 'barricade') {
@@ -4565,7 +4566,7 @@
                 const bx = player.x + Math.cos(player.angle)*90; // 90px — poza radius gracza
                 const by = player.y + Math.sin(player.angle)*90;
                 barricadeBlock = {x:bx-40,y:by-40,w:80,h:80,endTime:barricadeEndTime};
-                environment.push(new EnvironmentBlock(barricadeBlock.x, barricadeBlock.y, 80, 80, 'wall', '#5a8ab8'));
+                environment.push(new EnvironmentBlock(barricadeBlock.x, barricadeBlock.y, 80, 80, 'barricade', '#5a8ab8')); // player passes through
                 addHudNotif('🛡️ Barykada!', '#3498db');
                 AudioSys.playGem();
             } else if(pw.id === 'artillery') {
@@ -4580,9 +4581,7 @@
                 barricadeActive = false;
                 // Remove the barricade block
                 if(barricadeBlock) {
-                    environment = environment.filter(e =>
-                        !(e.x === barricadeBlock.x && e.y === barricadeBlock.y)
-                    );
+                    environment = environment.filter(e => e.type !== 'barricade');
                     barricadeBlock = null;
                 }
             }
