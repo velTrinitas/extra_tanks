@@ -398,7 +398,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v4.0.1.1
+        Game version: v4.2
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2112,6 +2112,8 @@
             }
             update() {
                 if(this.flashTimer > 0) this.flashTimer--;
+                // ── FREEZE — zatrzymuje WSZYSTKICH wrogów (guards, boss, mega) ──
+                if(freezeActive && Date.now() < freezeEndTime) { this.age++; return; }
 
                 // ── GUARD AI (CTF) ───────────────────────────────────
                 if(this.isGuard && !this.isBoss) {
@@ -2250,8 +2252,6 @@
                     this.y = Math.max(60, Math.min(WORLD_H-60, this.y));
                     return;
                 }
-                // Regular/boss enemies freeze during FREEZE power
-                if(freezeActive && Date.now() < freezeEndTime) { this.age++; return; }
                 if(player.isHidden) {
                     this.angle += 0.05;
                 } else {
@@ -4514,8 +4514,8 @@
             for(let i=0; i<cfg.count; i++){
                 const side = cfg.fromSides[i % cfg.fromSides.length];
                 const sp = SPAWN_POS[side];
-                const e = new Enemy(false, false, false, false, -1,
-                    sp.x + (Math.random()-0.5)*120, sp.y + (Math.random()-0.5)*120);
+                const _sp = findSafeSpawn(sp.x + (Math.random()-0.5)*200, sp.y + (Math.random()-0.5)*200, 28);
+                const e = new Enemy(false, false, false, false, -1, _sp.x, _sp.y);
                 e.castleTarget = true;
                 enemies.push(e);
             }
@@ -4523,8 +4523,8 @@
             for(let i=0; i<cfg.guards; i++){
                 const side = cfg.fromSides[i % cfg.fromSides.length];
                 const sp = SPAWN_POS[side];
-                const e = new Enemy(false, false, false, true, -1,
-                    sp.x + (Math.random()-0.5)*80, sp.y + (Math.random()-0.5)*80);
+                const _gsp = findSafeSpawn(sp.x + (Math.random()-0.5)*160, sp.y + (Math.random()-0.5)*160, 28);
+                const e = new Enemy(false, false, false, true, -1, _gsp.x, _gsp.y);
                 e.castleTarget = true;
                 enemies.push(e);
             }
@@ -4776,10 +4776,15 @@
 
             // ── COVER ROCKS + RUINS ──────────────────────────────────
             const covers = [
+                // Oryginalne 16
                 [CX-700,CY-650],[CX+500,CY-600],[CX-650,CY+500],[CX+600,CY+550],
                 [CX-850,CY-200],[CX+800,CY-300],[CX-200,CY-850],[CX+300,CY+800],
                 [CX-550,CY-350],[CX+450,CY-350],[CX-400,CY+450],[CX+500,CY+350],
                 [CX-900,CY+100],[CX+850,CY+200],[CX+100,CY-900],[CX-150,CY+900],
+                // Dodatkowe 12 — więcej osłon
+                [CX-620,CY-150],[CX+580,CY+100],[CX-150,CY-600],[CX+200,CY+620],
+                [CX-730,CY+380],[CX+680,CY-420],[CX-380,CY+700],[CX+420,CY-720],
+                [CX-960,CY-450],[CX+920,CY+480],[CX-480,CY-920],[CX+500,CY+940],
             ];
             covers.forEach(([x,y])=>{
                 const w=60+Math.random()*100, h=45+Math.random()*70;
@@ -5195,7 +5200,7 @@
             let spawnRate = Math.max(10, Math.floor((diffBase - Math.floor(gameTime * 1.5)) / nmSpawnDiv));
             // Castle: regular spawn removed — only wave enemies target castle
             // CTF: no mega boss spawning
-            if (frames % 522 === 0) hearts.push(new Heart());
+            if (frames % 475 === 0) hearts.push(new Heart()); // +10% vs 522
             if (frames % 1125 === 0) magnets.push(new MagnetItem());
 
             player.update(); bullets.forEach(b => b.update());
