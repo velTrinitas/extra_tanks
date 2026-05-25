@@ -459,6 +459,8 @@
             background: #1e2a3a; border: 3px solid #4a5a6a; border-radius: 14px;
             padding: 14px 8px; text-align: center; cursor: pointer;
             transition: transform .1s, border-color .1s; position: relative;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 90px;
         }
         .scenario-card:hover:not(.locked) { border-color: #f1c40f; transform: scale(1.03); }
         .scenario-card.selected { border-color: #f1c40f; background: #2a2000; }
@@ -515,7 +517,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.5.1
+        Game version: v4.5.3
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -788,10 +790,10 @@
         ];
 
         const MAPS = [
-            { id: 'desert', name: 'PUSTYNIA',  bg: '#e8d4a2', wall: '#d35400', bush: '#2ecc71', density: 0.08, music: 'pustynia.mp3' },
-            { id: 'forest', name: 'TROPIKI',   bg: '#27ae60', wall: '#7f8c8d', bush: '#1e8449', density: 0.12, music: 'las.mp3' },
-            { id: 'ice',    name: 'ARKTYKA',   bg: '#d4e6f1', wall: '#85c1e9', bush: '#ecf0f1', density: 0.06, music: 'arktyka.mp3' },
-            { id: 'city',   name: 'CYBERPUNK', bg: '#546778', wall: '#b0bec5', bush: '#ff6fd8', density: 0.10, music: 'miasto.mp3' }
+            { id: 'desert', name: 'PUSTYNIA',  badge: '#b8720a', bg: '#e8d4a2', wall: '#d35400', bush: '#2ecc71', density: 0.08, music: 'pustynia.mp3' },
+            { id: 'forest', name: 'TROPIKI',   badge: '#1a7a40', bg: '#27ae60', wall: '#7f8c8d', bush: '#1e8449', density: 0.12, music: 'las.mp3' },
+            { id: 'ice',    name: 'ARKTYKA',   badge: '#1a6ea8', bg: '#d4e6f1', wall: '#85c1e9', bush: '#ecf0f1', density: 0.06, music: 'arktyka.mp3' },
+            { id: 'city',   name: 'CYBERPUNK', badge: '#5d3580', bg: '#546778', wall: '#b0bec5', bush: '#ff6fd8', density: 0.10, music: 'miasto.mp3' }
         ];
 
         const MAP_ICONS = {
@@ -984,11 +986,9 @@
         MAPS.forEach(m => {
             let div = document.createElement('div');
             div.className = `select-card map-card ${m.id === selectedMap.id ? 'selected' : ''}`;
-            // NO inline background — kept dark #1e2a3a like scenario-card
-            // Map color shown as border-bottom accent
-            div.style.borderBottomColor = m.bg;
-            div.style.borderBottomWidth = '5px';
-            div.innerHTML = `<div class="map-icon-svg">${MAP_ICONS[m.id]||''}</div><div class="map-label">${m.name}</div>`;
+            // Consistent 3px border, no inline overrides — box model identical to scenario-card
+            div.innerHTML = `<div class="map-icon-svg">${MAP_ICONS[m.id]||''}</div>`
+                + `<div class="map-label" style="background:${m.badge};border-radius:8px;padding:3px 6px;">${m.name}</div>`;
             div.onclick = () => {
                 document.querySelectorAll('.map-grid .select-card').forEach(el => el.classList.remove('selected'));
                 div.classList.add('selected');
