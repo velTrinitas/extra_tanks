@@ -302,21 +302,24 @@
             color: #3498db; font-family: sans-serif; font-weight: normal;
         }
         .map-card { background: #1e2a3a; border: 3px solid #4a5a6a; border-radius: 14px;
-            padding: 14px 8px; text-align: center; cursor: pointer;
-            transition: transform .1s, border-color .1s; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 4px; min-height: 90px; }
+            padding: 10px 12px; text-align: center; cursor: pointer;
+            transition: transform .1s, border-color .1s; display: flex; flex-direction: row;
+            align-items: center; justify-content: center; gap: 8px; }
         .map-card:hover { border-color: #f1c40f; transform: scale(1.03); }
         .map-card.selected { background: #2a2000; border-color: #f1c40f; }
-        .map-icon-svg { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; }
-        .map-icon-svg svg { filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.5)); width: 36px; height: 36px; }
+        .map-icon-svg { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .map-icon-svg svg { filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.5)); width: 26px; height: 26px; }
         .map-label { font-family: 'Lilita One', cursive; font-size: 0.95rem; color: #fff;
             -webkit-text-stroke: 0.5px rgba(0,0,0,0.4); display: block; }
         .diff-card {
             font-family: 'Lilita One', cursive;
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             text-transform: uppercase;
             color: #fff;
             letter-spacing: 1px;
+            display: flex; flex-direction: row;
+            align-items: center; justify-content: center;
+            gap: 7px; padding: 10px 12px;
         }
         .diff-card[data-diff="nightmare"] { background: #1a0a0a !important; border: 2px solid #c0392b; color: #ff4444; }
         .diff-card[data-diff="nightmare"].selected { border-color: #ff4444; box-shadow: 0 8px 0 #7b0000, 0 0 16px rgba(231,76,60,0.6); }
@@ -459,10 +462,10 @@
         .scenario-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; width: 100%; margin-bottom: 8px; }
         .scenario-card {
             background: #1e2a3a; border: 3px solid #4a5a6a; border-radius: 14px;
-            padding: 14px 8px; text-align: center; cursor: pointer;
+            padding: 10px 12px; text-align: center; cursor: pointer;
             transition: transform .1s, border-color .1s; position: relative;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; min-height: 90px; gap: 4px;
+            display: flex; flex-direction: row; align-items: center;
+            justify-content: center; gap: 8px;
         }
         .scenario-card:hover:not(.locked) { border-color: #f1c40f; transform: scale(1.03); }
         .scenario-card.selected { border-color: #f1c40f; background: #2a2000; }
@@ -520,7 +523,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.5.6
+        Game version: v4.5.7
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -577,28 +580,28 @@
 
             <h2>Poziom trudu</h2>
             <div class="grid-container diff-grid" id="diffGrid">
-                <div class="select-card diff-card" style="background:#27ae60;" data-diff="easy">EASY</div>
-                <div class="select-card diff-card selected" style="background:#e67e22;" data-diff="normal">NORMAL</div>
-                <div class="select-card diff-card" style="background:#c0392b;" data-diff="hard">HARD</div>
-                <div class="select-card diff-card" data-diff="nightmare">NIGHTMARE</div>
+                <div class="select-card diff-card" style="background:#27ae60;" data-diff="easy"><span>🌱</span><span>EASY</span></div>
+                <div class="select-card diff-card selected" style="background:#e67e22;" data-diff="normal"><span>⚔️</span><span>NORMAL</span></div>
+                <div class="select-card diff-card" style="background:#c0392b;" data-diff="hard"><span>💥</span><span>HARD</span></div>
+                <div class="select-card diff-card" data-diff="nightmare"><span>☠️</span><span>NIGHTMARE</span></div>
             </div>
 
             <h2>Wybierz scenariusz</h2>
             <div class="scenario-grid">
                 <div class="select-card scenario-card selected" id="scen-ktb" data-scen="ktb">
-                    <div style="font-size:2.2rem">💀</div>
+                    <span style="font-size:1.5rem;line-height:1;flex-shrink:0">💀</span>
                     <div class="name" style="background:#e74c3c;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Kill the Boss</div>
                 </div>
                 <div class="select-card scenario-card" id="scen-flag" data-scen="flag">
-                    <div style="font-size:2.2rem">🚩</div>
+                    <span style="font-size:1.5rem;line-height:1;flex-shrink:0">🚩</span>
                     <div class="name" style="background:#3498db;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Capture the Flag</div>
                 </div>
                 <div class="select-card scenario-card" id="scen-castle" data-scen="castle">
-                    <div style="font-size:2.2rem">🏰</div>
+                    <span style="font-size:1.5rem;line-height:1;flex-shrink:0">🏰</span>
                     <div class="name" style="background:#2d5016;border-radius:8px;padding:3px 2px;font-size:0.9rem;">Defend the Castle</div>
                 </div>
                 <div class="select-card scenario-card locked" id="scen-save" data-scen="save" style="cursor:not-allowed;opacity:0.65;">
-                    <div class="sc-icon">👑</div>
+                    <span class="sc-icon" style="font-size:1.5rem;line-height:1;flex-shrink:0">👑</span>
                     <div class="sc-name">SAVE THE KING</div>
                     <span class="sc-badge" style="background:#8e44ad;">W BUDOWIE</span>
                 </div>
@@ -991,7 +994,7 @@
             div.className = `select-card map-card ${m.id === selectedMap.id ? 'selected' : ''}`;
             // Consistent 3px border, no inline overrides — box model identical to scenario-card
             div.innerHTML = `<div class="map-icon-svg">${MAP_ICONS[m.id]||''}</div>`
-                + `<div class="map-label" style="background:${m.badge};border-radius:8px;padding:3px 6px;">${m.name}</div>`;
+                + `<div class="map-label" style="background:${m.badge};border-radius:8px;padding:3px 8px;">${m.name}</div>`;
             div.onclick = () => {
                 document.querySelectorAll('.map-grid .select-card').forEach(el => el.classList.remove('selected'));
                 div.classList.add('selected');
