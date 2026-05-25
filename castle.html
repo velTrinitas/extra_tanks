@@ -398,7 +398,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v4.5.2
+        Game version: v4.5.6
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2881,7 +2881,7 @@
             constructor() {
                 this.x = 100 + Math.random() * (WORLD_W - 200);
                 this.y = 100 + Math.random() * (WORLD_H - 200);
-                this.radius = 22; this.life = 360; this.active = true; this.pulse = Math.random()*Math.PI*2;
+                this.radius = 22; this.life = 660; this.active = true; // +5s (was 6s) this.pulse = Math.random()*Math.PI*2;
             }
             update() {
                 this.pulse += 0.07; this.life--;
@@ -3536,6 +3536,37 @@
                 fl.addColorStop(0,'rgba(255,255,200,0.6)'); fl.addColorStop(1,'rgba(255,100,0,0)');
                 ctx.fillStyle=fl; ctx.beginPath(); ctx.arc(0,0,r*0.2,0,Math.PI*2); ctx.fill();
 
+            } else if(type==='repair'){
+                // ── REPAIR: castle tower with green medical cross ──
+                const bg3=ctx.createRadialGradient(0,0,0,0,0,r*1.1);
+                bg3.addColorStop(0,'rgba(5,30,10,0.95)'); bg3.addColorStop(1,'rgba(2,15,5,0.95)');
+                ctx.fillStyle=bg3; ctx.beginPath(); ctx.roundRect(-r*1.05,-r*0.78,r*2.1,r*1.56,6); ctx.fill();
+                // Castle tower silhouette
+                ctx.fillStyle='rgba(46,204,113,0.25)';
+                ctx.fillRect(-r*0.35,-r*0.6,r*0.7,r*0.9);
+                ctx.fillRect(-r*0.5,-r*0.72,r*0.28,r*0.3);
+                ctx.fillRect(r*0.22,-r*0.72,r*0.28,r*0.3);
+                // Battlements
+                for(let b=-2;b<=2;b+=2){
+                    ctx.fillRect(b*r*0.14-r*0.07,-r*0.78,r*0.12,r*0.1);
+                }
+                // Medical cross (bright green)
+                const cg3=ctx.createRadialGradient(0,0,0,0,0,r*0.38);
+                cg3.addColorStop(0,'rgba(100,255,140,0.9)'); cg3.addColorStop(1,'rgba(46,204,113,0.6)');
+                ctx.fillStyle=cg3;
+                ctx.fillRect(-r*0.1,-r*0.42,r*0.2,r*0.5);  // vertical
+                ctx.fillRect(-r*0.25,-r*0.27,r*0.5,r*0.2); // horizontal
+                // Glow
+                ctx.shadowColor='#2ecc71'; ctx.shadowBlur=10;
+                ctx.strokeStyle='rgba(46,204,113,0.5)'; ctx.lineWidth=1;
+                ctx.strokeRect(-r*0.1,-r*0.42,r*0.2,r*0.5);
+                ctx.shadowBlur=0;
+                // Stars/sparks around cross
+                ctx.fillStyle='rgba(150,255,160,0.7)';
+                for(let i=0;i<4;i++){
+                    const sa=i*Math.PI/2+Math.PI/4, sr=r*0.52;
+                    ctx.beginPath(); ctx.arc(Math.cos(sa)*sr,Math.sin(sa)*sr,r*0.05,0,Math.PI*2); ctx.fill();
+                }
             } else if(type==='freeze'){
                 // ── FREEZE: time stop ice field ──
                 const bg3=ctx.createRadialGradient(0,0,0,0,0,r*1.1);
@@ -4478,18 +4509,29 @@
         // Spawn sides: 0=N, 1=E, 2=S, 3=W
         // Spawn positions = 400px outside camera edge (not world edge)
         function getDynamicSpawnPos(side) {
-            const M = 400; // px outside screen edge
+            const M = 480; // px outside screen edge
             const cx=camera.x, cy=camera.y, sw=screenW, sh=screenH;
-            const raw = [
+            const positions = [
                 {x:cx+sw/2, y:cy-M},      // 0 N
                 {x:cx+sw+M, y:cy+sh/2},   // 1 E
                 {x:cx+sw/2, y:cy+sh+M},   // 2 S
                 {x:cx-M,   y:cy+sh/2},    // 3 W
-            ][side];
-            return {
-                x: Math.max(150, Math.min(WORLD_W-150, raw.x)),
-                y: Math.max(150, Math.min(WORLD_H-150, raw.y))
+            ];
+            const raw = positions[side];
+            const sp = {
+                x: Math.max(320, Math.min(WORLD_W-320, raw.x)),
+                y: Math.max(320, Math.min(WORLD_H-320, raw.y))
             };
+            // If clamped pos ended up on-screen (player near world edge), try adjacent side
+            const onScreen = sp.x >= cx-40 && sp.x <= cx+sw+40 && sp.y >= cy-40 && sp.y <= cy+sh+40;
+            if(onScreen) {
+                const alt = positions[(side+1)%4];
+                return {
+                    x: Math.max(320, Math.min(WORLD_W-320, alt.x)),
+                    y: Math.max(320, Math.min(WORLD_H-320, alt.y))
+                };
+            }
+            return sp;
         }
         const SPAWN_POS = [0,1,2,3].map(i=>({x:CASTLE_CX,y:CASTLE_CY})); // fallback, overridden by getDynamicSpawnPos
 
@@ -4505,18 +4547,20 @@
             // Regular enemies
             for(let i=0; i<cfg.count; i++){
                 const side = cfg.fromSides[i % cfg.fromSides.length];
-                const sp = getDynamicSpawnPos(side);
-                const e = new Enemy(false, false, false, false, -1,
-                    sp.x + (Math.random()-0.5)*80, sp.y + (Math.random()-0.5)*80);
+                const _rsp = getDynamicSpawnPos(side);
+                const _rsx = _rsp.x+(Math.random()-0.5)*80, _rsy = _rsp.y+(Math.random()-0.5)*80;
+                const sp = findSafeSpawn(_rsx, _rsy, 28);
+                const e = new Enemy(false, false, false, false, -1, sp.x, sp.y);
                 e.castleTarget = true;
                 enemies.push(e);
             }
             // Guards
             for(let i=0; i<cfg.guards; i++){
                 const side = cfg.fromSides[i % cfg.fromSides.length];
-                const sp = getDynamicSpawnPos(side);
-                const e = new Enemy(false, false, false, true, -1,
-                    sp.x + (Math.random()-0.5)*80, sp.y + (Math.random()-0.5)*80);
+                const _gsp = getDynamicSpawnPos(side);
+                const _gsx = _gsp.x+(Math.random()-0.5)*80, _gsy = _gsp.y+(Math.random()-0.5)*80;
+                const gsp = findSafeSpawn(_gsx, _gsy, 28);
+                const e = new Enemy(false, false, false, true, -1, gsp.x, gsp.y);
                 e.castleTarget = true;
                 enemies.push(e);
             }
@@ -4789,27 +4833,34 @@
             });
 
             // ── TREES (3 types) ──────────────────────────────────────
-            // Oak trees — NE/NW + mid-field
+            // Oak trees — spread across full 3000×3000 map
             const oakPos = [
                 [CX-950,CY-800],[CX-800,CY-900],[CX-700,CY-750],[CX-900,CY-600],[CX-1000,CY-700],
                 [CX+700,CY-750],[CX+850,CY-800],[CX+950,CY-900],[CX+800,CY-650],[CX+700,CY-850],
-                // Extra oaks mid-field
                 [CX-550,CY-700],[CX+550,CY-700],[CX-1050,CY-400],[CX+1050,CY-350],
                 [CX-400,CY-600],[CX+400,CY-620],[CX-1100,CY-600],[CX+1100,CY-500],
                 [CX-1200,CY-200],[CX+1200,CY-150],[CX-300,CY-1050],[CX+350,CY-1100],
+                // Outer ring — fills empty edges on 3000×3000 map
+                [CX-1300,CY-900],[CX+1300,CY-850],[CX-1350,CY-500],[CX+1350,CY-450],
+                [CX-1250,CY-1100],[CX+1250,CY-1050],[CX-600,CY-1250],[CX+650,CY-1300],
+                [CX-1400,CY+100],[CX+1400,CY+50],[CX-1350,CY-700],[CX+1350,CY-750],
             ];
             oakPos.forEach(([x,y])=>mapDecorations.push({x,y,mapId:'castle_oak',seed:Math.random()}));
 
-            // Pine trees — south + east/west flanks
+            // Pine trees — full spread incl. outer ring
             const pinePos = [
                 [CX-800,CY+700],[CX-700,CY+850],[CX-900,CY+800],[CX-600,CY+750],
                 [CX+700,CY+750],[CX+800,CY+800],[CX+900,CY+700],[CX+600,CY+850],
                 [CX-950,CY+100],[CX+950,CY+200],[CX+50,CY-950],[CX-100,CY+950],
-                // Extra pines
                 [CX-1100,CY+400],[CX+1100,CY+350],[CX-500,CY+950],[CX+500,CY+900],
                 [CX-850,CY+500],[CX+850,CY+550],[CX-1200,CY+700],[CX+1200,CY+650],
                 [CX-300,CY+1000],[CX+300,CY+1050],[CX-700,CY+1000],[CX+700,CY+1050],
                 [CX-1300,CY+100],[CX+1300,CY+200],[CX-1350,CY-100],[CX+1350,CY-200],
+                // Far outer edges
+                [CX-1380,CY+500],[CX+1380,CY+450],[CX-1350,CY+800],[CX+1350,CY+750],
+                [CX-900,CY+1200],[CX+900,CY+1250],[CX-500,CY+1300],[CX+500,CY+1350],
+                [CX-1300,CY-500],[CX+1300,CY-550],[CX-1250,CY+1000],[CX+1250,CY+950],
+                [CX-100,CY+1380],[CX+150,CY+1400],[CX-1400,CY+300],[CX+1400,CY+350],
             ];
             pinePos.forEach(([x,y])=>mapDecorations.push({x,y,mapId:'castle_pine',seed:Math.random()}));
 

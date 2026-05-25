@@ -295,6 +295,7 @@
         }
 
         /* map section disabled when CTF selected */
+        #mapSection { width: 100%; }
         #mapSection.map-disabled { opacity: 0.32; pointer-events: none; transition: opacity 0.3s; }
         #mapSection.map-disabled #mapLabel::after {
             content: ' — mapa CTF: Fortified Ruins'; font-size: 0.62em;
@@ -305,8 +306,9 @@
             transition: transform .1s, border-color .1s; display: flex; flex-direction: column;
             align-items: center; justify-content: center; gap: 4px; min-height: 90px; }
         .map-card:hover { border-color: #f1c40f; transform: scale(1.03); }
-        .map-icon-svg { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
-        .map-icon-svg svg { filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.5)); }
+        .map-card.selected { background: #2a2000; border-color: #f1c40f; }
+        .map-icon-svg { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; }
+        .map-icon-svg svg { filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.5)); width: 36px; height: 36px; }
         .map-label { font-family: 'Lilita One', cursive; font-size: 0.95rem; color: #fff;
             -webkit-text-stroke: 0.5px rgba(0,0,0,0.4); display: block; }
         .diff-card {
@@ -460,13 +462,14 @@
             padding: 14px 8px; text-align: center; cursor: pointer;
             transition: transform .1s, border-color .1s; position: relative;
             display: flex; flex-direction: column; align-items: center;
-            justify-content: center; min-height: 90px;
+            justify-content: center; min-height: 90px; gap: 4px;
         }
         .scenario-card:hover:not(.locked) { border-color: #f1c40f; transform: scale(1.03); }
         .scenario-card.selected { border-color: #f1c40f; background: #2a2000; }
         .scenario-card.locked { opacity: 0.42; cursor: not-allowed; pointer-events: none; }
         .scenario-card .sc-icon { font-size: 2.2rem; display: block; margin-bottom: 6px; }
         .scenario-card .sc-name { font-family: 'Lilita One', cursive; font-size: 0.95rem; color: #fff; -webkit-text-stroke: 0.5px #000; display: block; }
+        .scenario-card .name { font-family: 'Lilita One', cursive; font-size: 0.9rem; color: #fff; }
         .scenario-card .sc-badge {
             position: absolute; top: -8px; right: -8px;
             background: #e74c3c; color: #fff; font-size: 8px; font-weight: bold;
@@ -517,7 +520,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.5.3
+        Game version: v4.5.6
     </div>
 
     <div id="welcomeScreenWrapper"></div>
