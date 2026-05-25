@@ -654,12 +654,12 @@
                 const acc=stats.bulletsFired>0?stats.bulletsHit/stats.bulletsFired:0;
                 if(acc>=0.4) bonus+=2;
                 if(player.hp>=player.maxHp*0.5) bonus+=2;
-                const m=selectedDifficulty==='Trening'?0.5:selectedDifficulty==='Rój!'?1.5:1.0;
+                const m=selectedDifficulty==='easy'?0.5:selectedDifficulty==='hard'?1.5:selectedDifficulty==='nightmare'?2.5:1.0;
                 return Math.max(1,Math.ceil((base+bonus)*m));
             } else {
                 const cur=getBrawlerTrophies(selectedBrawler.id);
-                if(selectedDifficulty==='Trening') return 0;
-                const loss=selectedDifficulty==='Rój!'?{h:5,l:2}:{h:3,l:1};
+                if(selectedDifficulty==='easy') return 0;
+                const loss=selectedDifficulty==='hard'?{h:5,l:2}:{h:3,l:1};
                 if(cur>=50) return -loss.h;
                 if(cur>=10) return -loss.l;
                 return 0;
@@ -711,14 +711,14 @@
                 if(gameTime<180) bonus+=2;
                 if(stats.kills>=10) bonus+=2;
                 if(player.hp>=player.maxHp*0.5) bonus+=2;
-                const m=selectedDifficulty==='Trening'?0.5:selectedDifficulty==='Rój!'?1.5:1.0;
+                const m=selectedDifficulty==='easy'?0.5:selectedDifficulty==='hard'?1.5:selectedDifficulty==='nightmare'?2.5:1.0;
                 return Math.max(1,Math.ceil((base+bonus)*m));
             } else if(flagsCaptured===2) { return 3; }
             else if(flagsCaptured===1) { return 1; }
             else {
                 const cur=getBrawlerTrophies(selectedBrawler.id);
-                if(selectedDifficulty==='Trening') return 0;
-                const loss=selectedDifficulty==='Rój!'?{h:5,l:2}:{h:3,l:1};
+                if(selectedDifficulty==='easy') return 0;
+                const loss=selectedDifficulty==='hard'?{h:5,l:2}:{h:3,l:1};
                 if(cur>=50) return -loss.h;
                 if(cur>=10) return -loss.l;
                 return 0;

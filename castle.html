@@ -668,12 +668,12 @@
                 const acc=stats.bulletsFired>0?stats.bulletsHit/stats.bulletsFired:0;
                 if(acc>=0.4) bonus+=2;
                 if(player.hp>=player.maxHp*0.5) bonus+=2;
-                const m=selectedDifficulty==='Trening'?0.5:selectedDifficulty==='Rój!'?1.5:1.0;
+                const m=selectedDifficulty==='easy'?0.5:selectedDifficulty==='hard'?1.5:selectedDifficulty==='nightmare'?2.5:1.0;
                 return Math.max(1,Math.ceil((base+bonus)*m));
             } else {
                 const cur=getBrawlerTrophies(selectedBrawler.id);
-                if(selectedDifficulty==='Trening') return 0;
-                const loss=selectedDifficulty==='Rój!'?{h:5,l:2}:{h:3,l:1};
+                if(selectedDifficulty==='easy') return 0;
+                const loss=selectedDifficulty==='hard'?{h:5,l:2}:{h:3,l:1};
                 if(cur>=50) return -loss.h;
                 if(cur>=10) return -loss.l;
                 return 0;
@@ -722,8 +722,8 @@
         function calcTrophyChangeCastle(wavesCleared, won){
             if(!won){
                 const cur = getBrawlerTrophies(selectedBrawler.id);
-                if(selectedDifficulty==='Trening') return 0;
-                const loss = selectedDifficulty==='Rój!'?{h:5,l:2}:{h:3,l:1};
+                if(selectedDifficulty==='easy') return 0;
+                const loss = selectedDifficulty==='hard'?{h:5,l:2}:{h:3,l:1};
                 if(cur>=50) return -loss.h;
                 if(cur>=10) return -loss.l;
                 return 0;
@@ -735,7 +735,7 @@
             if(wallHP > wallMaxHP*0.5) bonus += 2;
             if(megaBossSpawnedCastle && !enemies.some(e=>e.active&&e.isMega)) bonus += 5;
             bonus += Math.min(3, repairsUsed);
-            const m = selectedDifficulty==='Trening'?0.5:selectedDifficulty==='Rój!'?1.5:1.0;
+            const m = selectedDifficulty==='easy'?0.5:selectedDifficulty==='hard'?1.5:selectedDifficulty==='nightmare'?2.5:1.0;
             return Math.max(1, Math.ceil((base+bonus)*m));
         }
 
@@ -1012,7 +1012,7 @@
 
         // Wave system
         let currentWave = 0;
-        const WAVES_TOTAL = 6;
+        const WAVES_TOTAL = selectedDifficulty === 'nightmare' ? 8 : 6;
         let waveActive = false;
         let waveTimerFrames = 0;  // countdown between waves
         let waveEnemiesTotal = 0;
@@ -2305,7 +2305,8 @@
                         AudioSys.playShoot('standard');
                     }
                     if (dist > (this.castleTarget ? 80 : 150)) {
-                        const moveSpd = this.castleTarget ? this.speed * 1.25 : this.speed;
+                        const nmMult = selectedDifficulty === 'nightmare' ? 1.6 : 1.0;
+                        const moveSpd = this.castleTarget ? this.speed * 1.25 * nmMult : this.speed * nmMult;
                         let nextX = this.x + Math.cos(this.angle) * moveSpd;
                         let nextY = this.y + Math.sin(this.angle) * moveSpd;
                         let canMoveX = true, canMoveY = true;
@@ -4542,7 +4543,7 @@
                 if(currentWave >= WAVES_TOTAL) {
                     setTimeout(triggerVictory, 1500);
                 } else {
-                    const interWave = currentWave === 0 ? 120 : 1800; // 2s first, 30s rest
+                    const interWave = currentWave === 0 ? 120 : selectedDifficulty === 'nightmare' ? 900 : 1800; // 2s first, 15s/30s rest
                     waveTimerFrames = interWave;
                     waveMessage = {text:'✅ Fala odparta!', color:'#2ecc71', timer:180};
                     addHudNotif('✅ Fala odparta!', '#2ecc71');
@@ -5188,7 +5189,8 @@
 
             frames++;
             let diffBase = selectedDifficulty === 'easy' ? 200 : (selectedDifficulty === 'hard' ? 60 : 120);
-            let spawnRate = Math.max(20, diffBase - Math.floor(gameTime * 1.5));
+            const nmSpawnDiv = selectedDifficulty === 'nightmare' ? 2 : 1;
+            let spawnRate = Math.max(10, Math.floor((diffBase - Math.floor(gameTime * 1.5)) / nmSpawnDiv));
             // Castle: regular spawn removed — only wave enemies target castle
             // CTF: no mega boss spawning
             if (frames % 522 === 0) hearts.push(new Heart());
