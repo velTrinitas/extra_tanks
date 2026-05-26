@@ -3088,28 +3088,6 @@
                 ctx.restore(); ctx.globalAlpha=1; return;
             }
 
-            if(d.mapId === 'desert') {
-                if(s < 0.5) {
-                    // Cactus — cel-shading już jest
-                    ctx.fillStyle='#2d6a2d'; ctx.strokeStyle='#1a4a1a'; ctx.lineWidth=2;
-                    ctx.fillRect(-5,-30,10,34); ctx.strokeRect(-5,-30,10,34);
-                    ctx.fillRect(-18,-18,13,8); ctx.strokeRect(-18,-18,13,8);
-                    ctx.fillRect(5,-22,13,8); ctx.strokeRect(5,-22,13,8);
-                    ctx.fillRect(-18,-26,5,10); ctx.strokeRect(-18,-26,5,10);
-                    ctx.fillRect(14,-30,5,10); ctx.strokeRect(14,-30,5,10);
-                } else {
-                    // Rock — PROSTOKĄTNY (roundRect) + gradient + cel-shading
-                    const rw=20+s*14, rh=12+s*8;
-                    const rg=ctx.createLinearGradient(-rw*0.4,-rh*0.6,rw*0.4,rh*0.6);
-                    rg.addColorStop(0,'#f0d0a0'); rg.addColorStop(0.45,'#c8a882'); rg.addColorStop(1,'#7a5630');
-                    ctx.fillStyle=rg; ctx.strokeStyle='#5a3a18'; ctx.lineWidth=2.5;
-                    ctx.beginPath(); ctx.roundRect(-rw/2,-rh/2,rw,rh,3+s*3); ctx.fill(); ctx.stroke();
-                    ctx.fillStyle='rgba(255,240,200,0.15)';
-                    ctx.beginPath(); ctx.roundRect(-rw*0.36,-rh*0.44,rw*0.45,rh*0.38,2); ctx.fill();
-                    ctx.fillStyle='rgba(0,0,0,0.16)';
-                    ctx.beginPath(); ctx.ellipse(SUN_OFFSET_X,rh*0.5+SUN_OFFSET_Y,rw*0.7,rh*0.28,0,0,Math.PI*2); ctx.fill();
-                }
-
             // ─── PIRAMIDA ────────────────────────────────────────────────────
             if(d.mapId === 'desert_pyramid') {
                 const pw=d.w||130, ph=d.h||110;
@@ -3213,6 +3191,29 @@
                 _drawSwayingGrass(d.x-25, d.y-55, d.seed*12.56);
                 return;
             }
+
+
+            if(d.mapId === 'desert') {
+                if(s < 0.5) {
+                    // Cactus — cel-shading już jest
+                    ctx.fillStyle='#2d6a2d'; ctx.strokeStyle='#1a4a1a'; ctx.lineWidth=2;
+                    ctx.fillRect(-5,-30,10,34); ctx.strokeRect(-5,-30,10,34);
+                    ctx.fillRect(-18,-18,13,8); ctx.strokeRect(-18,-18,13,8);
+                    ctx.fillRect(5,-22,13,8); ctx.strokeRect(5,-22,13,8);
+                    ctx.fillRect(-18,-26,5,10); ctx.strokeRect(-18,-26,5,10);
+                    ctx.fillRect(14,-30,5,10); ctx.strokeRect(14,-30,5,10);
+                } else {
+                    // Rock — PROSTOKĄTNY (roundRect) + gradient + cel-shading
+                    const rw=20+s*14, rh=12+s*8;
+                    const rg=ctx.createLinearGradient(-rw*0.4,-rh*0.6,rw*0.4,rh*0.6);
+                    rg.addColorStop(0,'#f0d0a0'); rg.addColorStop(0.45,'#c8a882'); rg.addColorStop(1,'#7a5630');
+                    ctx.fillStyle=rg; ctx.strokeStyle='#5a3a18'; ctx.lineWidth=2.5;
+                    ctx.beginPath(); ctx.roundRect(-rw/2,-rh/2,rw,rh,3+s*3); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle='rgba(255,240,200,0.15)';
+                    ctx.beginPath(); ctx.roundRect(-rw*0.36,-rh*0.44,rw*0.45,rh*0.38,2); ctx.fill();
+                    ctx.fillStyle='rgba(0,0,0,0.16)';
+                    ctx.beginPath(); ctx.ellipse(SUN_OFFSET_X,rh*0.5+SUN_OFFSET_Y,rw*0.7,rh*0.28,0,0,Math.PI*2); ctx.fill();
+                }
 
             } else if(d.mapId === 'forest') {
                 if(s < 0.55) {
