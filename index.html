@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.10.3
+        Game version: v4.10.4
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4128,11 +4128,12 @@
                     };
                 });
                 // Palmy rozsiane po całej mapie (zastępują drzewa)
+                const _CX=WORLD_W/2, _CY=WORLD_H/2;
                 const palmGrid = [
-                    [CX-900,CY-800],[CX-800,CY-900],[CX-1000,CY-600],[CX+800,CY-750],[CX+950,CY-900],
-                    [CX-800,CY+700],[CX-700,CY+850],[CX+750,CY+750],[CX+900,CY+600],[CX+1100,CY-400],
-                    [CX-1100,CY+300],[CX-600,CY-1000],[CX+600,CY-950],[CX-300,CY+1100],[CX+350,CY+1050],
-                    [CX-1200,CY-500],[CX+1200,CY+400],[CX-500,CY-1100],[CX+450,CY-1200],
+                    [_CX-900,_CY-800],[_CX-800,_CY-900],[_CX-1000,_CY-600],[_CX+800,_CY-750],[_CX+950,_CY-900],
+                    [_CX-800,_CY+700],[_CX-700,_CY+850],[_CX+750,_CY+750],[_CX+900,_CY+600],[_CX+1100,_CY-400],
+                    [_CX-1100,_CY+300],[_CX-600,_CY-1000],[_CX+600,_CY-950],[_CX-300,_CY+1100],[_CX+350,_CY+1050],
+                    [_CX-1200,_CY-500],[_CX+1200,_CY+400],[_CX-500,_CY-1100],[_CX+450,_CY-1200],
                 ];
                 palmGrid.forEach(([px,py])=>{
                     const px2=px+(Math.random()-0.5)*120, py2=py+(Math.random()-0.5)*120;
