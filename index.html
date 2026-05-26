@@ -306,7 +306,8 @@
         .map-card { background: #1e2a3a; border: 3px solid #4a5a6a; border-radius: 14px;
             padding: 11px 14px; text-align: center; cursor: pointer;
             transition: transform .1s, border-color .1s; display: flex; flex-direction: row;
-            align-items: center; justify-content: center; gap: 9px; }
+            align-items: center; justify-content: center; gap: 9px;
+            height: 63px; box-sizing: border-box; }
         .map-card:hover { border-color: #f1c40f; transform: scale(1.03); }
         .map-card.selected { background: #2a2000; border-color: #f1c40f; }
         .map-icon-svg { width: 29px; height: 29px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -322,6 +323,7 @@
             display: flex; flex-direction: row;
             align-items: center; justify-content: center;
             gap: 8px; padding: 11px 14px;
+            height: 63px; box-sizing: border-box;
         }
         .diff-card:hover { border-color: #f1c40f; transform: scale(1.03); }
         .diff-card.selected { background: #2a2000 !important; border-color: #f1c40f; }
@@ -469,7 +471,7 @@
             padding: 11px 14px; text-align: center; cursor: pointer;
             transition: transform .1s, border-color .1s; position: relative;
             display: flex; flex-direction: row; align-items: center;
-            justify-content: center; gap: 9px;
+            justify-content: center; gap: 9px; height: 63px; box-sizing: border-box;
         }
         .scenario-card:hover:not(.locked) { border-color: #f1c40f; transform: scale(1.03); }
         .scenario-card.selected { border-color: #f1c40f; background: #2a2000; }
@@ -529,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.6
+        Game version: v4.7
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2978,34 +2980,50 @@
             ctx.save(); ctx.translate(d.x, d.y);
             const s = d.seed;
 
-            // Desert palm (oasis)
+            // Desert palm — wind animation + gradient korony
             if(d.mapId === 'desert_palm') {
                 const v = d.variant||0;
                 const h = 22+v*4;
-                ctx.fillStyle='#6d4c1f'; ctx.strokeStyle='#4a3010'; ctx.lineWidth=1.5;
+                // Animacja wiatru: kołysanie ±2.5px bazowane na seed
+                const wind = Math.sin(Date.now()*0.0012 + d.seed*6.28) * 2.5;
+                const windY = Math.cos(Date.now()*0.0009 + d.seed*4.2) * 1.2;
+                // Cień pnia na piasku
+                ctx.fillStyle='rgba(0,0,0,0.15)';
+                ctx.beginPath(); ctx.ellipse(SUN_OFFSET_X*1.5,4,5,2.5,0,0,Math.PI*2); ctx.fill();
+                // Pień z gradientem
+                const tg=ctx.createLinearGradient(-3,-h,3,-h);
+                tg.addColorStop(0,'#8a6030'); tg.addColorStop(0.4,'#6d4c1f'); tg.addColorStop(1,'#4a3010');
+                ctx.fillStyle=tg; ctx.strokeStyle='#3a2008'; ctx.lineWidth=1.5;
                 ctx.beginPath(); ctx.roundRect(-3,-h,6,h,2); ctx.fill(); ctx.stroke();
-                // Fronds (different per variant)
+                // Fronds z gradientem i animacją wiatru
                 const frondColors=['#1a7a1a','#228b22','#2d8b2d','#3a9a3a'];
-                ctx.fillStyle=frondColors[v]; ctx.strokeStyle='#0a5a0a'; ctx.lineWidth=1;
                 const frondCount=4+v;
                 for(let i=0;i<frondCount;i++){
                     const a=(i/frondCount)*Math.PI*2;
                     const len=14+v*2;
+                    // Gradient na liściu (jasny środek → ciemne końce)
+                    const fg=ctx.createLinearGradient(0,-h,Math.cos(a)*len,-h+Math.sin(a)*8+4);
+                    fg.addColorStop(0,'#4aaa4a'); fg.addColorStop(1,frondColors[v]);
                     ctx.beginPath();
                     ctx.moveTo(0,-h);
-                    ctx.quadraticCurveTo(Math.cos(a)*len*0.5,-h-6+Math.sin(a)*4,Math.cos(a)*len,-h+Math.sin(a)*8+4);
-                    ctx.lineWidth=2.5; ctx.strokeStyle=frondColors[v]; ctx.stroke();
-                    // Frond leaves
+                    // Punkt kontrolny z wiatrem
+                    ctx.quadraticCurveTo(
+                        Math.cos(a)*len*0.5+wind*0.4,-h-6+Math.sin(a)*4+windY,
+                        Math.cos(a)*len+wind,-h+Math.sin(a)*8+4+windY
+                    );
+                    ctx.lineWidth=2.5; ctx.strokeStyle=fg; ctx.stroke();
+                    // Małe listki
                     ctx.lineWidth=1; ctx.strokeStyle='#0a5a0a';
                     for(let j=1;j<3;j++){
                         const t=j/3;
-                        const lx=Math.cos(a)*len*t*0.6, ly=-h+Math.sin(a)*8*t+4*t;
+                        const lx=Math.cos(a)*len*t*0.6+wind*t*0.3;
+                        const ly=-h+Math.sin(a)*8*t+4*t+windY*t;
                         const na=a+Math.PI/2;
                         ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx+Math.cos(na)*6,ly+Math.sin(na)*6); ctx.stroke();
                         ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx-Math.cos(na)*6,ly-Math.sin(na)*6); ctx.stroke();
                     }
                 }
-                if(v>=2){ctx.fillStyle='#c8a230'; ctx.beginPath(); ctx.arc(0,-h-1,3,0,Math.PI*2); ctx.fill();}
+                if(v>=2){ctx.fillStyle='#c8a230'; ctx.beginPath(); ctx.arc(wind*0.3,-h-1,3,0,Math.PI*2); ctx.fill();}
                 ctx.restore(); ctx.globalAlpha=1; return;
             }
 
@@ -3056,19 +3074,29 @@
 
             if(d.mapId === 'desert') {
                 if(s < 0.5) {
-                    // Cactus
+                    // Cactus — cel-shading już jest
                     ctx.fillStyle='#2d6a2d'; ctx.strokeStyle='#1a4a1a'; ctx.lineWidth=2;
-                    ctx.fillRect(-5, -30, 10, 34); ctx.strokeRect(-5,-30,10,34);
-                    ctx.fillRect(-18, -18, 13, 8); ctx.strokeRect(-18,-18,13,8);
-                    ctx.fillRect(5, -22, 13, 8); ctx.strokeRect(5,-22,13,8);
-                    ctx.fillRect(-18, -26, 5, 10); ctx.strokeRect(-18,-26,5,10);
-                    ctx.fillRect(14, -30, 5, 10); ctx.strokeRect(14,-30,5,10);
+                    ctx.fillRect(-5,-30,10,34); ctx.strokeRect(-5,-30,10,34);
+                    ctx.fillRect(-18,-18,13,8); ctx.strokeRect(-18,-18,13,8);
+                    ctx.fillRect(5,-22,13,8); ctx.strokeRect(5,-22,13,8);
+                    ctx.fillRect(-18,-26,5,10); ctx.strokeRect(-18,-26,5,10);
+                    ctx.fillRect(14,-30,5,10); ctx.strokeRect(14,-30,5,10);
                 } else {
-                    // Rock
-                    ctx.fillStyle='#c8a882'; ctx.strokeStyle='#a07850'; ctx.lineWidth=1.5;
-                    ctx.beginPath(); ctx.ellipse(0,0,18+s*8,12+s*5,s*0.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
-                    ctx.fillStyle='rgba(255,255,255,0.2)';
-                    ctx.beginPath(); ctx.ellipse(-4,-3,8,4,0.3,0,Math.PI*2); ctx.fill();
+                    // Rock — gradient radialny + cel-shading
+                    const rw=18+s*8, rh=12+s*5, ra=s*0.5;
+                    const rg=ctx.createRadialGradient(-rw*0.3,-rh*0.4,0,rw*0.1,rh*0.1,rw*1.1);
+                    rg.addColorStop(0,'#f0d0a0');  // oświetlona strona (słońce z góryleft)
+                    rg.addColorStop(0.45,'#c8a882');
+                    rg.addColorStop(1,'#7a5630');   // cień
+                    ctx.fillStyle=rg;
+                    ctx.strokeStyle='#5a3a18'; ctx.lineWidth=2.5; // cel-shading
+                    ctx.beginPath(); ctx.ellipse(0,0,rw,rh,ra,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                    // Podświetlenie słoneczne
+                    ctx.fillStyle='rgba(255,240,200,0.18)';
+                    ctx.beginPath(); ctx.ellipse(-rw*0.28,-rh*0.35,rw*0.38,rh*0.32,ra,0,Math.PI*2); ctx.fill();
+                    // Drop shadow (SUN_OFFSET)
+                    ctx.fillStyle='rgba(0,0,0,0.18)';
+                    ctx.beginPath(); ctx.ellipse(SUN_OFFSET_X,SUN_OFFSET_Y+rh*0.6,rw*0.85,rh*0.3,ra,0,Math.PI*2); ctx.fill();
                 }
             } else if(d.mapId === 'forest') {
                 if(s < 0.55) {
@@ -3524,6 +3552,31 @@
             }
         }
 
+        // ── Desert Visual System ──────────────────────────────────────────
+        const SUN_OFFSET_X = 6, SUN_OFFSET_Y = 4; // global sun direction
+        let _desertOffscreen = null;   // pre-rendered bg+texture canvas
+        let _desertGroundSpots = [];   // micro-texture spots
+
+        function _buildDesertOffscreen() {
+            const oc = document.createElement('canvas');
+            oc.width = WORLD_W; oc.height = WORLD_H;
+            const o = oc.getContext('2d');
+            // Base sand
+            o.fillStyle = '#e8d4a2'; o.fillRect(0,0,WORLD_W,WORLD_H);
+            // Subtle grid
+            o.strokeStyle='rgba(0,0,0,0.025)'; o.lineWidth=1;
+            for(let x=0;x<WORLD_W;x+=100){o.beginPath();o.moveTo(x,0);o.lineTo(x,WORLD_H);o.stroke();}
+            for(let y=0;y<WORLD_H;y+=100){o.beginPath();o.moveTo(0,y);o.lineTo(WORLD_W,y);o.stroke();}
+            // Micro-texture: sand spots
+            _desertGroundSpots.forEach(sp=>{
+                o.globalAlpha=sp.a;
+                o.fillStyle=sp.d?'#b8895a':'#f5dfa8';
+                o.beginPath();o.ellipse(sp.x,sp.y,sp.rx,sp.ry,sp.ang,0,Math.PI*2);o.fill();
+            });
+            o.globalAlpha=1;
+            _desertOffscreen = oc;
+        }
+
         function generateMap() {
             environment = []; mapDecorations = [];
             quicksandZones = []; repairHangars = []; powerWells = [];
@@ -3591,6 +3644,21 @@
                 repairHangars.push(new RepairHangar(WORLD_W*0.52, WORLD_H*0.84));
                 // Power well (1)
                 powerWells.push(new PowerWell(WORLD_W*0.72, WORLD_H*0.62));
+            }
+            // Desert visual init
+            if(selectedMap.id === 'desert') {
+                _desertGroundSpots = Array.from({length:700},()=>({
+                    x:Math.random()*WORLD_W, y:Math.random()*WORLD_H,
+                    rx:3+Math.random()*14, ry:2+Math.random()*7,
+                    ang:Math.random()*Math.PI,
+                    a:0.04+Math.random()*0.10,
+                    d:Math.random()<0.35
+                }));
+                mapDecorations.sort((a,b)=>a.y-b.y); // Y-sort
+                _buildDesertOffscreen();
+            } else {
+                _desertOffscreen = null;
+                _desertGroundSpots = [];
             }
         }
 
@@ -3918,19 +3986,26 @@
 
             updateCamera();
 
-            ctx.fillStyle = selectedMap.bg;
-            ctx.fillRect(0, 0, screenW, screenH);
-            
+            // Background — desert uses pre-rendered offscreen canvas
+            if(selectedMap.id==='desert' && _desertOffscreen) {
+                ctx.drawImage(_desertOffscreen,
+                    camera.x, camera.y, screenW, screenH,
+                    0, 0, screenW, screenH);
+            } else {
+                ctx.fillStyle = selectedMap.bg; ctx.fillRect(0,0,screenW,screenH);
+            }
             ctx.save();
             ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
 
-            ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.lineWidth = 2;
-            let startX = Math.floor(camera.x / 100) * 100;
-            let startY = Math.floor(camera.y / 100) * 100;
-            for(let x=startX; x<camera.x+screenW; x+=100) { ctx.beginPath(); ctx.moveTo(x, camera.y); ctx.lineTo(x, camera.y+screenH); ctx.stroke(); }
-            for(let y=startY; y<camera.y+screenH; y+=100) { ctx.beginPath(); ctx.moveTo(camera.x, y); ctx.lineTo(camera.x+screenW, y); ctx.stroke(); }
+            // Grid lines — only for non-desert (desert uses offscreen)
+            if(selectedMap.id !== 'desert') {
+                ctx.strokeStyle='rgba(0,0,0,0.05)'; ctx.lineWidth=2;
+                const startX=Math.floor(camera.x/100)*100, startY=Math.floor(camera.y/100)*100;
+                for(let x=startX;x<camera.x+screenW;x+=100){ctx.beginPath();ctx.moveTo(x,camera.y);ctx.lineTo(x,camera.y+screenH);ctx.stroke();}
+                for(let y=startY;y<camera.y+screenH;y+=100){ctx.beginPath();ctx.moveTo(camera.x,y);ctx.lineTo(camera.x+screenW,y);ctx.stroke();}
+            }
 
-            // Map decorations (below everything)
+            // Decorations — Y-sorted for desert (pre-sorted at generateMap)
             mapDecorations.forEach(d => drawDecoration(d));
             // Quicksand zones
             quicksandZones.forEach(qs => qs.draw());
