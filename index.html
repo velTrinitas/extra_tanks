@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.8
+        Game version: v4.9
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -3185,14 +3185,6 @@
                 ctx.restore(); ctx.globalAlpha=1; return;
             }
 
-            // ─── TRAWA OAZY ──────────────────────────────────────────────────
-            if(d.mapId === 'desert_oasis_grass') {
-                ctx.restore(); ctx.globalAlpha=1;
-                _drawSwayingGrass(d.x-25, d.y-55, d.seed*12.56);
-                return;
-            }
-
-
             if(d.mapId === 'desert') {
                 if(s < 0.5) {
                     // Cactus — cel-shading już jest
@@ -3675,61 +3667,147 @@
         let _desertCaravan = null;
         let _grassAsset = null;
 
-        function _createGrassAsset() {
-            const gc_canvas = document.createElement('canvas');
-            gc_canvas.width = 50; gc_canvas.height = 60;
-            const gc = gc_canvas.getContext('2d');
-            const grad = gc.createLinearGradient(0,60,0,0);
-            grad.addColorStop(0,'#0a3d20'); grad.addColorStop(0.6,'#2ecc71'); grad.addColorStop(1,'#abebc6');
-            gc.fillStyle=grad; gc.lineWidth=3; gc.strokeStyle='#051f10';
-            gc.beginPath(); gc.moveTo(10,60);
-            gc.quadraticCurveTo(10,10,50/3,5);
-            gc.quadraticCurveTo(25,10,25,30);
-            gc.quadraticCurveTo(50/1.5,-5,40,15);
-            gc.lineTo(50,60); gc.closePath(); gc.fill(); gc.stroke();
-            return gc_canvas;
-        }
+        // ── Lush Grass System (kolegi kod + adaptacja) ──────────────────────
+        let _grassVariants = null;  // 5 pre-rendered canvas variants
+        let _oasisGrassLayout = []; // [{x,y,v,phase}] grid covering oasis
 
-        function _drawSwayingGrass(x, y, timeOffset) {
-            if(!_grassAsset) return;
-            const sway = Math.sin(Date.now()/500 + timeOffset) * 0.15;
-            ctx.save(); ctx.translate(x+25, y+60);
-            ctx.transform(1,0,sway,1,0,0);
-            ctx.drawImage(_grassAsset,-25,-60);
-            ctx.restore();
-        }
-
-        function drawCamel(cx, cy, t, legScale) {
-            ctx.save(); ctx.translate(cx, cy);
-            // Shadow
-            ctx.fillStyle='rgba(0,0,0,0.18)';
-            ctx.beginPath(); ctx.ellipse(0,14,30,7,0,0,Math.PI*2); ctx.fill();
-            // Legs
-            const ls = Math.sin(t*3)*legScale, ls2 = Math.sin(t*3+Math.PI)*legScale;
-            ctx.strokeStyle='#8b5e3c'; ctx.lineWidth=3.5;
-            [[14,ls],[8,ls2],[-8,ls],[-14,ls2]].forEach(([lx,sw])=>{
-                ctx.beginPath(); ctx.moveTo(lx,-2); ctx.lineTo(lx+sw*0.4,13); ctx.stroke();
+        function _createGrassVariants() {
+            const W = 52, H = 62;
+            // Paleta: 5 bliskich odcieni zieleni (wąskie spektrum)
+            const palettes = [
+                [[0,'#0d4a28'],[0.25,'#1a7a40'],[0.55,'#28b05a'],[0.85,'#45cc75'],[1,'#82dfa8']],
+                [[0,'#0f5230'],[0.25,'#1e8a48'],[0.55,'#2ecc71'],[0.85,'#52da88'],[1,'#90e8b8']],
+                [[0,'#0a4020'],[0.25,'#186838'],[0.55,'#24a050'],[0.85,'#3aba68'],[1,'#72d090']],
+                [[0,'#115c34'],[0.25,'#228a50'],[0.55,'#33c065'],[0.85,'#58d880'],[1,'#95ecb5']],
+                [[0,'#0c3a1e'],[0.25,'#1a6035'],[0.55,'#26904a'],[0.85,'#40b060'],[1,'#7cd898']],
+            ];
+            return palettes.map(stops => {
+                const oc = document.createElement('canvas');
+                oc.width = W; oc.height = H;
+                const gc = oc.getContext('2d');
+                const grad = gc.createLinearGradient(0, H, 0, 0);
+                stops.forEach(([s,col]) => grad.addColorStop(s, col));
+                gc.fillStyle = grad;
+                gc.lineWidth = 2;
+                gc.strokeStyle = '#041f0f';
+                // Kształt kępy (cieńsza baza: 18px zamiast 10px)
+                gc.beginPath();
+                gc.moveTo(18, H);
+                gc.bezierCurveTo(4, H*0.7, -3, H*0.3, W*0.2, 2);
+                gc.quadraticCurveTo(W*0.4, 10, W*0.5, 4);
+                gc.bezierCurveTo(W*0.8, 0, W+3, H*0.5, W-18, H);
+                gc.closePath();
+                gc.fill(); gc.stroke();
+                return oc;
             });
-            // Body
-            const bg=ctx.createLinearGradient(-24,-18,24,4);
-            bg.addColorStop(0,'#e0a870'); bg.addColorStop(0.5,'#c47840'); bg.addColorStop(1,'#8b5820');
-            ctx.fillStyle=bg; ctx.strokeStyle='#6b3a10'; ctx.lineWidth=2;
-            ctx.beginPath(); ctx.ellipse(0,-4,26,14,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-            // Hump
-            const hg=ctx.createRadialGradient(4,-22,0,4,-18,14);
-            hg.addColorStop(0,'#e8b070'); hg.addColorStop(1,'#c47840');
-            ctx.fillStyle=hg;
-            ctx.beginPath(); ctx.ellipse(4,-20,12,11,0.1,0,Math.PI*2); ctx.fill(); ctx.stroke();
-            // Neck
-            ctx.fillStyle='#d49060'; ctx.strokeStyle='#6b3a10'; ctx.lineWidth=1.5;
-            ctx.beginPath(); ctx.moveTo(18,-4); ctx.bezierCurveTo(24,-4,26,-18,22,-24);
-            ctx.lineTo(17,-22); ctx.bezierCurveTo(21,-17,19,-4,14,-2); ctx.closePath(); ctx.fill(); ctx.stroke();
-            // Head
-            ctx.fillStyle='#dda070';
-            ctx.beginPath(); ctx.ellipse(22,-26,9,7,0.4,0,Math.PI*2); ctx.fill(); ctx.stroke();
-            ctx.fillStyle='#2a1a08'; ctx.beginPath(); ctx.arc(25,-27,1.8,0,Math.PI*2); ctx.fill();
+        }
+
+        function _buildOasisGrassLayout() {
+            _oasisGrassLayout = [];
+            const oaX = WORLD_W/2 - 110;
+            const oaY = WORLD_H/2 - 110;
+            const PW = 44, PH = 52, overlapX = 10, overlapY = 12;
+            const cols = Math.ceil(220/(PW-overlapX)) + 1;
+            const rows = Math.ceil(220/(PH-overlapY)) + 1;
+            for(let row=0; row<rows; row++) {
+                for(let col=0; col<cols; col++) {
+                    _oasisGrassLayout.push({
+                        x: oaX + col*(PW-overlapX) + (Math.random()-0.5)*6 - 8,
+                        y: oaY + row*(PH-overlapY) + (Math.random()-0.5)*4 - 8,
+                        v: Math.floor(Math.random()*5),
+                        phase: Math.random()*Math.PI*2
+                    });
+                }
+            }
+            _oasisGrassLayout.sort((a,b) => a.y - b.y);
+        }
+
+        // ── Caravan System (kod kolegi + waypoints) ──────────────────────────
+        class Caravan {
+            constructor(startX, startY) {
+                this.camels = [];
+                this.waypointIdx = 0;
+                this.waypoints = [
+                    {x:WORLD_W*0.78, y:WORLD_H*0.28},
+                    {x:WORLD_W*0.72, y:WORLD_H*0.72},
+                    {x:WORLD_W*0.25, y:WORLD_H*0.80},
+                    {x:WORLD_W*0.12, y:WORLD_H*0.38},
+                    {x:WORLD_W*0.42, y:WORLD_H*0.12},
+                ];
+                for(let i=0; i<5; i++) {
+                    this.camels.push({x:startX-i*48, y:startY, angle:0, animOffset:i*0.8});
+                }
+            }
+            update() {
+                const leader = this.camels[0];
+                const wp = this.waypoints[this.waypointIdx];
+                if(Math.hypot(wp.x-leader.x, wp.y-leader.y) < 60) {
+                    this.waypointIdx = (this.waypointIdx+1) % this.waypoints.length;
+                }
+                const speed=1.2, followDist=48;
+                const dx=wp.x-leader.x, dy=wp.y-leader.y, dist=Math.hypot(dx,dy);
+                if(dist>speed) {
+                    leader.angle=Math.atan2(dy,dx);
+                    leader.x+=Math.cos(leader.angle)*speed;
+                    leader.y+=Math.sin(leader.angle)*speed;
+                }
+                for(let i=1;i<this.camels.length;i++) {
+                    const cam=this.camels[i], tgt=this.camels[i-1];
+                    const tDx=tgt.x-cam.x, tDy=tgt.y-cam.y, tDist=Math.hypot(tDx,tDy);
+                    if(tDist>followDist) {
+                        cam.angle=Math.atan2(tDy,tDx);
+                        cam.x+=Math.cos(cam.angle)*speed;
+                        cam.y+=Math.sin(cam.angle)*speed;
+                    }
+                }
+            }
+            draw() {
+                [...this.camels].sort((a,b)=>a.y-b.y).forEach(c=>{
+                    drawCamelProcedural(c.x, c.y, c.angle, Date.now()/150+c.animOffset);
+                });
+            }
+        }
+
+        function drawCamelProcedural(x, y, angle, time) {
+            ctx.save(); ctx.translate(x, y);
+            // Soft shadow (bez shadowBlur — FPS safe)
+            ctx.fillStyle='rgba(60,20,0,0.25)';
+            ctx.beginPath(); ctx.ellipse(0,6,20,8,0,0,Math.PI*2); ctx.fill();
+            // Flip jeśli idzie w lewo
+            if(Math.abs(angle) > Math.PI/2) ctx.scale(-1,1);
+            const bounceY = Math.abs(Math.sin(time))*3;
+            const legSwing = Math.sin(time)*6;
+            ctx.translate(0, -bounceY);
+            // Nogi
+            ctx.strokeStyle='#a66d3a'; ctx.lineWidth=4; ctx.lineCap='round';
+            ctx.beginPath();
+            ctx.moveTo(8,-5); ctx.lineTo(8+legSwing,5);
+            ctx.moveTo(3,-5); ctx.lineTo(3-legSwing,5);
+            ctx.moveTo(-10,-5); ctx.lineTo(-10-legSwing,5);
+            ctx.moveTo(-15,-5); ctx.lineTo(-15+legSwing,5);
+            ctx.stroke();
+            // Ciało
+            ctx.fillStyle='#cf8b4c';
+            ctx.beginPath(); ctx.ellipse(0,-10,16,10,0,0,Math.PI*2); ctx.fill();
+            // Garb
+            ctx.beginPath(); ctx.arc(-2,-18,8,Math.PI,0); ctx.fill();
+            // Tobołki
+            ctx.fillStyle='#c0392b';
+            ctx.beginPath(); ctx.arc(4,-10,5,0,Math.PI*2); ctx.fill();
+            ctx.strokeStyle='#f1c40f'; ctx.lineWidth=2; ctx.stroke();
+            // Szyja + głowa
+            ctx.fillStyle='#cf8b4c';
+            ctx.beginPath(); ctx.moveTo(12,-15);
+            ctx.quadraticCurveTo(20,-22,22,-26);
+            ctx.arc(24,-26,4,0,Math.PI*2);
+            ctx.ellipse(27,-25,4,2,Math.PI/6,0,Math.PI*2);
+            ctx.fill();
+            // Oko
+            ctx.fillStyle='#2c3e50';
+            ctx.beginPath(); ctx.arc(25,-27,1,0,Math.PI*2); ctx.fill();
             ctx.restore();
         }
+
 
         // ── Desert Visual System ──────────────────────────────────────────
         const SUN_OFFSET_X = 6, SUN_OFFSET_Y = 4; // global sun direction
@@ -3776,11 +3854,13 @@
             quicksandZones = []; repairHangars = []; powerWells = [];
             let numBlocks = Math.floor((WORLD_W * WORLD_H) / 15000 * selectedMap.density);
             for(let i=0; i<numBlocks; i++) {
-                let w = 100 + Math.random() * 150;
-                let h = 100 + Math.random() * 150;
+                let w = 75 + Math.random() * 112;  // -25% od oryginału
+                let h = 75 + Math.random() * 112;
                 let x = Math.random() * (WORLD_W - w);
                 let y = Math.random() * (WORLD_H - h);
                 if(x > WORLD_W/2 - 150 && x < WORLD_W/2 + 150 && y > WORLD_H/2 - 150 && y < WORLD_H/2 + 150) continue;
+                if([[WORLD_W*0.2,WORLD_H*0.7],[WORLD_W*0.75,WORLD_H*0.3],[WORLD_W*0.65,WORLD_H*0.55]]
+                   .some(([px,py])=>Math.hypot(x-px,y-py)<220)) continue; // pyramid exclusion
                 let type = Math.random() > 0.5 ? 'wall' : 'bush';
                 let color = type === 'wall' ? selectedMap.wall : selectedMap.bush;
                 environment.push(new EnvironmentBlock(x, y, w, h, type, color));
@@ -3890,25 +3970,11 @@
                         mapDecorations.push({x:x+w/2,y:y+h/2,mapId:'desert_ruin',seed:Math.random(),w,h});
                     }
                 });
-                // KARAWANA WIELBŁĄDÓW
-                _desertCaravan = {
-                    x: -200, y: WORLD_H*0.42, speed: 0.45,
-                    camels: [{offset:0,yOff:0,phase:0},{offset:75,yOff:8,phase:1.2},
-                             {offset:150,yOff:-5,phase:2.4},{offset:225,yOff:5,phase:3.6},
-                             {offset:300,yOff:-3,phase:4.8}]
-                };
-                // TRAWA OAZY — pre-render asset + dekoracje
-                _grassAsset = _createGrassAsset();
-                const oaX=WORLD_W/2, oaY=WORLD_H/2;
-                for(let gx=-90;gx<=90;gx+=20){
-                    for(let gy=-90;gy<=90;gy+=18){
-                        if(gx*gx+gy*gy < 95*95) {
-                            mapDecorations.push({x:oaX+gx+(Math.random()-0.5)*8,
-                                y:oaY+gy+(Math.random()-0.5)*6,
-                                mapId:'desert_oasis_grass',seed:Math.random()});
-                        }
-                    }
-                }
+                // KARAWANA WIELBŁĄDÓW — klasa Caravan (kod kolegi)
+                _desertCaravan = new Caravan(WORLD_W*0.1, WORLD_H*0.42);
+                // TRAWA OAZY — nowy system (kolegi drawLushGrassPatch)
+                _grassVariants = _createGrassVariants();
+                _buildOasisGrassLayout();
                 mapDecorations.sort((a,b)=>a.y-b.y); // Y-sort
                 _buildDesertOffscreen();
             } else {
@@ -3916,7 +3982,8 @@
                 _desertGroundSpots = [];
                 _desertDunes = [];
                 _desertCaravan = null;
-                _grassAsset = null;
+                _grassVariants = null;
+                _oasisGrassLayout = [];
             }
         }
 
@@ -4266,13 +4333,22 @@
             // Decorations — Y-sorted for desert (pre-sorted at generateMap)
             mapDecorations.forEach(d => drawDecoration(d));
 
-            // Karawana wielbłądów (desert, passive ambience)
+            // Karawana wielbłądów (Caravan class, follower system)
             if(selectedMap.id==='desert' && _desertCaravan) {
-                _desertCaravan.x += _desertCaravan.speed;
-                if(_desertCaravan.x > WORLD_W+350) _desertCaravan.x = -350;
-                const camt = Date.now()*0.001;
-                _desertCaravan.camels.forEach(cam=>{
-                    drawCamel(_desertCaravan.x+cam.offset, _desertCaravan.y+cam.yOff, camt+cam.phase, 10);
+                _desertCaravan.update();
+                _desertCaravan.draw();
+            }
+            // Trawa oazy (lush grass, fill całego bloku)
+            if(selectedMap.id==='desert' && _grassVariants && _oasisGrassLayout.length>0) {
+                const t=Date.now()/500;
+                _oasisGrassLayout.forEach(gp=>{
+                    if(gp.x<camera.x-70||gp.x>camera.x+screenW+70||gp.y<camera.y-80||gp.y>camera.y+screenH+80) return;
+                    const sway=Math.sin(t+gp.phase)*0.12;
+                    ctx.save();
+                    ctx.translate(gp.x+26, gp.y+62);
+                    ctx.transform(1,0,sway,1,0,0);
+                    ctx.drawImage(_grassVariants[gp.v],-26,-62);
+                    ctx.restore();
                 });
             }
             // Quicksand zones
