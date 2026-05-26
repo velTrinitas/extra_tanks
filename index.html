@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.10
+        Game version: v4.10.3
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1168,12 +1168,36 @@
             }
             draw() {
                 if(this.x + this.w < camera.x || this.x > camera.x + screenW || this.y + this.h < camera.y || this.y > camera.y + screenH) return;
-                // Desert wall blocks — ErodedMesa (kolegi kod)
+                // Desert wall blocks — sandstone with strata
                 if(this.type === 'wall' && selectedMap.id === 'desert' && this.w > 60) {
-                    drawErodedMesa(
-                        this.x+this.w/2, this.y+this.h/2,
-                        this.w, this.h
-                    );
+                    const bx=this.x, by=this.y, bw=this.w, bh=this.h;
+                    // Cień
+                    ctx.fillStyle='rgba(60,20,0,0.30)';
+                    ctx.beginPath(); ctx.ellipse(bx+bw/2+8,by+bh+6,bw*0.55,bh*0.18,0,0,Math.PI*2); ctx.fill();
+                    // Bryła z gradientem bocznym (lewa-ciemna, prawa-jasna)
+                    const wg=ctx.createLinearGradient(bx,by,bx+bw,by+bh);
+                    wg.addColorStop(0,ROCK_COLORS.shadow);
+                    wg.addColorStop(0.35,ROCK_COLORS.base);
+                    wg.addColorStop(0.75,ROCK_COLORS.highlight);
+                    wg.addColorStop(1,ROCK_COLORS.base);
+                    ctx.fillStyle=wg; ctx.strokeStyle=ROCK_COLORS.crevice; ctx.lineWidth=2.5;
+                    ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,5); ctx.fill(); ctx.stroke();
+                    // Poziome warstwy erozji
+                    ctx.strokeStyle='rgba(74,54,0,0.25)'; ctx.lineWidth=1;
+                    const step=Math.max(12,bh/6);
+                    ctx.beginPath();
+                    for(let s=step;s<bh-4;s+=step){
+                        ctx.moveTo(bx+4,by+s); ctx.quadraticCurveTo(bx+bw/2,by+s+5,bx+bw-4,by+s-2);
+                    }
+                    ctx.stroke();
+                    // Pionowe szczeliny (2-3 per blok)
+                    ctx.strokeStyle='rgba(74,54,0,0.18)'; ctx.lineWidth=1.5;
+                    ctx.beginPath();
+                    [0.3,0.6].forEach(fx=>{
+                        ctx.moveTo(bx+bw*fx,by+4); ctx.lineTo(bx+bw*fx+4,by+bh*0.4);
+                        ctx.moveTo(bx+bw*(fx+0.05),by+bh*0.5); ctx.lineTo(bx+bw*fx,by+bh-4);
+                    });
+                    ctx.stroke();
                     return;
                 }
                 ctx.fillStyle = this.color;
@@ -2996,10 +3020,14 @@
             }
 
 
-            // ─── PIRAMIDA ────────────────────────────────────────────────────
+            // ─── PIRAMIDA 2.0 (kolegi drawDetailedPyramid) ───────────────────
             if(d.mapId === 'desert_pyramid') {
+                ctx.restore(); ctx.globalAlpha=1;
+                const _sz=d.w||130;
+                drawDetailedPyramid(d.x, d.y, _sz, Math.max(8,Math.floor(_sz/9)), d.shadeTone||'#f4d03f');
+                return;
+                // OLD (unreachable):
                 const pw=d.w||130, ph=d.h||110;
-                // Shadow on sand
                 ctx.fillStyle='rgba(0,0,0,0.16)';
                 ctx.beginPath(); ctx.ellipse(pw*0.22,4,pw*0.38,ph*0.07,0,0,Math.PI*2); ctx.fill();
                 // Left face (oświetlona — słońce z lewej)
@@ -3794,8 +3822,11 @@
             ctx.save(); ctx.translate(startX,startY); ctx.rotate(angle);
             const length=leafLen||60;
             const grad=ctx.createLinearGradient(0,0,length,0);
-            if(idx%3===0){grad.addColorStop(0,'#9e9d24');grad.addColorStop(0.6,'#f39c12');grad.addColorStop(1,'#d35400');}
-            else{grad.addColorStop(0,'#117a65');grad.addColorStop(0.5,'#2ecc71');grad.addColorStop(1,'#f1c40f');}
+            // Tylko zielone odcienie — 3 warianty
+            const _lv=idx%3;
+            if(_lv===0){grad.addColorStop(0,'#0b5a2e');grad.addColorStop(0.5,'#1e8449');grad.addColorStop(1,'#58d68d');}
+            else if(_lv===1){grad.addColorStop(0,'#0a4020');grad.addColorStop(0.5,'#27ae60');grad.addColorStop(1,'#82e0aa');}
+            else{grad.addColorStop(0,'#145a32');grad.addColorStop(0.5,'#1abc9c');grad.addColorStop(1,'#a9dfbf');}
             ctx.fillStyle=grad; ctx.strokeStyle='#041f0f'; ctx.lineWidth=1.5;
             ctx.beginPath(); ctx.moveTo(0,0);
             const seg=6, lw=14;
@@ -3808,8 +3839,8 @@
             ctx.restore();
         }
         function drawDesertPalm(d) {
-            const sway=Math.sin(Date.now()*0.0012+d.seed*6.28)*4;
-            ctx.save(); ctx.translate(d.x,d.y); ctx.scale(1.2,1.2);
+            const sway=Math.sin(Date.now()*0.0012+d.seed*6.28)*3;
+            ctx.save(); ctx.translate(d.x,d.y); ctx.scale(0.6,0.6);
             ctx.fillStyle='rgba(60,20,0,0.35)';
             ctx.beginPath(); ctx.ellipse(8,5,28,12,0,0,Math.PI*2); ctx.fill();
             const ttX=-15+sway, ttY=-90, n=9;
@@ -3821,6 +3852,63 @@
             ctx.beginPath(); ctx.moveTo(-12,0); ctx.quadraticCurveTo(-25,-45,ttX-6,ttY); ctx.lineTo(ttX+6,ttY); ctx.quadraticCurveTo(-5,-45,12,0); ctx.closePath(); ctx.fill();
             ctx.strokeStyle='#2e1c0b'; ctx.lineWidth=2.5; ctx.stroke();
             for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2;if(Math.sin(a)>=0)drawJaggedLeaf(ttX,ttY,a,i,ll[i]);}
+            ctx.restore();
+        }
+
+
+        // ─ Piramida 2.0 (kolegi kod + batch strokes fix) ────────────────────
+        function drawDetailedPyramid(x, y, size, steps, shadeTone) {
+            ctx.save(); ctx.translate(x, y);
+            const half=size/2, apexX=-size*0.15, apexY=-size*0.25;
+            // Cień na piasku
+            ctx.fillStyle='rgba(60,20,0,0.4)';
+            ctx.beginPath();
+            ctx.moveTo(-half,half); ctx.lineTo(half,half);
+            ctx.lineTo(size*1.2,size*0.8); ctx.lineTo(0,size);
+            ctx.fill();
+            // 4-ścianowe oświetlenie
+            const COLS={N:'#fcf3cf', W:shadeTone, E:'#b9770e', S:'#7d5109'};
+            const A={x:-half,y:-half},B={x:half,y:-half},CC={x:half,y:half},D={x:-half,y:half};
+            function drawFace(p1,p2,col,isFront) {
+                ctx.fillStyle=col;
+                ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.lineTo(apexX,apexY); ctx.closePath(); ctx.fill();
+                // BATCH strokes — jeden beginPath + stroke() na całą ścianę (FIX wydajności)
+                ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=1;
+                ctx.beginPath();
+                for(let i=1;i<=steps;i++) {
+                    const t=i/steps;
+                    const lx=p1.x+(apexX-p1.x)*t, ly=p1.y+(apexY-p1.y)*t;
+                    const rx=p2.x+(apexX-p2.x)*t, ry=p2.y+(apexY-p2.y)*t;
+                    ctx.moveTo(lx,ly); ctx.lineTo(rx,ry);
+                    const pt=(i-1)/steps;
+                    const plx=p1.x+(apexX-p1.x)*pt, ply=p1.y+(apexY-p1.y)*pt;
+                    const prx=p2.x+(apexX-p2.x)*pt, pry=p2.y+(apexY-p2.y)*pt;
+                    const blk=steps-i+1;
+                    for(let j=1;j<blk;j++) {
+                        const bt=(j+(i%2)*0.5)/blk;
+                        ctx.moveTo(plx+(prx-plx)*bt, ply+(pry-ply)*bt);
+                        ctx.lineTo(lx+(rx-lx)*bt, ly+(ry-ly)*bt);
+                    }
+                }
+                ctx.stroke(); // JEDEN stroke na ścianę zamiast ~500
+                // Wejście do grobowca (tylko South/front)
+                if(isFront) {
+                    const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2;
+                    const dht=3/steps;
+                    const tdx=mx+(apexX-mx)*dht, tdy=my+(apexY-my)*dht;
+                    ctx.fillStyle='#110a02';
+                    ctx.beginPath();
+                    ctx.moveTo(mx-size*0.12,my); ctx.lineTo(mx+size*0.12,my);
+                    ctx.lineTo(tdx+size*0.08,tdy); ctx.lineTo(tdx-size*0.08,tdy);
+                    ctx.fill();
+                    ctx.strokeStyle='#f1c40f'; ctx.lineWidth=2.5; ctx.stroke();
+                }
+            }
+            drawFace(A,B,COLS.N,false); drawFace(D,A,COLS.W,false);
+            drawFace(B,CC,COLS.E,false); drawFace(CC,D,COLS.S,true);
+            // Pyramidion (złoty czubek)
+            ctx.fillStyle='#ffecb3';
+            ctx.beginPath(); ctx.moveTo(apexX,apexY); ctx.lineTo(apexX-8,apexY+12); ctx.lineTo(apexX+8,apexY+15); ctx.fill();
             ctx.restore();
         }
 
@@ -4039,11 +4127,26 @@
                         col2:'#c49040'
                     };
                 });
-                // 3 PIRAMIDY — EnvironmentBlock + decoration
-                [[WORLD_W*0.2,WORLD_H*0.7,130,110],[WORLD_W*0.75,WORLD_H*0.3,150,125],[WORLD_W*0.65,WORLD_H*0.55,120,100]]
-                .forEach(([px,py,pw,ph])=>{
+                // Palmy rozsiane po całej mapie (zastępują drzewa)
+                const palmGrid = [
+                    [CX-900,CY-800],[CX-800,CY-900],[CX-1000,CY-600],[CX+800,CY-750],[CX+950,CY-900],
+                    [CX-800,CY+700],[CX-700,CY+850],[CX+750,CY+750],[CX+900,CY+600],[CX+1100,CY-400],
+                    [CX-1100,CY+300],[CX-600,CY-1000],[CX+600,CY-950],[CX-300,CY+1100],[CX+350,CY+1050],
+                    [CX-1200,CY-500],[CX+1200,CY+400],[CX-500,CY-1100],[CX+450,CY-1200],
+                ];
+                palmGrid.forEach(([px,py])=>{
+                    const px2=px+(Math.random()-0.5)*120, py2=py+(Math.random()-0.5)*120;
+                    const inWallCheck=environment.some(e=>e.type==='wall'&&px2>e.x-40&&px2<e.x+e.w+40&&py2>e.y-40&&py2<e.y+e.h+40);
+                    if(!inWallCheck) mapDecorations.push({x:px2,y:py2,mapId:'desert_palm',seed:Math.random(),variant:Math.floor(Math.random()*4),leafLengths:Array.from({length:9},()=>50+Math.random()*12)});
+                });
+
+                // 3 PIRAMIDY — EnvironmentBlock + decoration (shadeTone per piramida)
+                [[WORLD_W*0.2,WORLD_H*0.7,130,110,'#f4d03f'],
+                 [WORLD_W*0.75,WORLD_H*0.3,150,125,'#f7dc6f'],
+                 [WORLD_W*0.65,WORLD_H*0.55,120,100,'#d4ac0d']]
+                .forEach(([px,py,pw,ph,shade])=>{
                     environment.push(new EnvironmentBlock(px-pw/2,py-ph/2,pw,ph,'wall','#d4a85a'));
-                    mapDecorations.push({x:px,y:py,mapId:'desert_pyramid',w:pw,h:ph,seed:Math.random()});
+                    mapDecorations.push({x:px,y:py,mapId:'desert_pyramid',w:pw,h:ph,seed:Math.random(),shadeTone:shade});
                 });
                 // 1 SFINKS
                 mapDecorations.push({x:WORLD_W*0.8,y:WORLD_H*0.2,mapId:'desert_sphinx',seed:Math.random()});
@@ -4437,6 +4540,9 @@
                 for(let y=startY;y<camera.y+screenH;y+=100){ctx.beginPath();ctx.moveTo(camera.x,y);ctx.lineTo(camera.x+screenW,y);ctx.stroke();}
             }
 
+            // Env walls — NAJPIERW (za dekoracjami wizualnie)
+            environment.forEach(env => { if(env.type === 'wall') env.draw(); });
+
             // Decorations — Y-sorted for desert (pre-sorted at generateMap)
             mapDecorations.forEach(d => drawDecoration(d));
 
@@ -4456,7 +4562,6 @@
             // Quicksand zones
             quicksandZones.forEach(qs => qs.draw());
 
-            environment.forEach(env => { if(env.type === 'wall') env.draw(); }); 
             // Track marks (below entities)
             trackMarks.forEach(tm => tm.draw());
             gems.forEach(g => g.draw());
