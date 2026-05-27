@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.11.1
+        Game version: v4.11.2
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4349,7 +4349,6 @@
                 _desertCaravan = new Caravan(WORLD_W*0.1, WORLD_H*0.42);
                 // TRAWA — BrawlGrassTuft na KAŻDEJ bush zone
                 _desertGrassTufts = [];
-                _nilRiver = null;
                 environment.filter(e=>e.type==='bush').forEach(zone=>{
                     for(let gx=zone.x+18;gx<zone.x+zone.w-18;gx+=28){
                         for(let gy=zone.y+18;gy<zone.y+zone.h-18;gy+=28){
