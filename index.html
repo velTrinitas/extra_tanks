@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.18.1
+        Game version: v4.19
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2292,7 +2292,7 @@
                         for(let env of environment) {
                             if(env.type==='wall' && checkRectCollision(env.x,env.y,env.w,env.h,nx,ny,this.height/2)){ok=false;break;}
                         }
-                        if(ok){this.x=nx;this.y=ny;}
+                        if(ok && !isBlockedByRiver(nx,ny)){this.x=nx;this.y=ny;}
                         // Steal cube if touching
                         if(bestCubeDist < this.height/2 + cubeTarget.radius) cubeTarget.active = false;
                     } else {
@@ -2309,8 +2309,13 @@
                                 if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2)) canMoveY = false;
                             }
                         }
+                        // River check dla Enemy — Bug B fix
+                        if(isBlockedByRiver(nextX, this.y)) canMoveX = false;
+                        if(isBlockedByRiver(this.x, nextY)) canMoveY = false;
+                        const _epX=this.x,_epY=this.y;
                         if(canMoveX) this.x = nextX;
                         if(canMoveY) this.y = nextY;
+                        if(isBlockedByRiver(this.x,this.y)){this.x=_epX;this.y=_epY;}
                     } else if(dist < 400 && Date.now() - this.lastShot > (this.isBoss ? 800 : 1500)) {
                         this.lastShot = Date.now();
                         if(this.isBoss) {
@@ -4169,6 +4174,65 @@
         }
 
         // ── Desert Visual System ──────────────────────────────────────────
+
+        // ─ BlueLotus — Niebieska lilia wodna (kod kolegi, zaadaptowany) ─────
+        let _desertLotus = [];
+        class BlueLotus {
+            constructor(x,y){
+                this.x=x; this.y=y;
+                this.leafSpin=(Math.random()-0.5)*0.15;
+                this.flowerSpin=(Math.random()-0.5)*0.3;
+                this.sizeScale=0.28+Math.random()*0.12; // mały — rzeka 100px
+                this.centerR=Array.from({length:21},()=>5+Math.random()*3); // pre-compute
+            }
+            draw(time){
+                ctx.save(); ctx.translate(this.x,this.y);
+                ctx.scale(this.sizeScale,this.sizeScale*0.65); // 2.5D perspektywa
+                // Cień
+                ctx.fillStyle='rgba(10,30,40,0.30)';
+                ctx.beginPath(); ctx.arc(0,15,45,0,Math.PI*2); ctx.fill();
+                // Liść (Pac-Man)
+                ctx.save(); ctx.rotate(time*this.leafSpin);
+                const lg=ctx.createRadialGradient(0,0,0,0,0,45);
+                lg.addColorStop(0,'#196f3d'); lg.addColorStop(0.8,'#27ae60'); lg.addColorStop(1,'#58d68d');
+                ctx.fillStyle=lg; ctx.strokeStyle='#0a3d20'; ctx.lineWidth=2.5;
+                ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,45,0.2,Math.PI*2-0.2); ctx.closePath();
+                ctx.fill(); ctx.stroke();
+                ctx.strokeStyle='rgba(10,61,32,0.35)'; ctx.lineWidth=1.5;
+                for(let i=0.5;i<Math.PI*2-0.5;i+=Math.PI/4){
+                    ctx.beginPath(); ctx.moveTo(0,0);
+                    ctx.quadraticCurveTo(Math.cos(i+0.1)*20,Math.sin(i+0.1)*20,Math.cos(i)*40,Math.sin(i)*40);
+                    ctx.stroke();
+                }
+                ctx.restore();
+                // Kwiat
+                ctx.save(); ctx.rotate(time*this.flowerSpin);
+                const dp=(len,wid,c1,c2)=>{
+                    const g=ctx.createLinearGradient(0,0,0,-len);
+                    g.addColorStop(0,c1); g.addColorStop(1,c2);
+                    ctx.fillStyle=g; ctx.strokeStyle='#154360'; ctx.lineWidth=1.5;
+                    ctx.beginPath(); ctx.moveTo(0,0);
+                    ctx.quadraticCurveTo(-wid,-len/2,0,-len);
+                    ctx.quadraticCurveTo(wid,-len/2,0,0);
+                    ctx.fill(); ctx.stroke();
+                };
+                for(let i=0;i<10;i++){ctx.save();ctx.rotate(i/10*Math.PI*2);dp(35,12,'#4a235a','#2980b9');ctx.restore();}
+                for(let i=0;i<10;i++){ctx.save();ctx.rotate(i/10*Math.PI*2+Math.PI/10);dp(28,9,'#154360','#5dade2');ctx.restore();}
+                ctx.save(); ctx.rotate(time*0.5);
+                for(let i=0;i<8;i++){ctx.save();ctx.rotate(i/8*Math.PI*2);dp(18,6,'#2980b9','#d4e6f1');ctx.restore();}
+                ctx.restore();
+                // Środek (pręciki) — pre-computed
+                ctx.fillStyle='#f1c40f'; ctx.strokeStyle='#d4ac0d'; ctx.lineWidth=1;
+                ctx.beginPath();
+                this.centerR.forEach((r,i)=>{
+                    const a=i/this.centerR.length*Math.PI*2;
+                    i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r):ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+                });
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.restore(); ctx.restore();
+            }
+        }
+
         // ─ AcorusClump — Tatarak (kod kolegi, zaadaptowany) ────────────────
         let _desertAcorus = [];
         class AcorusClump {
@@ -4268,6 +4332,52 @@
                 o.globalAlpha=1;
             });
             _desertOffscreen = oc;
+
+            // Hieroglify — dolny lewy róg mapy
+            const _hx=160, _hy=WORLD_H-160;
+            // Tablica kamienna
+            o.fillStyle='rgba(190,155,90,0.55)';
+            o.strokeStyle='rgba(80,50,15,0.7)'; o.lineWidth=4;
+            o.beginPath(); o.roundRect(_hx-18,_hy-130,260,150,10); o.fill(); o.stroke();
+            // Wewnętrzna ramka
+            o.strokeStyle='rgba(80,50,15,0.35)'; o.lineWidth=2;
+            o.beginPath(); o.roundRect(_hx-10,_hy-122,244,134,6); o.stroke();
+            // Hieroglify — 5 symboli
+            o.strokeStyle='rgba(60,35,8,0.75)'; o.fillStyle='rgba(60,35,8,0.75)';
+            o.lineWidth=2.5; o.lineCap='round';
+            // 1. Oko Ra
+            const oe=_hx+18;
+            o.beginPath(); o.ellipse(oe,_hy-80,15,9,0,0,Math.PI*2); o.stroke();
+            o.beginPath(); o.arc(oe,_hy-80,5,0,Math.PI*2); o.fill();
+            o.beginPath(); o.moveTo(oe,_hy-71); o.lineTo(oe-6,_hy-45); o.moveTo(oe,_hy-71); o.lineTo(oe+6,_hy-45); o.stroke();
+            // 2. Ankh
+            const oa=_hx+68;
+            o.beginPath(); o.moveTo(oa,_hy-115); o.lineTo(oa,_hy-40); o.stroke();
+            o.beginPath(); o.moveTo(oa-16,_hy-85); o.lineTo(oa+16,_hy-85); o.stroke();
+            o.beginPath(); o.ellipse(oa,_hy-100,11,15,0,0,Math.PI*2); o.stroke();
+            // 3. Ibis (ptak)
+            const ob=_hx+118;
+            o.beginPath();
+            o.moveTo(ob-14,_hy-45); o.quadraticCurveTo(ob,_hy-105,ob+16,_hy-78);
+            o.quadraticCurveTo(ob+6,_hy-45,ob-14,_hy-45); o.stroke();
+            o.beginPath(); o.moveTo(ob+16,_hy-78); o.quadraticCurveTo(ob+30,_hy-90,ob+22,_hy-62); o.stroke();
+            // 4. Wąż
+            const os=_hx+170;
+            o.beginPath();
+            o.moveTo(os,_hy-40);
+            o.bezierCurveTo(os+20,_hy-70,os-18,_hy-80,os,_hy-115); o.stroke();
+            o.beginPath(); o.arc(os,_hy-115,5,0,Math.PI*2); o.stroke();
+            // 5. Słońce z promieniami
+            const osun=_hx+218;
+            o.beginPath(); o.arc(osun,_hy-78,10,0,Math.PI*2); o.stroke();
+            for(let _si=0;_si<8;_si++){
+                const _sa=_si/8*Math.PI*2;
+                o.beginPath();
+                o.moveTo(osun+Math.cos(_sa)*13,_hy-78+Math.sin(_sa)*13);
+                o.lineTo(osun+Math.cos(_sa)*20,_hy-78+Math.sin(_sa)*20);
+                o.stroke();
+            }
+
         }
 
         function generateMap() {
@@ -4341,6 +4451,14 @@
             if(selectedMap.id === 'desert') {
                 // RZEKA NIL — inicjalizacja PIERWSZA (potrzebna do exclusion zones)
                 _nilRiver = new RiverNile();
+                // BLUE LOTUS — 12 lilii na rzece
+                _desertLotus=[];
+                for(let _li=0,_la=0;_li<12&&_la<2000;_la++){
+                    const _lx=120+Math.random()*(WORLD_W-240),_ly=120+Math.random()*(WORLD_H-240);
+                    if(!isBlockedByRiver(_lx,_ly)) continue; // musi być NA rzece
+                    if(_nilRiver.bridges.some(b=>_ptRotRect(_lx,_ly,b.cx,b.cy,b.roadW,b.roadL+20,b.angle))) continue;
+                    _desertLotus.push(new BlueLotus(_lx,_ly)); _li++;
+                }
                 // TATARAK — 20 kępek na brzegu rzeki (po rzece — wymaga _nilRiver)
                 _desertAcorus=[];
                 for(let _ai=0,_att=0;_ai<20&&_att<3000;_att++){
@@ -4350,6 +4468,8 @@
                         const d=Math.hypot(dx,dy); return d>20&&d<70&&_nilRiver.isOnRiver(_ax+dx,_ay+dy);
                     }));
                     if(!_onBank) continue;
+                    // Nie na mostku
+                    if(_nilRiver.bridges.some(b=>_ptRotRect(_ax,_ay,b.cx,b.cy,b.roadW,b.roadL+30,b.angle))) continue;
                     if(environment.some(e=>e.type==='wall'&&_ax>e.x-10&&_ax<e.x+e.w+10&&_ay>e.y-10&&_ay<e.y+e.h+10)) continue;
                     _desertAcorus.push(new AcorusClump(_ax,_ay)); _ai++;
                 }
@@ -4433,7 +4553,7 @@
                     for(let gx=zone.x+18;gx<zone.x+zone.w-18;gx+=28){
                         for(let gy=zone.y+18;gy<zone.y+zone.h-18;gy+=28){
                             const _gx=gx+(Math.random()-0.5)*8,_gy=gy+(Math.random()-0.5)*8;
-                            const _gInW=environment.some(e=>e.type==='wall'&&_gx>e.x-4&&_gx<e.x+e.w+4&&_gy>e.y-4&&_gy<e.y+e.h+4);
+                            const _gInW=environment.some(e=>e.type==='wall'&&_gx>e.x-38&&_gx<e.x+e.w+38&&_gy>e.y-38&&_gy<e.y+e.h+38);
                             const _gNrS=Math.hypot(_gx-WORLD_W*0.72,_gy-WORLD_H*0.10)<200;
                             // Szerszy margines rzeki dla trawy (+25px extra)
                             const _gNrR=_nilRiver&&(_nilRiver.isOnRiver(_gx+20,_gy)||_nilRiver.isOnRiver(_gx-20,_gy)||_nilRiver.isOnRiver(_gx,_gy+20)||_nilRiver.isOnRiver(_gx,_gy-20));
@@ -4443,16 +4563,18 @@
                     }
                 });
                 _desertGrassTufts.sort((a,b)=>a.y-b.y);
-                // Post-process: usuń desert_rock dekoracje na rzece
+                // Post-process: usuń desert_rock dekoracje na rzece lub mostku
                 for(let _ri=mapDecorations.length-1;_ri>=0;_ri--){
                     const _rd=mapDecorations[_ri];
-                    if(_rd.mapId==='desert_rock'&&isBlockedByRiver(_rd.x,_rd.y))
+                    const _rdBridge=_nilRiver.bridges.some(b=>_ptRotRect(_rd.x,_rd.y,b.cx,b.cy,b.roadW,b.roadL+30,b.angle));
+                    if((_rd.mapId==='desert_rock'&&isBlockedByRiver(_rd.x,_rd.y))||_rdBridge)
                         mapDecorations.splice(_ri,1);
                 }
-                // Post-process: usuń desert_rock dekoracje na rzece
+                // Post-process: usuń desert_rock dekoracje na rzece lub mostku
                 for(let _ri=mapDecorations.length-1;_ri>=0;_ri--){
                     const _rd=mapDecorations[_ri];
-                    if(_rd.mapId==='desert_rock'&&isBlockedByRiver(_rd.x,_rd.y))
+                    const _rdBridge=_nilRiver.bridges.some(b=>_ptRotRect(_rd.x,_rd.y,b.cx,b.cy,b.roadW,b.roadL+30,b.angle));
+                    if((_rd.mapId==='desert_rock'&&isBlockedByRiver(_rd.x,_rd.y))||_rdBridge)
                         mapDecorations.splice(_ri,1);
                 }
                 // Post-process: usuń wall bloki na rzece lub przy sfinksie
@@ -4461,7 +4583,8 @@
                     const _e=environment[_ei];
                     if(_e.type!=='wall') continue;
                     const _cx=_e.x+_e.w/2,_cy=_e.y+_e.h/2;
-                    if(isBlockedByRiver(_cx,_cy)||Math.hypot(_cx-_sX,_cy-_sY)<260)
+                    const _onBr=_nilRiver.bridges.some(b=>_ptRotRect(_cx,_cy,b.cx,b.cy,b.roadW,b.roadL+40,b.angle));
+                    if(isBlockedByRiver(_cx,_cy)||_onBr||Math.hypot(_cx-_sX,_cy-_sY)<260)
                         environment.splice(_ei,1);
                 }
                 // Pre-render topographic hills dla wszystkich wall bloków
@@ -4480,6 +4603,7 @@
                 _desertCaravan = null;
                 _desertCaravan2 = null;
                 _desertAcorus = [];
+                _desertLotus = [];
                 _desertGrassTufts = [];
                 _nilRiver = null;
             }
@@ -4829,6 +4953,9 @@
             }
 
             // Rzeka Nil (przed env walls, po offscreen)
+            // Lotusy — pływają na wodzie (po rzece, przed encjami)
+            if(selectedMap.id==='desert' && _desertLotus.length)
+                _desertLotus.forEach(l=>l.draw(Date.now()/1000));
             if(selectedMap.id==='desert' && _nilRiver) {
                 _nilRiver.draw(Date.now()/1000);
             }
