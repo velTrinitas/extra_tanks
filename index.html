@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.18
+        Game version: v4.18.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4310,19 +4310,6 @@
                 environment.push(new EnvironmentBlock(WORLD_W/2-110, WORLD_H/2-110, 220, 220, 'bush', selectedMap.bush));
                 // Palm trees around oasis
                 // Oasis palms removed — BrawlGrassTuft covers oasis visually
-                // TATARAK — 20 kępek na brzegu rzeki
-                _desertAcorus=[];
-                for(let _ai=0,_att=0;_ai<20&&_att<3000;_att++){
-                    const _ax=120+Math.random()*(WORLD_W-240),_ay=120+Math.random()*(WORLD_H-240);
-                    if(isBlockedByRiver(_ax,_ay)) continue; // w wodzie
-                    // Sprawdź czy na brzegu rzeki (30-80px od krawędzi wody)
-                    const _onBank=[-40,-20,0,20,40].some(dx=>[-40,-20,0,20,40].some(dy=>{
-                        const d=Math.hypot(dx,dy); return d>20&&d<70&&_nilRiver.isOnRiver(_ax+dx,_ay+dy);
-                    }));
-                    if(!_onBank) continue;
-                    if(environment.some(e=>e.type==='wall'&&_ax>e.x-10&&_ax<e.x+e.w+10&&_ay>e.y-10&&_ay<e.y+e.h+10)) continue;
-                    _desertAcorus.push(new AcorusClump(_ax,_ay)); _ai++;
-                }
                 // Ruin clusters (3 groups)
                 [[WORLD_W*0.15,WORLD_H*0.18],[WORLD_W*0.82,WORLD_H*0.72],[WORLD_W*0.38,WORLD_H*0.82]].forEach(([rx,ry])=>{
                     for(let i=0;i<5;i++){
@@ -4354,6 +4341,18 @@
             if(selectedMap.id === 'desert') {
                 // RZEKA NIL — inicjalizacja PIERWSZA (potrzebna do exclusion zones)
                 _nilRiver = new RiverNile();
+                // TATARAK — 20 kępek na brzegu rzeki (po rzece — wymaga _nilRiver)
+                _desertAcorus=[];
+                for(let _ai=0,_att=0;_ai<20&&_att<3000;_att++){
+                    const _ax=120+Math.random()*(WORLD_W-240),_ay=120+Math.random()*(WORLD_H-240);
+                    if(isBlockedByRiver(_ax,_ay)) continue;
+                    const _onBank=[-40,-20,0,20,40].some(dx=>[-40,-20,0,20,40].some(dy=>{
+                        const d=Math.hypot(dx,dy); return d>20&&d<70&&_nilRiver.isOnRiver(_ax+dx,_ay+dy);
+                    }));
+                    if(!_onBank) continue;
+                    if(environment.some(e=>e.type==='wall'&&_ax>e.x-10&&_ax<e.x+e.w+10&&_ay>e.y-10&&_ay<e.y+e.h+10)) continue;
+                    _desertAcorus.push(new AcorusClump(_ax,_ay)); _ai++;
+                }
 
                 // 3500 mikrotekstur (mniejsze, różne odcienie)
                 const sandCols=['#f5dfa8','#eecf90','#f8e8c0','#e8c888','#faf0d0','#d4b070'];
