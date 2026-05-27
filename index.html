@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.14
+        Game version: v4.15
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2200,6 +2200,8 @@
                         if(isBlockedByRiver(nx,this.y)) canMX=false;
                         if(isBlockedByRiver(this.x,ny)) canMY=false;
                         if(canMX) this.x = nx; if(canMY) this.y = ny;
+                        // River safety net (catches all movement paths)
+                        if(isBlockedByRiver(this.x,this.y)){this.x=this.prevX||this.x;this.y=this.prevY||this.y;}
                         // Push toward/away from target dist
                         if(dist < targetDist - 30) { this.x -= Math.cos(this.angle)*moveSpeed*0.4; this.y -= Math.sin(this.angle)*moveSpeed*0.4; }
                         else if(dist > targetDist + 60) { this.x += Math.cos(this.angle)*moveSpeed*0.4; this.y += Math.sin(this.angle)*moveSpeed*0.4; }
@@ -2217,6 +2219,8 @@
                             if(isBlockedByRiver(nx,this.y)) canMX=false;
                         if(isBlockedByRiver(this.x,ny)) canMY=false;
                         if(canMX) this.x = nx; if(canMY) this.y = ny;
+                        // River safety net (catches all movement paths)
+                        if(isBlockedByRiver(this.x,this.y)){this.x=this.prevX||this.x;this.y=this.prevY||this.y;}
                         }
                         shouldMove = false;
                     }
@@ -2232,6 +2236,8 @@
                         if(isBlockedByRiver(nx,this.y)) canMX=false;
                         if(isBlockedByRiver(this.x,ny)) canMY=false;
                         if(canMX) this.x = nx; if(canMY) this.y = ny;
+                        // River safety net (catches all movement paths)
+                        if(isBlockedByRiver(this.x,this.y)){this.x=this.prevX||this.x;this.y=this.prevY||this.y;}
                     }
 
                     // Shooting based on phase
@@ -3118,13 +3124,8 @@
 
             if(d.mapId === 'desert') {
                 if(s < 0.5) {
-                    // Cactus — cel-shading już jest
-                    ctx.fillStyle='#2d6a2d'; ctx.strokeStyle='#1a4a1a'; ctx.lineWidth=2;
-                    ctx.fillRect(-5,-30,10,34); ctx.strokeRect(-5,-30,10,34);
-                    ctx.fillRect(-18,-18,13,8); ctx.strokeRect(-18,-18,13,8);
-                    ctx.fillRect(5,-22,13,8); ctx.strokeRect(5,-22,13,8);
-                    ctx.fillRect(-18,-26,5,10); ctx.strokeRect(-18,-26,5,10);
-                    ctx.fillRect(14,-30,5,10); ctx.strokeRect(14,-30,5,10);
+                    // Kaktusy usunięte (v4.15)
+                    ctx.restore(); ctx.globalAlpha=1; return;
                 } else {
                     // Rock — topographic hill pre-rendered
                     ctx.restore(); ctx.globalAlpha=1;
@@ -3592,6 +3593,7 @@
         // ── Desert Visual Helpers v4.8 ───────────────────────────────────────
         let _desertDunes = [];
         let _desertCaravan = null;
+        let _desertCaravan2 = null;
         let _grassAsset = null;
 
         // ── Lush Grass System (kolegi kod + adaptacja) ──────────────────────
@@ -3678,6 +3680,14 @@
                     leader.x+=Math.cos(leader.angle)*speed;
                     leader.y+=Math.sin(leader.angle)*speed;
                 }
+                // Wall repulsion (karawana omija skały)
+                environment.forEach(env=>{
+                    if(env.type!=='wall') return;
+                    const ecx=env.x+env.w/2,ecy=env.y+env.h/2;
+                    const d2=Math.hypot(leader.x-ecx,leader.y-ecy);
+                    const minD=Math.max(env.w,env.h)*0.65;
+                    if(d2<minD&&d2>0){leader.x+=(leader.x-ecx)/d2*2.5;leader.y+=(leader.y-ecy)/d2*2.5;}
+                });
                 for(let i=1;i<this.camels.length;i++) {
                     const cam=this.camels[i], tgt=this.camels[i-1];
                     const tDx=tgt.x-cam.x, tDy=tgt.y-cam.y, tDist=Math.hypot(tDx,tDy);
@@ -3973,6 +3983,9 @@
                 if(!_grassVariants)return;
                 const sway=Math.sin(t*1.8+this.phase)*0.09;
                 ctx.save();ctx.translate(this.x+29,this.y+66);
+                // Cień trawy (kierunkowy — słońce z lewej-górnej)
+                ctx.fillStyle='rgba(5,30,15,0.28)';
+                ctx.beginPath();ctx.ellipse(SUN_OFFSET_X*2,3,24,9,0,0,Math.PI*2);ctx.fill();
                 ctx.transform(1,0,sway,1,0,0);
                 ctx.drawImage(_grassVariants[this.variant],-29,-66);
                 ctx.restore();
@@ -4098,19 +4111,19 @@
                 for(let i=0;i<N;i++){const wp=this.wavePts[(i+flowOff)%N];
                     if(!wp.deep){const rx=wp.cx+wp.nx*wp.perpOff,ry=wp.cy+wp.ny*wp.perpOff;
                         ctx.moveTo(rx,ry);ctx.quadraticCurveTo(rx+wp.lfc*16-wp.lfs*6,ry+wp.lfs*16+wp.lfc*6,rx+wp.lfc*32,ry+wp.lfs*32);}}
-                ctx.strokeStyle='#2471a3';ctx.lineWidth=1.5;ctx.stroke();
-                // Batch 2: głębokie fale (1 stroke)
+                ctx.strokeStyle='#5ba8d8';ctx.lineWidth=2.2;ctx.stroke();
+                // Batch 2: głębokie fale
                 ctx.beginPath();
                 for(let i=0;i<N;i++){const wp=this.wavePts[(i+flowOff)%N];
                     if(wp.deep){const rx=wp.cx+wp.nx*wp.perpOff,ry=wp.cy+wp.ny*wp.perpOff;
                         ctx.moveTo(rx,ry);ctx.quadraticCurveTo(rx+wp.lfc*16-wp.lfs*6,ry+wp.lfs*16+wp.lfc*6,rx+wp.lfc*32,ry+wp.lfs*32);}}
-                ctx.strokeStyle='#1a5276';ctx.lineWidth=2.5;ctx.stroke();
-                // Batch 3: bałwanki (1 stroke)
+                ctx.strokeStyle='#2e7eb8';ctx.lineWidth=3.2;ctx.stroke();
+                // Batch 3: bałwanki — widoczne białe
                 ctx.beginPath();
                 for(let i=0;i<N;i++){const wp=this.wavePts[(i+flowOff)%N];
                     if(wp.deep){const rx=wp.cx+wp.nx*wp.perpOff,ry=wp.cy+wp.ny*wp.perpOff;
                         ctx.moveTo(rx+wp.lfc*2,ry+wp.lfs*2);ctx.quadraticCurveTo(rx+wp.lfc*12,ry+wp.lfs*12,rx+wp.lfc*22,ry+wp.lfs*22);}}
-                ctx.strokeStyle='#d4e6f1';ctx.lineWidth=1.8;ctx.stroke();
+                ctx.strokeStyle='#dff2ff';ctx.lineWidth=2.5;ctx.stroke();
                 // 5. Kontur rzeki
                 B(this.width);ctx.strokeStyle='rgba(21,67,96,0.45)';ctx.lineWidth=3;ctx.stroke();
                 // 6. Mostki
@@ -4177,20 +4190,23 @@
             gc.restore();
         }
         function _preRenderHill(w, h, seed) {
-            const PAD=28, VTOP=36, BPAD=36; // BPAD=bottom padding for shadow
+            const r=Math.min(w,h)*0.44;
+            const PX=Math.ceil(r*0.4)+20, PT=Math.ceil(r*0.9)+35, PB=Math.ceil(r*0.85)+20;
             const oc=document.createElement('canvas');
-            oc.width=w+PAD*2; oc.height=h+VTOP+BPAD;
+            oc.width=w+PX*2; oc.height=PT+h+PB;
             const gc=oc.getContext('2d');
-            _drawTopHillToCtx(gc, oc.width/2, h+VTOP-h*0.08, Math.min(w,h)*0.44, seed);
-            return {canvas:oc, offX:-PAD, offY:-VTOP};
+            _drawTopHillToCtx(gc, oc.width/2, PT+h*0.5, r, seed);
+            return {canvas:oc, offX:-PX, offY:-PT};
         }
         function _preRenderSmallHill(size, seed) {
-            const PAD=14, VTOP=20, BPAD=20;
+            const r=size*0.44;
+            const PX=Math.ceil(r*0.4)+12, PT=Math.ceil(r*0.9)+20, PB=Math.ceil(r*0.8)+12;
             const oc=document.createElement('canvas');
-            oc.width=(size+PAD)*2; oc.height=size+VTOP+BPAD;
+            oc.width=size*2+PX*2; oc.height=PT+size+PB;
             const gc=oc.getContext('2d');
-            _drawTopHillToCtx(gc, oc.width/2, size+VTOP-size*0.05, size*0.44, seed);
-            return {canvas:oc, offX:-(size+PAD), offY:-(size+VTOP-size*0.05)};
+            const cy=PT+size*0.5;
+            _drawTopHillToCtx(gc, oc.width/2, cy, r, seed);
+            return {canvas:oc, offX:-(size+PX), offY:-(PT+size*0.5)};
         }
 
         // ── Desert Visual System ──────────────────────────────────────────
@@ -4211,7 +4227,7 @@
             // Micro-texture: 3500 sand spots (small, varied beige)
             _desertGroundSpots.forEach(sp=>{
                 o.globalAlpha=sp.a;
-                o.fillStyle=sp.d?'#c09060':'#f5dfa8';
+                o.fillStyle=sp.col||(sp.d?'#c09060':'#f5dfa8');
                 o.beginPath();o.ellipse(sp.x,sp.y,sp.rx,sp.ry,sp.ang,0,Math.PI*2);o.fill();
             });
             o.globalAlpha=1;
@@ -4314,6 +4330,15 @@
                     a:0.10+Math.random()*0.20,
                     d:Math.random()<0.3
                 }));
+                // Mikrotekstura warstwa 2 — cieplejsze tony
+                const _sc2=['#c8a870','#e0c898','#b88858','#d4b078','#a87848'];
+                _desertGroundSpots=[..._desertGroundSpots,...Array.from({length:3500},()=>({
+                    x:Math.random()*WORLD_W,y:Math.random()*WORLD_H,
+                    rx:1.8+Math.random()*6,ry:1+Math.random()*3,
+                    ang:Math.random()*Math.PI,
+                    a:0.08+Math.random()*0.18,
+                    d:false,col:_sc2[Math.floor(Math.random()*5)]
+                }))];
                 // Wydmy — 12 formacji
                 _desertDunes = Array.from({length:12},(_,i)=>{
                     const a=i*(Math.PI*2/12)+(Math.random()-0.5)*0.5;
@@ -4364,8 +4389,9 @@
                     mapDecorations.push({x:cx,y:cy,mapId:'desert_columns',count:3,seed:Math.random()});
                 });
                 // Ruiny usunięte (v4.14)
-                // KARAWANA WIELBŁĄDÓW — klasa Caravan (kod kolegi)
+                // KARAWANA WIELBŁĄDÓW
                 _desertCaravan = new Caravan(WORLD_W*0.1, WORLD_H*0.42);
+                _desertCaravan2 = new Caravan(WORLD_W*0.85, WORLD_H*0.62);
                 // TRAWA — BrawlGrassTuft na KAŻDEJ bush zone
                 _initGrassVariants(); // pre-render variants once
                 _desertGrassTufts = [];
@@ -4373,7 +4399,9 @@
                     for(let gx=zone.x+18;gx<zone.x+zone.w-18;gx+=28){
                         for(let gy=zone.y+18;gy<zone.y+zone.h-18;gy+=28){
                             const _gx=gx+(Math.random()-0.5)*8,_gy=gy+(Math.random()-0.5)*8;
-                            if(!isBlockedByRiver(_gx,_gy))
+                            const _gInW=environment.some(e=>e.type==='wall'&&_gx>e.x-4&&_gx<e.x+e.w+4&&_gy>e.y-4&&_gy<e.y+e.h+4);
+                            const _gNrS=Math.hypot(_gx-WORLD_W*0.72,_gy-WORLD_H*0.10)<200;
+                            if(!isBlockedByRiver(_gx,_gy)&&!_gInW&&!_gNrS)
                                 _desertGrassTufts.push(new BrawlGrassTuft(_gx,_gy));
                         }
                     }
@@ -4402,6 +4430,7 @@
                 _desertGroundSpots = [];
                 _desertDunes = [];
                 _desertCaravan = null;
+                _desertCaravan2 = null;
                 _desertGrassTufts = [];
                 _nilRiver = null;
             }
@@ -4758,13 +4787,17 @@
             // Env walls — za dekoracjami wizualnie
             environment.forEach(env => { if(env.type === 'wall') env.draw(); });
 
-            // Decorations — Y-sorted for desert (pre-sorted at generateMap)
-            mapDecorations.forEach(d => drawDecoration(d));
+            // Decorations — Y-sorted (skip palm dla later 2.5D layer)
+            mapDecorations.forEach(d => { if(d.mapId!=='desert_palm') drawDecoration(d); });
 
             // Karawana wielbłądów (Caravan class, follower system)
             if(selectedMap.id==='desert' && _desertCaravan) {
                 _desertCaravan.update();
                 _desertCaravan.draw();
+            }
+            if(selectedMap.id==='desert' && _desertCaravan2) {
+                _desertCaravan2.update();
+                _desertCaravan2.draw();
             }
             // Trawa BrawlGrassTuft — każda bush zone
             if(selectedMap.id==='desert' && _desertGrassTufts.length>0) {
