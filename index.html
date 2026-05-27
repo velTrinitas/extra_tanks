@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.19
+        Game version: v4.20.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1888,7 +1888,7 @@
                         this.active = false; createExplosion(this.x, this.y, '#95a5a6', 5); break;
                     }
                 }
-                if(isBlockedByRiver(this.x,this.y)){this.active=false;createExplosion(this.x,this.y,'#2980b9',4);}
+                // Bullet river: usunięte v4.20.1 — pociski lecą nad wodą
             }
 
             draw() {
@@ -2130,6 +2130,25 @@
             }
         }
 
+        // ─ Bridge-aware target helper (desert AI pathfinding) v4.20
+        function _getBridgeTarget(ex, ey) {
+            if(!_nilRiver || !_nilRiver.p0 || !_nilRiver.bridges || !_nilRiver.bridges.length)
+                return {x: player.x, y: player.y};
+            const p0=_nilRiver.p0, p3=_nilRiver.p3;
+            const rvx=p3.x-p0.x, rvy=p3.y-p0.y;
+            const eSign=(ex-p0.x)*rvy-(ey-p0.y)*rvx;
+            const pSign=(player.x-p0.x)*rvy-(player.y-p0.y)*rvx;
+            if(Math.sign(eSign) !== Math.sign(pSign)) {
+                let best=_nilRiver.bridges[0], bestD=Infinity;
+                for(const b of _nilRiver.bridges){
+                    const d=Math.hypot(b.cx-ex,b.cy-ey);
+                    if(d<bestD){bestD=d;best=b;}
+                }
+                return {x:best.cx, y:best.cy};
+            }
+            return {x: player.x, y: player.y};
+        }
+
         class Enemy {
             constructor(isBoss = false, _unused = false, isMegaBoss = false) {
                 // Spawn z river-exclusion retry
@@ -2182,7 +2201,8 @@
                     }
                     if(this.shieldActive && now > this.shieldEndTime) this.shieldActive = false;
 
-                    const dx = player.x - this.x, dy = player.y - this.y;
+                    const _bt1=_getBridgeTarget(this.x,this.y);
+                    const dx = _bt1.x - this.x, dy = _bt1.y - this.y;
                     const dist = Math.hypot(dx, dy);
                     this.angle = Math.atan2(dy, dx);
 
@@ -2280,7 +2300,8 @@
                         const d = Math.hypot(this.x - pc.x, this.y - pc.y);
                         if(d < bestCubeDist) { bestCubeDist = d; cubeTarget = pc; }
                     }
-                    const dxP = player.x - this.x, dyP = player.y - this.y;
+                    const _bt2=_getBridgeTarget(this.x,this.y);
+                    const dxP = _bt2.x - this.x, dyP = _bt2.y - this.y;
                     const distToPlayer = Math.sqrt(dxP*dxP + dyP*dyP);
 
                     if(cubeTarget && bestCubeDist < distToPlayer * 0.7) {
@@ -2296,7 +2317,8 @@
                         // Steal cube if touching
                         if(bestCubeDist < this.height/2 + cubeTarget.radius) cubeTarget.active = false;
                     } else {
-                    let dx = player.x - this.x; let dy = player.y - this.y;
+                    const _bt3=_getBridgeTarget(this.x,this.y);
+                    let dx = _bt3.x - this.x; let dy = _bt3.y - this.y;
                     this.angle = Math.atan2(dy, dx);
                     let dist = Math.sqrt(dx*dx + dy*dy);
                     if (dist > 150) {
@@ -4182,7 +4204,7 @@
                 this.x=x; this.y=y;
                 this.leafSpin=(Math.random()-0.5)*0.15;
                 this.flowerSpin=(Math.random()-0.5)*0.3;
-                this.sizeScale=0.28+Math.random()*0.12; // mały — rzeka 100px
+                this.sizeScale=0.60+Math.random()*0.25; // v4.20: większy // mały — rzeka 100px
                 this.centerR=Array.from({length:21},()=>5+Math.random()*3); // pre-compute
             }
             draw(time){
@@ -4420,15 +4442,7 @@
                 environment.push(new EnvironmentBlock(WORLD_W/2-110, WORLD_H/2-110, 220, 220, 'bush', selectedMap.bush));
                 // Palm trees around oasis
                 // Oasis palms removed — BrawlGrassTuft covers oasis visually
-                // Ruin clusters (3 groups)
-                [[WORLD_W*0.15,WORLD_H*0.18],[WORLD_W*0.82,WORLD_H*0.72],[WORLD_W*0.38,WORLD_H*0.82]].forEach(([rx,ry])=>{
-                    for(let i=0;i<5;i++){
-                        const x=rx+Math.random()*140-70, y=ry+Math.random()*140-70;
-                        const w=22+Math.random()*55, h=18+Math.random()*45;
-                        environment.push(new EnvironmentBlock(x,y,w,h,'wall','#c4a77d'));
-                        mapDecorations.push({x:x+w/2,y:y+h/2,mapId:'desert_ruin',seed:Math.random(),w,h});
-                    }
-                });
+                // Ruin clusters — usunięte v4.14, potwierdzone v4.20
                 // Quicksand zones (4)
                 let qsPlaced=0;
                 while(qsPlaced<4){
