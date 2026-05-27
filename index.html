@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.12.1
+        Game version: v4.13
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1168,36 +1168,15 @@
             }
             draw() {
                 if(this.x + this.w < camera.x || this.x > camera.x + screenW || this.y + this.h < camera.y || this.y > camera.y + screenH) return;
-                // Desert wall blocks — sandstone with strata
-                if(this.type === 'wall' && selectedMap.id === 'desert' && this.w > 60) {
-                    const bx=this.x, by=this.y, bw=this.w, bh=this.h;
-                    // Cień
-                    ctx.fillStyle='rgba(60,20,0,0.30)';
-                    ctx.beginPath(); ctx.ellipse(bx+bw/2+8,by+bh+6,bw*0.55,bh*0.18,0,0,Math.PI*2); ctx.fill();
-                    // Bryła z gradientem bocznym (lewa-ciemna, prawa-jasna)
-                    const wg=ctx.createLinearGradient(bx,by,bx+bw,by+bh);
-                    wg.addColorStop(0,ROCK_COLORS.shadow);
-                    wg.addColorStop(0.35,ROCK_COLORS.base);
-                    wg.addColorStop(0.75,ROCK_COLORS.highlight);
-                    wg.addColorStop(1,ROCK_COLORS.base);
-                    ctx.fillStyle=wg; ctx.strokeStyle=ROCK_COLORS.crevice; ctx.lineWidth=2.5;
-                    ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,5); ctx.fill(); ctx.stroke();
-                    // Poziome warstwy erozji
-                    ctx.strokeStyle='rgba(74,54,0,0.25)'; ctx.lineWidth=1;
-                    const step=Math.max(12,bh/6);
-                    ctx.beginPath();
-                    for(let s=step;s<bh-4;s+=step){
-                        ctx.moveTo(bx+4,by+s); ctx.quadraticCurveTo(bx+bw/2,by+s+5,bx+bw-4,by+s-2);
+                // Desert wall blocks — topographic hill (pre-rendered offscreen)
+                if(this.type==='wall' && selectedMap.id==='desert' && this.w>60) {
+                    if(this._hill) {
+                        ctx.drawImage(this._hill.canvas, this.x+this._hill.offX, this.y+this._hill.offY);
+                    } else {
+                        // fallback — pre-render on first draw
+                        this._hill = _preRenderHill(this.w, this.h, this.x*0.017+this.y*0.013);
+                        ctx.drawImage(this._hill.canvas, this.x+this._hill.offX, this.y+this._hill.offY);
                     }
-                    ctx.stroke();
-                    // Pionowe szczeliny (2-3 per blok)
-                    ctx.strokeStyle='rgba(74,54,0,0.18)'; ctx.lineWidth=1.5;
-                    ctx.beginPath();
-                    [0.3,0.6].forEach(fx=>{
-                        ctx.moveTo(bx+bw*fx,by+4); ctx.lineTo(bx+bw*fx+4,by+bh*0.4);
-                        ctx.moveTo(bx+bw*(fx+0.05),by+bh*0.5); ctx.lineTo(bx+bw*fx,by+bh-4);
-                    });
-                    ctx.stroke();
                     return;
                 }
                 ctx.fillStyle = this.color;
@@ -4176,6 +4155,42 @@
             }
         }
 
+
+        // ─ Topographic Hill System (kolegi kod, zaadaptowany) ───────────────
+        function _drawTopHillToCtx(gc, cx, cy, radius, seed) {
+            gc.save(); gc.translate(cx, cy);
+            const P=['#6c4f3d','#8b6b53','#aa8769','#c4a482','#dec19b','#f5deb3'];
+            // Cień — elipsa zamiast shadowBlur (wydajność)
+            gc.fillStyle='rgba(40,20,10,0.28)';
+            gc.beginPath(); gc.ellipse(9,radius*0.5,radius*0.82,radius*0.20,0,0,Math.PI*2); gc.fill();
+            for(let i=0;i<6;i++){
+                const sc=1.0-i*0.14, oy=-(i*5);
+                gc.fillStyle=P[i]; gc.strokeStyle='#4a3424';
+                gc.lineWidth=i===0?3:1.8; gc.lineJoin='round';
+                gc.beginPath();
+                for(let j=0;j<=40;j++){
+                    const a=(j/40)*Math.PI*2;
+                    const r=radius*(1+Math.sin(a*3+seed)*0.15+Math.cos(a*2+seed)*0.10)*sc;
+                    j===0?gc.moveTo(Math.cos(a)*r,Math.sin(a)*r+oy):
+                           gc.lineTo(Math.cos(a)*r,Math.sin(a)*r+oy);
+                }
+                gc.closePath(); gc.fill(); gc.stroke();
+                gc.save(); gc.clip();
+                gc.fillStyle='rgba(0,0,0,0.07)';
+                gc.beginPath(); gc.arc(18,oy+16,radius*sc,0,Math.PI*2); gc.fill();
+                gc.restore();
+            }
+            gc.restore();
+        }
+        function _preRenderHill(w, h, seed) {
+            const PAD=22, VTOP=32;
+            const oc=document.createElement('canvas');
+            oc.width=w+PAD*2; oc.height=h+VTOP+PAD;
+            const gc=oc.getContext('2d');
+            _drawTopHillToCtx(gc, oc.width/2, h+VTOP-h*0.08, Math.min(w,h)*0.44, seed);
+            return {canvas:oc, offX:-PAD, offY:-VTOP};
+        }
+
         // ── Desert Visual System ──────────────────────────────────────────
         const SUN_OFFSET_X = 6, SUN_OFFSET_Y = 4; // global sun direction
         let _desertOffscreen = null;   // pre-rendered bg+texture canvas
@@ -4385,6 +4400,13 @@
                     }
                 });
                 _desertGrassTufts.sort((a,b)=>a.y-b.y);
+                // Pre-render topographic hills dla wszystkich wall bloków
+                environment.forEach(env=>{
+                    if(env.type==='wall'&&env.w>60){
+                        const seed=env.x*0.017+env.y*0.013;
+                        env._hill=_preRenderHill(env.w,env.h,seed);
+                    }
+                });
                 mapDecorations.sort((a,b)=>a.y-b.y); // Y-sort
                 _buildDesertOffscreen();
             } else {
