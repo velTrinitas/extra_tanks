@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.11
+        Game version: v4.11.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4080,7 +4080,7 @@
                     ctx.lineWidth=w;ctx.lineCap='round';ctx.lineJoin='round';
                 };
                 // 1. Błotnisty brzeg
-                B(this.width+40);ctx.strokeStyle='#7a5c30';ctx.stroke();
+                B(this.width+42);ctx.strokeStyle='#7a5c30';ctx.stroke();
                 // 2. Kwiaty na brzegu
                 this.flowers.forEach(f=>{
                     const ix=_bzPt(f.t,p0.x,p1.x,p2.x,p3.x),iy=_bzPt(f.t,p0.y,p1.y,p2.y,p3.y);
@@ -4090,36 +4090,41 @@
                     ctx.fillStyle=f.col;ctx.fill();
                     ctx.strokeStyle='#041f0f';ctx.lineWidth=1.5;ctx.stroke();
                 });
-                // 3. Woda z maskowaniem (ctx.clip)
-                ctx.save(); B(this.width); ctx.clip();
-                // Gradient głębokości
+                // 3. Woda — GRADIENT STROKE (prawidłowy kształt rzeki!)
+                // ctx.clip() na otwartej ścieżce bezier tworzy fill-triangle, nie stroke-river
+                // Rozwiązanie: ctx.strokeStyle = gradient → stroke daje 145px pas rzeki
                 const wg=ctx.createLinearGradient(p0.x,p0.y,p3.x,p3.y);
                 wg.addColorStop(0,'#7ce8d5');wg.addColorStop(0.12,'#2980b9');
-                wg.addColorStop(0.50,'#154360');wg.addColorStop(0.88,'#2980b9');wg.addColorStop(1,'#7ce8d5');
-                ctx.fillStyle=wg;ctx.fillRect(-100,-100,WORLD_W+200,WORLD_H+200);
-                // Animowane fale wzdłuż koryta
-                const fa=Math.atan2(p3.y-p0.y,p3.x-p0.x);
-                const fc=Math.cos(fa),fs=Math.sin(fa),flow=time*58;
+                wg.addColorStop(0.50,'#154360');wg.addColorStop(0.88,'#2980b9');
+                wg.addColorStop(1,'#7ce8d5');
+                B(this.width); ctx.strokeStyle=wg; ctx.stroke();
+                // 4. Fale — próbkowane WZDŁUŻ krzywej bezier (zawsze w korycie)
+                const flow=time*0.08;
                 ctx.lineCap='round';
-                for(let i=0;i<145;i++){
-                    const ox=Math.sin(i*12.5)*720+WORLD_W/2;
-                    const oy=Math.cos(i*3.7)*720+WORLD_H/2;
-                    const d=(oy*fs+ox*fc+flow+i*23)%720-360;
-                    const wx=ox+fc*d,wy=oy+fs*d;
-                    const deep=Math.abs(Math.sin(i*12.5))<0.14;
-                    ctx.beginPath();ctx.moveTo(wx,wy);
-                    ctx.quadraticCurveTo(wx+fc*18-fs*7,wy+fs*18+fc*7,wx+fc*36,wy+fs*36);
-                    ctx.strokeStyle=deep?'#1a5276':'#2471a3';ctx.lineWidth=deep?3:1.8;ctx.stroke();
+                for(let i=0;i<120;i++){
+                    const t=((i/120)+flow)%1;
+                    const wx2=_bzPt(t,p0.x,p1.x,p2.x,p3.x);
+                    const wy2=_bzPt(t,p0.y,p1.y,p2.y,p3.y);
+                    const tx2=_bzTan(t,p0.x,p1.x,p2.x,p3.x);
+                    const ty2=_bzTan(t,p0.y,p1.y,p2.y,p3.y);
+                    const ll=Math.hypot(tx2,ty2);
+                    const nx2=-ty2/ll, ny2=tx2/ll;
+                    const perpOff=Math.cos(i*5.1+i*0.7)*(this.width*0.36);
+                    const rx=wx2+nx2*perpOff, ry=wy2+ny2*perpOff;
+                    const lfc=tx2/ll, lfs=ty2/ll;
+                    const deep=Math.abs(Math.cos(i*5.1))<0.22;
+                    ctx.beginPath();ctx.moveTo(rx,ry);
+                    ctx.quadraticCurveTo(rx+lfc*16-lfs*6,ry+lfs*16+lfc*6,rx+lfc*32,ry+lfs*32);
+                    ctx.strokeStyle=deep?'#1a5276':'#2471a3';ctx.lineWidth=deep?2.5:1.5;ctx.stroke();
                     if(deep){
-                        ctx.beginPath();ctx.moveTo(wx+2,wy-1);
-                        ctx.quadraticCurveTo(wx+fc*14,wy+fs*14,wx+fc*26,wy+fs*26);
-                        ctx.strokeStyle='#d4e6f1';ctx.lineWidth=2;ctx.stroke();
+                        ctx.beginPath();ctx.moveTo(rx+lfc*2,ry+lfs*2);
+                        ctx.quadraticCurveTo(rx+lfc*12,ry+lfs*12,rx+lfc*22,ry+lfs*22);
+                        ctx.strokeStyle='#d4e6f1';ctx.lineWidth=1.8;ctx.stroke();
                     }
                 }
-                ctx.restore(); // koniec clip
-                // 4. Kontur rzeki
+                // 5. Kontur rzeki
                 B(this.width);ctx.strokeStyle='rgba(21,67,96,0.45)';ctx.lineWidth=3;ctx.stroke();
-                // 5. Mostki
+                // 6. Mostki
                 this.bridges.forEach(b=>this._drawBridge(b));
                 ctx.restore();
             }
