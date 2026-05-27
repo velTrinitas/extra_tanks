@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.13
+        Game version: v4.14
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -3126,18 +3126,10 @@
                     ctx.fillRect(-18,-26,5,10); ctx.strokeRect(-18,-26,5,10);
                     ctx.fillRect(14,-30,5,10); ctx.strokeRect(14,-30,5,10);
                 } else {
-                    // Rock — 4 typy geologiczne (kolegi kod)
+                    // Rock — topographic hill pre-rendered
                     ctx.restore(); ctx.globalAlpha=1;
-                    const rs=20+s*14;
-                    if(d.rockType==='dome'&&d.domeVerts) {
-                        const verts=d.domeVerts.map(v=>({x:v.x*rs,y:v.y*(rs*0.7)}));
-                        drawCrackedDome(d.x,d.y,rs,verts);
-                    } else if(d.rockType==='mushroom') {
-                        drawMushroomRock(d.x,d.y,rs*0.7);
-                    } else if(d.rockType==='cone') {
-                        drawErodedCone(d.x,d.y,rs*0.9);
-                    } else {
-                        drawErodedMesa(d.x,d.y,rs*1.8,rs*1.1);
+                    if(d._hillCanvas) {
+                        ctx.drawImage(d._hillCanvas.canvas, d.x+d._hillCanvas.offX, d.y+d._hillCanvas.offY);
                     }
                     return;
                 }
@@ -4033,7 +4025,9 @@
                     const cx=_bzPt(t,p0.x,p1.x,p2.x,p3.x),cy=_bzPt(t,p0.y,p1.y,p2.y,p3.y);
                     const tx=_bzTan(t,p0.x,p1.x,p2.x,p3.x),ty=_bzTan(t,p0.y,p1.y,p2.y,p3.y);
                     this.bridges.push({cx,cy,angle:Math.atan2(ty,tx),
-                        roadW:this.width+44,roadL:88});
+                        roadW:this.width+60,
+                        roadL:88,
+                        roadLc:160});
                 });
                 // Pre-compute wave positions (avoid _bzPt 80× per frame)
                 this.wavePts=Array.from({length:80},(_,i)=>{
@@ -4061,7 +4055,7 @@
                 for(const s of this.segs){
                     if(_distSeg(x,y,s.x1,s.y1,s.x2,s.y2)<hw){
                         for(const b of this.bridges)
-                            if(_ptRotRect(x,y,b.cx,b.cy,b.roadW,b.roadL,b.angle)) return false;
+                            if(_ptRotRect(x,y,b.cx,b.cy,b.roadW,b.roadLc||b.roadL,b.angle)) return false;
                         return true;
                     }
                 }
@@ -4096,7 +4090,7 @@
                 wg.addColorStop(1,'#7ce8d5');
                 B(this.width); ctx.strokeStyle=wg; ctx.stroke();
                 // 4. Fale — pre-computed positions, BATCHED strokes (3× zamiast 120×)
-                const flowOff=Math.floor(time*55)%80;
+                const flowOff=Math.floor(time*18)%80; // wolniejszy, bardziej widoczny flow
                 const N=this.wavePts.length;
                 ctx.lineCap='round';
                 // Batch 1: zwykłe fale (1 stroke)
@@ -4183,12 +4177,20 @@
             gc.restore();
         }
         function _preRenderHill(w, h, seed) {
-            const PAD=22, VTOP=32;
+            const PAD=28, VTOP=36, BPAD=36; // BPAD=bottom padding for shadow
             const oc=document.createElement('canvas');
-            oc.width=w+PAD*2; oc.height=h+VTOP+PAD;
+            oc.width=w+PAD*2; oc.height=h+VTOP+BPAD;
             const gc=oc.getContext('2d');
             _drawTopHillToCtx(gc, oc.width/2, h+VTOP-h*0.08, Math.min(w,h)*0.44, seed);
             return {canvas:oc, offX:-PAD, offY:-VTOP};
+        }
+        function _preRenderSmallHill(size, seed) {
+            const PAD=14, VTOP=20, BPAD=20;
+            const oc=document.createElement('canvas');
+            oc.width=(size+PAD)*2; oc.height=size+VTOP+BPAD;
+            const gc=oc.getContext('2d');
+            _drawTopHillToCtx(gc, oc.width/2, size+VTOP-size*0.05, size*0.44, seed);
+            return {canvas:oc, offX:-(size+PAD), offY:-(size+VTOP-size*0.05)};
         }
 
         // ── Desert Visual System ──────────────────────────────────────────
@@ -4261,7 +4263,8 @@
                         const _s=Math.random();
                         const _rt=['mesa','dome','mushroom','cone'][Math.floor(Math.random()*4)];
                         const _dv=_s>=0.5?Array.from({length:20},(_,i)=>({x:Math.cos(i/20*Math.PI*2)*(0.85+Math.random()*0.15),y:Math.sin(i/20*Math.PI*2)*(0.85+Math.random()*0.15)})):null;
-                        mapDecorations.push({x,y,mapId:selectedMap.id,seed:_s,rockType:_rt,domeVerts:_dv});
+                        const _sh=_s>=0.5?_preRenderSmallHill(20+_s*14,_s*100+x*0.011+y*0.007):null;
+                        mapDecorations.push({x,y,mapId:selectedMap.id,seed:_s,rockType:_rt,domeVerts:_dv,_hillCanvas:_sh});
                     }
             }
 
@@ -4269,16 +4272,7 @@
                 // Oasis (large bush zone at center)
                 environment.push(new EnvironmentBlock(WORLD_W/2-110, WORLD_H/2-110, 220, 220, 'bush', selectedMap.bush));
                 // Palm trees around oasis
-                for(let i=0;i<10;i++){
-                    const ang=i*(Math.PI*2/10)+Math.random()*0.4;
-                    const r=55+Math.random()*65;
-                    mapDecorations.push({x:WORLD_W/2+Math.cos(ang)*r, y:WORLD_H/2+Math.sin(ang)*r, mapId:'desert_palm', seed:Math.random(), variant:Math.floor(Math.random()*4), leafLengths:Array.from({length:9},()=>55+Math.random()*15)});
-                }
-                // Inner oasis palms
-                for(let i=0;i<5;i++){
-                    const ang=i*(Math.PI*2/5);
-                    mapDecorations.push({x:WORLD_W/2+Math.cos(ang)*22, y:WORLD_H/2+Math.sin(ang)*22, mapId:'desert_palm', seed:Math.random(), variant:Math.floor(Math.random()*4), leafLengths:Array.from({length:9},()=>55+Math.random()*15)});
-                }
+                // Oasis palms removed — BrawlGrassTuft covers oasis visually
                 // Ruin clusters (3 groups)
                 [[WORLD_W*0.15,WORLD_H*0.18],[WORLD_W*0.82,WORLD_H*0.72],[WORLD_W*0.38,WORLD_H*0.82]].forEach(([rx,ry])=>{
                     for(let i=0;i<5;i++){
@@ -4315,9 +4309,9 @@
                 const sandCols=['#f5dfa8','#eecf90','#f8e8c0','#e8c888','#faf0d0','#d4b070'];
                 _desertGroundSpots = Array.from({length:3500},()=>({
                     x:Math.random()*WORLD_W, y:Math.random()*WORLD_H,
-                    rx:1.2+Math.random()*5, ry:0.8+Math.random()*3,
+                    rx:2.5+Math.random()*8, ry:1.5+Math.random()*4,
                     ang:Math.random()*Math.PI,
-                    a:0.05+Math.random()*0.13,
+                    a:0.10+Math.random()*0.20,
                     d:Math.random()<0.3
                 }));
                 // Wydmy — 12 formacji
@@ -4369,22 +4363,7 @@
                     environment.push(new EnvironmentBlock(cx-36,cy-52,72,55,'wall','#e8d0a0'));
                     mapDecorations.push({x:cx,y:cy,mapId:'desert_columns',count:3,seed:Math.random()});
                 });
-                // 300% WIĘCEJ RUIN — 12 klastrów (było 3)
-                const ruinPositions=[
-                    [WORLD_W*0.15,WORLD_H*0.18],[WORLD_W*0.82,WORLD_H*0.72],[WORLD_W*0.38,WORLD_H*0.82],
-                    [WORLD_W*0.7,WORLD_H*0.12],[WORLD_W*0.22,WORLD_H*0.55],[WORLD_W*0.9,WORLD_H*0.4],
-                    [WORLD_W*0.1,WORLD_H*0.85],[WORLD_W*0.6,WORLD_H*0.9],[WORLD_W*0.48,WORLD_H*0.15],
-                    [WORLD_W*0.85,WORLD_H*0.85],[WORLD_W*0.12,WORLD_H*0.35],[WORLD_W*0.75,WORLD_H*0.6]
-                ];
-                ruinPositions.forEach(([rx,ry])=>{
-                    if(Math.abs(rx-WORLD_W/2)<250 && Math.abs(ry-WORLD_H/2)<250) return; // skip centrum
-                    for(let i=0;i<5;i++){
-                        const x=rx+Math.random()*160-80, y=ry+Math.random()*160-80;
-                        const w=22+Math.random()*55, h=18+Math.random()*45;
-                        environment.push(new EnvironmentBlock(x,y,w,h,'wall','#c4a77d'));
-                        mapDecorations.push({x:x+w/2,y:y+h/2,mapId:'desert_ruin',seed:Math.random(),w,h});
-                    }
-                });
+                // Ruiny usunięte (v4.14)
                 // KARAWANA WIELBŁĄDÓW — klasa Caravan (kod kolegi)
                 _desertCaravan = new Caravan(WORLD_W*0.1, WORLD_H*0.42);
                 // TRAWA — BrawlGrassTuft na KAŻDEJ bush zone
@@ -4400,6 +4379,15 @@
                     }
                 });
                 _desertGrassTufts.sort((a,b)=>a.y-b.y);
+                // Post-process: usuń wall bloki na rzece lub przy sfinksie
+                const _sX=WORLD_W*0.72,_sY=WORLD_H*0.10;
+                for(let _ei=environment.length-1;_ei>=0;_ei--){
+                    const _e=environment[_ei];
+                    if(_e.type!=='wall') continue;
+                    const _cx=_e.x+_e.w/2,_cy=_e.y+_e.h/2;
+                    if(isBlockedByRiver(_cx,_cy)||Math.hypot(_cx-_sX,_cy-_sY)<260)
+                        environment.splice(_ei,1);
+                }
                 // Pre-render topographic hills dla wszystkich wall bloków
                 environment.forEach(env=>{
                     if(env.type==='wall'&&env.w>60){
