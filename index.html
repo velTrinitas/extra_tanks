@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.10.4
+        Game version: v4.11
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1241,7 +1241,7 @@
                     for(let env of environment) {
                         if(env.type === 'wall' && checkRectCollision(env.x, env.y, env.w, env.h, x, y, radius+5)) { safe = false; break; }
                     }
-                    if(safe) return {x, y};
+                    if(safe && !isBlockedByRiver(x,y)) return {x, y};
                 }
             }
             return {x: preferX, y: preferY};
@@ -1756,6 +1756,9 @@
                             if(checkRectCollision(env.x, env.y, env.w, env.h, this.x, nextY, this.height/2.5)) canMoveY = false;
                         }
                     }
+                    // River collision
+                    if(isBlockedByRiver(nextX, this.y)) canMoveX=false;
+                    if(isBlockedByRiver(this.x, nextY)) canMoveY=false;
                     if(canMoveX) this.x = nextX;
                     if(canMoveY) this.y = nextY;
                     if(canMoveX || canMoveY) {
@@ -1903,6 +1906,7 @@
                         this.active = false; createExplosion(this.x, this.y, '#95a5a6', 5); break;
                     }
                 }
+                if(isBlockedByRiver(this.x,this.y)){this.active=false;createExplosion(this.x,this.y,'#2980b9',4);}
             }
 
             draw() {
@@ -2214,6 +2218,8 @@
                             if(checkRectCollision(env.x,env.y,env.w,env.h,nx,this.y,this.height/2)) canMX=false;
                             if(checkRectCollision(env.x,env.y,env.w,env.h,this.x,ny,this.height/2)) canMY=false;
                         }}
+                        if(isBlockedByRiver(nx,this.y)) canMX=false;
+                        if(isBlockedByRiver(this.x,ny)) canMY=false;
                         if(canMX) this.x = nx; if(canMY) this.y = ny;
                         // Push toward/away from target dist
                         if(dist < targetDist - 30) { this.x -= Math.cos(this.angle)*moveSpeed*0.4; this.y -= Math.sin(this.angle)*moveSpeed*0.4; }
@@ -2229,7 +2235,9 @@
                                 if(checkRectCollision(env.x,env.y,env.w,env.h,nx,this.y,this.height/2)) canMX=false;
                                 if(checkRectCollision(env.x,env.y,env.w,env.h,this.x,ny,this.height/2)) canMY=false;
                             }}
-                            if(canMX) this.x = nx; if(canMY) this.y = ny;
+                            if(isBlockedByRiver(nx,this.y)) canMX=false;
+                        if(isBlockedByRiver(this.x,ny)) canMY=false;
+                        if(canMX) this.x = nx; if(canMY) this.y = ny;
                         }
                         shouldMove = false;
                     }
@@ -2242,6 +2250,8 @@
                             if(checkRectCollision(env.x,env.y,env.w,env.h,nx,this.y,this.height/2)) canMX=false;
                             if(checkRectCollision(env.x,env.y,env.w,env.h,this.x,ny,this.height/2)) canMY=false;
                         }}
+                        if(isBlockedByRiver(nx,this.y)) canMX=false;
+                        if(isBlockedByRiver(this.x,ny)) canMY=false;
                         if(canMX) this.x = nx; if(canMY) this.y = ny;
                     }
 
@@ -2910,6 +2920,9 @@
             constructor() {
                 this.x = 100 + Math.random() * (WORLD_W - 200);
                 this.y = 100 + Math.random() * (WORLD_H - 200);
+                let _ri=0; while(isBlockedByRiver(this.x,this.y)&&_ri++<20){
+                    this.x=100+Math.random()*(WORLD_W-200); this.y=100+Math.random()*(WORLD_H-200);
+                }
                 this.radius = 22; this.life = 360; this.active = true; this.pulse = Math.random()*Math.PI*2;
             }
             update() {
@@ -3990,6 +4003,158 @@
         }
         let _desertGrassTufts = [];
 
+
+        // ═══════════════════════════════════════════════════════════════════
+        // RIVER NIL SYSTEM v4.11
+        // ═══════════════════════════════════════════════════════════════════
+        function _bzPt(t,a,b,cc,d){const u=1-t;return u*u*u*a+3*u*u*t*b+3*u*t*t*cc+t*t*t*d;}
+        function _bzTan(t,a,b,cc,d){const u=1-t;return 3*u*u*(b-a)+6*u*t*(cc-b)+3*t*t*(d-cc);}
+        function _distSeg(px,py,ax,ay,bx,by){
+            const dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy;
+            if(l===0)return Math.hypot(px-ax,py-ay);
+            const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l));
+            return Math.hypot(px-ax-t*dx,py-ay-t*dy);
+        }
+        function _ptRotRect(px,py,cx,cy,w,h,a){
+            const cos=Math.cos(-a),sin=Math.sin(-a);
+            const lx=(px-cx)*cos-(py-cy)*sin, ly=(px-cx)*sin+(py-cy)*cos;
+            return Math.abs(lx)<w/2&&Math.abs(ly)<h/2;
+        }
+        let _nilRiver = null;
+        function isBlockedByRiver(x,y){
+            return selectedMap&&selectedMap.id==='desert'&&_nilRiver&&_nilRiver.isOnRiver(x,y);
+        }
+
+        class RiverNile {
+            constructor(){
+                this.p0={x:WORLD_W*0.90,y:WORLD_H*0.04};
+                this.p1={x:WORLD_W*0.72,y:WORLD_H*0.22};
+                this.p2={x:WORLD_W*0.68,y:WORLD_H*0.60};
+                this.p3={x:WORLD_W*0.10,y:WORLD_H*0.96};
+                this.width=145;
+                // Pre-compute 60 segments
+                this.segs=[];
+                const {p0,p1,p2,p3}=this;
+                for(let i=0;i<60;i++){
+                    const t1=i/60,t2=(i+1)/60;
+                    this.segs.push({
+                        x1:_bzPt(t1,p0.x,p1.x,p2.x,p3.x),y1:_bzPt(t1,p0.y,p1.y,p2.y,p3.y),
+                        x2:_bzPt(t2,p0.x,p1.x,p2.x,p3.x),y2:_bzPt(t2,p0.y,p1.y,p2.y,p3.y),
+                    });
+                }
+                // 5 mostków
+                this.bridges=[];
+                [0.14,0.29,0.50,0.68,0.83].forEach(t=>{
+                    const cx=_bzPt(t,p0.x,p1.x,p2.x,p3.x),cy=_bzPt(t,p0.y,p1.y,p2.y,p3.y);
+                    const tx=_bzTan(t,p0.x,p1.x,p2.x,p3.x),ty=_bzTan(t,p0.y,p1.y,p2.y,p3.y);
+                    this.bridges.push({cx,cy,angle:Math.atan2(ty,tx),
+                        roadW:this.width+44,roadL:54});
+                });
+                // Kwiaty na brzegu (pre-computed)
+                this.flowers=[];
+                for(let i=0;i<55;i++){
+                    const t=Math.random(),side=Math.random()>0.5?1:-1;
+                    const off=(this.width/2)+7+Math.random()*26;
+                    this.flowers.push({t,off:off*side,
+                        col:Math.random()>0.55?'#e74c3c':'#f1c40f',
+                        sz:3+Math.random()*3});
+                }
+            }
+            isOnRiver(x,y){
+                const hw=this.width/2+10;
+                for(const s of this.segs){
+                    if(_distSeg(x,y,s.x1,s.y1,s.x2,s.y2)<hw){
+                        for(const b of this.bridges)
+                            if(_ptRotRect(x,y,b.cx,b.cy,b.roadW,b.roadL,b.angle)) return false;
+                        return true;
+                    }
+                }
+                return false;
+            }
+            draw(time){
+                const {p0,p1,p2,p3}=this;
+                ctx.save();
+                const B=(w)=>{
+                    ctx.beginPath();ctx.moveTo(p0.x,p0.y);
+                    ctx.bezierCurveTo(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);
+                    ctx.lineWidth=w;ctx.lineCap='round';ctx.lineJoin='round';
+                };
+                // 1. Błotnisty brzeg
+                B(this.width+40);ctx.strokeStyle='#7a5c30';ctx.stroke();
+                // 2. Kwiaty na brzegu
+                this.flowers.forEach(f=>{
+                    const ix=_bzPt(f.t,p0.x,p1.x,p2.x,p3.x),iy=_bzPt(f.t,p0.y,p1.y,p2.y,p3.y);
+                    const tx=_bzTan(f.t,p0.x,p1.x,p2.x,p3.x),ty=_bzTan(f.t,p0.y,p1.y,p2.y,p3.y);
+                    const l=Math.hypot(tx,ty),nx=-ty/l,ny=tx/l;
+                    ctx.beginPath();ctx.arc(ix+nx*f.off,iy+ny*f.off,f.sz,0,Math.PI*2);
+                    ctx.fillStyle=f.col;ctx.fill();
+                    ctx.strokeStyle='#041f0f';ctx.lineWidth=1.5;ctx.stroke();
+                });
+                // 3. Woda z maskowaniem (ctx.clip)
+                ctx.save(); B(this.width); ctx.clip();
+                // Gradient głębokości
+                const wg=ctx.createLinearGradient(p0.x,p0.y,p3.x,p3.y);
+                wg.addColorStop(0,'#7ce8d5');wg.addColorStop(0.12,'#2980b9');
+                wg.addColorStop(0.50,'#154360');wg.addColorStop(0.88,'#2980b9');wg.addColorStop(1,'#7ce8d5');
+                ctx.fillStyle=wg;ctx.fillRect(-100,-100,WORLD_W+200,WORLD_H+200);
+                // Animowane fale wzdłuż koryta
+                const fa=Math.atan2(p3.y-p0.y,p3.x-p0.x);
+                const fc=Math.cos(fa),fs=Math.sin(fa),flow=time*58;
+                ctx.lineCap='round';
+                for(let i=0;i<145;i++){
+                    const ox=Math.sin(i*12.5)*720+WORLD_W/2;
+                    const oy=Math.cos(i*3.7)*720+WORLD_H/2;
+                    const d=(oy*fs+ox*fc+flow+i*23)%720-360;
+                    const wx=ox+fc*d,wy=oy+fs*d;
+                    const deep=Math.abs(Math.sin(i*12.5))<0.14;
+                    ctx.beginPath();ctx.moveTo(wx,wy);
+                    ctx.quadraticCurveTo(wx+fc*18-fs*7,wy+fs*18+fc*7,wx+fc*36,wy+fs*36);
+                    ctx.strokeStyle=deep?'#1a5276':'#2471a3';ctx.lineWidth=deep?3:1.8;ctx.stroke();
+                    if(deep){
+                        ctx.beginPath();ctx.moveTo(wx+2,wy-1);
+                        ctx.quadraticCurveTo(wx+fc*14,wy+fs*14,wx+fc*26,wy+fs*26);
+                        ctx.strokeStyle='#d4e6f1';ctx.lineWidth=2;ctx.stroke();
+                    }
+                }
+                ctx.restore(); // koniec clip
+                // 4. Kontur rzeki
+                B(this.width);ctx.strokeStyle='rgba(21,67,96,0.45)';ctx.lineWidth=3;ctx.stroke();
+                // 5. Mostki
+                this.bridges.forEach(b=>this._drawBridge(b));
+                ctx.restore();
+            }
+            _drawBridge(b){
+                ctx.save();ctx.translate(b.cx,b.cy);ctx.rotate(b.angle);
+                const rw=b.roadW,rl=b.roadL;
+                // Cień
+                ctx.fillStyle='rgba(0,0,0,0.22)';
+                ctx.beginPath();ctx.roundRect(-rw/2+5,-rl/2+5,rw,rl,4);ctx.fill();
+                // Kamienny pomost
+                const sg=ctx.createLinearGradient(-rw/2,0,rw/2,0);
+                sg.addColorStop(0,'#b09060');sg.addColorStop(0.4,'#e8c98a');
+                sg.addColorStop(0.6,'#f0d898');sg.addColorStop(1,'#9a7840');
+                ctx.fillStyle=sg;ctx.strokeStyle='#7a5830';ctx.lineWidth=2.5;
+                ctx.beginPath();ctx.roundRect(-rw/2,-rl/2,rw,rl,4);ctx.fill();ctx.stroke();
+                // Deski pomostu
+                ctx.strokeStyle='rgba(100,65,20,0.3)';ctx.lineWidth=1.5;ctx.beginPath();
+                for(let py2=-rl/2+7;py2<rl/2;py2+=7){ctx.moveTo(-rw/2+6,py2);ctx.lineTo(rw/2-6,py2);}
+                ctx.stroke();
+                // Słupki barierki
+                ctx.fillStyle='#8b6030';ctx.strokeStyle='#5a3a10';ctx.lineWidth=1.5;
+                [-rw/2+10,rw/2-10].forEach(bx=>{
+                    [-rl/2+8,0,rl/2-8].forEach(by=>{
+                        ctx.beginPath();ctx.arc(bx,by,4,0,Math.PI*2);ctx.fill();ctx.stroke();
+                    });
+                });
+                // Barierki poziome
+                ctx.strokeStyle='rgba(90,58,16,0.6)';ctx.lineWidth=2;
+                [-rw/2+10,rw/2-10].forEach(bx=>{
+                    ctx.beginPath();ctx.moveTo(bx,-rl/2+8);ctx.lineTo(bx,rl/2-8);ctx.stroke();
+                });
+                ctx.restore();
+            }
+        }
+
         // ── Desert Visual System ──────────────────────────────────────────
         const SUN_OFFSET_X = 6, SUN_OFFSET_Y = 4; // global sun direction
         let _desertOffscreen = null;   // pre-rendered bg+texture canvas
@@ -4056,7 +4221,7 @@
                 for(let env of environment) {
                     if(env.type==='wall' && x>env.x-30 && x<env.x+env.w+30 && y>env.y-30 && y<env.y+env.h+30) { inWall=true; break; }
                 }
-                if(!inWall) {
+                if(!inWall && !isBlockedByRiver(x,y)) {
                         const _s=Math.random();
                         const _rt=['mesa','dome','mushroom','cone'][Math.floor(Math.random()*4)];
                         const _dv=_s>=0.5?Array.from({length:20},(_,i)=>({x:Math.cos(i/20*Math.PI*2)*(0.85+Math.random()*0.15),y:Math.sin(i/20*Math.PI*2)*(0.85+Math.random()*0.15)})):null;
@@ -4092,7 +4257,7 @@
                 while(qsPlaced<4){
                     const x=200+Math.random()*(WORLD_W-400), y=200+Math.random()*(WORLD_H-400);
                     if(Math.abs(x-WORLD_W/2)<300&&Math.abs(y-WORLD_H/2)<300) continue;
-                    quicksandZones.push(new QuicksandZone(x,y,155+Math.random()*80,115+Math.random()*75)); qsPlaced++;
+                    if(!isBlockedByRiver(x,y)) { quicksandZones.push(new QuicksandZone(x,y,155+Math.random()*80,115+Math.random()*75)); qsPlaced++; } else continue;
                 }
                 // Wrecks (6 visual-only)
                 for(let i=0;i<6;i++){
@@ -4107,6 +4272,9 @@
             }
             // Desert visual init
             if(selectedMap.id === 'desert') {
+                // RZEKA NIL — inicjalizacja PIERWSZA (potrzebna do exclusion zones)
+                _nilRiver = new RiverNile();
+
                 // 3500 mikrotekstur (mniejsze, różne odcienie)
                 const sandCols=['#f5dfa8','#eecf90','#f8e8c0','#e8c888','#faf0d0','#d4b070'];
                 _desertGroundSpots = Array.from({length:3500},()=>({
@@ -4176,13 +4344,13 @@
                 _desertCaravan = new Caravan(WORLD_W*0.1, WORLD_H*0.42);
                 // TRAWA — BrawlGrassTuft na KAŻDEJ bush zone
                 _desertGrassTufts = [];
+                _nilRiver = null;
                 environment.filter(e=>e.type==='bush').forEach(zone=>{
                     for(let gx=zone.x+18;gx<zone.x+zone.w-18;gx+=28){
                         for(let gy=zone.y+18;gy<zone.y+zone.h-18;gy+=28){
-                            _desertGrassTufts.push(new BrawlGrassTuft(
-                                gx+(Math.random()-0.5)*8,
-                                gy+(Math.random()-0.5)*8
-                            ));
+                            const _gx=gx+(Math.random()-0.5)*8,_gy=gy+(Math.random()-0.5)*8;
+                            if(!isBlockedByRiver(_gx,_gy))
+                                _desertGrassTufts.push(new BrawlGrassTuft(_gx,_gy));
                         }
                     }
                 });
@@ -4195,6 +4363,7 @@
                 _desertDunes = [];
                 _desertCaravan = null;
                 _desertGrassTufts = [];
+                _nilRiver = null;
             }
         }
 
@@ -4541,7 +4710,12 @@
                 for(let y=startY;y<camera.y+screenH;y+=100){ctx.beginPath();ctx.moveTo(camera.x,y);ctx.lineTo(camera.x+screenW,y);ctx.stroke();}
             }
 
-            // Env walls — NAJPIERW (za dekoracjami wizualnie)
+            // Rzeka Nil (przed env walls, po offscreen)
+            if(selectedMap.id==='desert' && _nilRiver) {
+                _nilRiver.draw(Date.now()/1000);
+            }
+
+            // Env walls — za dekoracjami wizualnie
             environment.forEach(env => { if(env.type === 'wall') env.draw(); });
 
             // Decorations — Y-sorted for desert (pre-sorted at generateMap)
