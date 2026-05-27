@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.11.2
+        Game version: v4.12
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4031,7 +4031,7 @@
                 this.p1={x:WORLD_W*0.72,y:WORLD_H*0.22};
                 this.p2={x:WORLD_W*0.68,y:WORLD_H*0.60};
                 this.p3={x:WORLD_W*0.10,y:WORLD_H*0.96};
-                this.width=145;
+                this.width=100;
                 // Pre-compute 60 segments
                 this.segs=[];
                 const {p0,p1,p2,p3}=this;
@@ -4048,7 +4048,7 @@
                     const cx=_bzPt(t,p0.x,p1.x,p2.x,p3.x),cy=_bzPt(t,p0.y,p1.y,p2.y,p3.y);
                     const tx=_bzTan(t,p0.x,p1.x,p2.x,p3.x),ty=_bzTan(t,p0.y,p1.y,p2.y,p3.y);
                     this.bridges.push({cx,cy,angle:Math.atan2(ty,tx),
-                        roadW:this.width+44,roadL:54});
+                        roadW:this.width+44,roadL:88});
                 });
                 // Kwiaty na brzegu (pre-computed)
                 this.flowers=[];
@@ -4079,8 +4079,10 @@
                     ctx.bezierCurveTo(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);
                     ctx.lineWidth=w;ctx.lineCap='round';ctx.lineJoin='round';
                 };
-                // 1. Błotnisty brzeg
-                B(this.width+42);ctx.strokeStyle='#7a5c30';ctx.stroke();
+                // 1. Brzeg — gradient tonacyjny (ciemniejszy przy wodzie)
+                B(this.width+82);ctx.strokeStyle='#d4b878';ctx.stroke(); // zewnętrzny piasek
+                B(this.width+54);ctx.strokeStyle='#a88848';ctx.stroke(); // piaskowo-brązowy
+                B(this.width+28);ctx.strokeStyle='#6a4828';ctx.stroke(); // ciemny muł przy wodzie
                 // 2. Kwiaty na brzegu
                 this.flowers.forEach(f=>{
                     const ix=_bzPt(f.t,p0.x,p1.x,p2.x,p3.x),iy=_bzPt(f.t,p0.y,p1.y,p2.y,p3.y);
@@ -4302,16 +4304,25 @@
                 });
                 // Palmy rozsiane po całej mapie (zastępują drzewa)
                 const _CX=WORLD_W/2, _CY=WORLD_H/2;
-                const palmGrid = [
-                    [_CX-900,_CY-800],[_CX-800,_CY-900],[_CX-1000,_CY-600],[_CX+800,_CY-750],[_CX+950,_CY-900],
-                    [_CX-800,_CY+700],[_CX-700,_CY+850],[_CX+750,_CY+750],[_CX+900,_CY+600],[_CX+1100,_CY-400],
-                    [_CX-1100,_CY+300],[_CX-600,_CY-1000],[_CX+600,_CY-950],[_CX-300,_CY+1100],[_CX+350,_CY+1050],
-                    [_CX-1200,_CY-500],[_CX+1200,_CY+400],[_CX-500,_CY-1100],[_CX+450,_CY-1200],
+                // Palmy w skupiskach 2-3 (naturalny efekt gajów)
+                const palmClusters = [
+                    {x:_CX-920,y:_CY-820,n:3},{x:_CX+820,y:_CY-780,n:2},
+                    {x:_CX-1020,y:_CY-580,n:3},{x:_CX+960,y:_CY-880,n:2},
+                    {x:_CX-820,y:_CY+720,n:3},{x:_CX+760,y:_CY+820,n:2},
+                    {x:_CX-720,y:_CY+840,n:2},{x:_CX+920,y:_CY+580,n:3},
+                    {x:_CX+1120,y:_CY-380,n:2},{x:_CX-1120,y:_CY+280,n:3},
+                    {x:_CX-580,y:_CY-1020,n:2},{x:_CX+580,y:_CY-960,n:3},
+                    {x:_CX-280,y:_CY+1120,n:2},{x:_CX+360,y:_CY+1060,n:3},
+                    {x:_CX-1220,y:_CY-480,n:2},{x:_CX+1200,y:_CY+380,n:3},
                 ];
-                palmGrid.forEach(([px,py])=>{
-                    const px2=px+(Math.random()-0.5)*120, py2=py+(Math.random()-0.5)*120;
-                    const inWallCheck=environment.some(e=>e.type==='wall'&&px2>e.x-40&&px2<e.x+e.w+40&&py2>e.y-40&&py2<e.y+e.h+40);
-                    if(!inWallCheck) mapDecorations.push({x:px2,y:py2,mapId:'desert_palm',seed:Math.random(),variant:Math.floor(Math.random()*4),leafLengths:Array.from({length:9},()=>50+Math.random()*12)});
+                palmClusters.forEach(cl=>{
+                    for(let _pi=0;_pi<cl.n;_pi++){
+                        const px2=cl.x+(Math.random()-0.5)*100;
+                        const py2=cl.y+(Math.random()-0.5)*100;
+                        const inW=environment.some(e=>e.type==='wall'&&px2>e.x-50&&px2<e.x+e.w+50&&py2>e.y-50&&py2<e.y+e.h+50);
+                        if(!inW&&!isBlockedByRiver(px2,py2))
+                            mapDecorations.push({x:px2,y:py2,mapId:'desert_palm',seed:Math.random(),variant:Math.floor(Math.random()*4),leafLengths:Array.from({length:9},()=>50+Math.random()*12)});
+                    }
                 });
 
                 // 3 PIRAMIDY — EnvironmentBlock + decoration (shadeTone per piramida)
@@ -4322,8 +4333,8 @@
                     environment.push(new EnvironmentBlock(px-pw/2,py-ph/2,pw,ph,'wall','#d4a85a'));
                     mapDecorations.push({x:px,y:py,mapId:'desert_pyramid',w:pw,h:ph,seed:Math.random(),shadeTone:shade});
                 });
-                // 1 SFINKS
-                mapDecorations.push({x:WORLD_W*0.8,y:WORLD_H*0.2,mapId:'desert_sphinx',seed:Math.random()});
+                // 1 SFINKS — pozycja poza rzeką (0.72,0.10)
+                mapDecorations.push({x:WORLD_W*0.72,y:WORLD_H*0.10,mapId:'desert_sphinx',seed:Math.random()});
                 // 2 GRUPY KOLUMN
                 [[WORLD_W*0.35,WORLD_H*0.25],[WORLD_W*0.55,WORLD_H*0.7]].forEach(([cx,cy])=>{
                     environment.push(new EnvironmentBlock(cx-36,cy-52,72,55,'wall','#e8d0a0'));
@@ -4798,7 +4809,7 @@
             }
             enemies.sort((a,b) => a.y - b.y); // Y-sort for 2.5D depth
             enemies.forEach(e => e.draw());
-            environment.forEach(env => { if(env.type === 'bush') env.draw(); }); 
+            // bush blocks nie rysowane — trawa BrawlGrassTuft zastępuje wizual
             bullets.forEach(b => b.draw()); particles.forEach(p => p.draw());
             floatingTexts.forEach(ft => ft.draw());
 
