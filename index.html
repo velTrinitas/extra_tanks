@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.12
+        Game version: v4.12.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -3624,7 +3624,7 @@
         let _grassAsset = null;
 
         // ── Lush Grass System (kolegi kod + adaptacja) ──────────────────────
-        let _grassVariants = null;  // 5 pre-rendered canvas variants
+        // ─ Grass variants handled by _initGrassVariants() below ───────────
         let _oasisGrassLayout = []; // [{x,y,v,phase}] grid covering oasis
 
         function _createGrassVariants() {
@@ -3856,7 +3856,7 @@
             ctx.save(); ctx.translate(d.x,d.y); ctx.scale(0.6,0.6);
             ctx.fillStyle='rgba(60,20,0,0.35)';
             ctx.beginPath(); ctx.ellipse(8,5,28,12,0,0,Math.PI*2); ctx.fill();
-            const ttX=-15+sway, ttY=-90, n=9;
+            const ttX=-15+sway, ttY=-90, n=6;
             const ll=d.leafLengths||Array(n).fill(62);
             for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2;if(Math.sin(a)<0)drawJaggedLeaf(ttX,ttY,a,i,ll[i]);}
             const tg=ctx.createLinearGradient(-20,0,10,0);
@@ -3966,38 +3966,44 @@
             ctx.restore();
         }
 
-        // ─ BrawlGrassTuft (kod kolegi, zaadaptowany) ────────────────────────
-        class BrawlGrassTuft {
-            constructor(x,y) {
-                this.x=x; this.y=y; this.blades=[];
-                const n=5+Math.floor(Math.random()*4);
-                for(let i=0;i<n;i++) this.blades.push({
-                    offsetX:(Math.random()-0.5)*38,
-                    offsetY:(Math.random()-0.5)*14,
-                    width:9+Math.random()*7,
-                    height:30+Math.random()*22,
-                    windOffset:Math.random()*Math.PI*2,
-                    windSpeed:1.5+Math.random()*1.5
-                });
-                this.blades.sort((a,b)=>a.offsetY-b.offsetY);
-            }
-            draw(t) {
-                ctx.save(); ctx.translate(this.x,this.y);
-                ctx.fillStyle='rgba(5,30,15,0.35)';
-                ctx.beginPath(); ctx.ellipse(0,4,22,10,0,0,Math.PI*2); ctx.fill();
-                const grad=ctx.createLinearGradient(0,8,0,-58);
-                grad.addColorStop(0,'#0a3d20'); grad.addColorStop(0.4,'#2ecc71');
-                grad.addColorStop(0.85,'#abebc6'); grad.addColorStop(1,'#f1c40f');
-                ctx.fillStyle=grad; ctx.strokeStyle='#041f0f'; ctx.lineWidth=2.5;
-                for(const b of this.blades) {
-                    const sw=Math.sin(t*b.windSpeed+b.windOffset)*7;
-                    const bx=b.offsetX,by=b.offsetY,tx=bx+sw,ty=by-b.height;
-                    ctx.beginPath();
-                    ctx.moveTo(bx-b.width/2,by);
-                    ctx.quadraticCurveTo(bx-b.width/4+sw*0.5,by-b.height*0.5,tx,ty);
-                    ctx.quadraticCurveTo(bx+b.width/2+sw*0.5,by-b.height*0.5,bx+b.width/2,by);
-                    ctx.closePath(); ctx.fill(); ctx.stroke();
+        // ─ BrawlGrassTuft — pre-rendered variants (fast!) ─────────────
+        let _grassVariants = null;
+        function _initGrassVariants() {
+            const palettes=[
+                ['#0a3d20','#2ecc71','#abebc6'],['#0d4a28','#27ae60','#a9dfbf'],
+                ['#0f5230','#1abc9c','#a2d9ce'],['#0a4020','#229954','#82e0aa'],
+                ['#115c34','#2cc16a','#a8e6c0'],['#0c3a1e','#26904a','#7dcea0'],
+            ];
+            _grassVariants=palettes.map(([c0,c1,c2])=>{
+                const W=58,H=66,oc=document.createElement('canvas');
+                oc.width=W;oc.height=H;
+                const gc=oc.getContext('2d');
+                const grad=gc.createLinearGradient(0,H,0,0);
+                grad.addColorStop(0,c0);grad.addColorStop(0.4,c1);grad.addColorStop(1,c2);
+                gc.fillStyle=grad;gc.strokeStyle='#041f0f';gc.lineWidth=2.2;gc.lineCap='round';
+                const n=4+Math.floor(Math.random()*3);
+                for(let i=0;i<n;i++){
+                    const bx=8+Math.random()*42,bw=7+Math.random()*5,bh=22+Math.random()*18;
+                    gc.beginPath();gc.moveTo(bx-bw/2,H-1);
+                    gc.quadraticCurveTo(bx-bw/4,H-bh*.5,bx+(Math.random()-.5)*7,H-bh);
+                    gc.quadraticCurveTo(bx+bw/2,H-bh*.5,bx+bw/2,H-1);
+                    gc.closePath();gc.fill();gc.stroke();
                 }
+                return oc;
+            });
+        }
+        class BrawlGrassTuft {
+            constructor(x,y){
+                this.x=x;this.y=y;
+                this.phase=Math.random()*Math.PI*2;
+                this.variant=Math.floor(Math.random()*6);
+            }
+            draw(t){
+                if(!_grassVariants)return;
+                const sway=Math.sin(t*1.8+this.phase)*0.09;
+                ctx.save();ctx.translate(this.x+29,this.y+66);
+                ctx.transform(1,0,sway,1,0,0);
+                ctx.drawImage(_grassVariants[this.variant],-29,-66);
                 ctx.restore();
             }
         }
@@ -4050,6 +4056,17 @@
                     this.bridges.push({cx,cy,angle:Math.atan2(ty,tx),
                         roadW:this.width+44,roadL:88});
                 });
+                // Pre-compute wave positions (avoid _bzPt 80× per frame)
+                this.wavePts=Array.from({length:80},(_,i)=>{
+                    const t=i/80;
+                    const cx=_bzPt(t,p0.x,p1.x,p2.x,p3.x),cy=_bzPt(t,p0.y,p1.y,p2.y,p3.y);
+                    const tx=_bzTan(t,p0.x,p1.x,p2.x,p3.x),ty=_bzTan(t,p0.y,p1.y,p2.y,p3.y);
+                    const l=Math.hypot(tx,ty)||1;
+                    const nx=-ty/l,ny=tx/l,lfc=tx/l,lfs=ty/l;
+                    const perpOff=Math.cos(i*5.1)*(this.width*0.36);
+                    const deep=Math.abs(Math.cos(i*5.1))<0.22;
+                    return {cx,cy,nx,ny,lfc,lfs,perpOff,deep};
+                });
                 // Kwiaty na brzegu (pre-computed)
                 this.flowers=[];
                 for(let i=0;i<55;i++){
@@ -4079,9 +4096,8 @@
                     ctx.bezierCurveTo(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);
                     ctx.lineWidth=w;ctx.lineCap='round';ctx.lineJoin='round';
                 };
-                // 1. Brzeg — gradient tonacyjny (ciemniejszy przy wodzie)
-                B(this.width+82);ctx.strokeStyle='#d4b878';ctx.stroke(); // zewnętrzny piasek
-                B(this.width+54);ctx.strokeStyle='#a88848';ctx.stroke(); // piaskowo-brązowy
+                // 1. Brzeg — 2 warstwy (2× szybciej niż 3)
+                B(this.width+68);ctx.strokeStyle='#b89458';ctx.stroke(); // zewnętrzny brzeg
                 B(this.width+28);ctx.strokeStyle='#6a4828';ctx.stroke(); // ciemny muł przy wodzie
                 // 2. Kwiaty na brzegu
                 this.flowers.forEach(f=>{
@@ -4100,30 +4116,28 @@
                 wg.addColorStop(0.50,'#154360');wg.addColorStop(0.88,'#2980b9');
                 wg.addColorStop(1,'#7ce8d5');
                 B(this.width); ctx.strokeStyle=wg; ctx.stroke();
-                // 4. Fale — próbkowane WZDŁUŻ krzywej bezier (zawsze w korycie)
-                const flow=time*0.08;
+                // 4. Fale — pre-computed positions, BATCHED strokes (3× zamiast 120×)
+                const flowOff=Math.floor(time*55)%80;
+                const N=this.wavePts.length;
                 ctx.lineCap='round';
-                for(let i=0;i<120;i++){
-                    const t=((i/120)+flow)%1;
-                    const wx2=_bzPt(t,p0.x,p1.x,p2.x,p3.x);
-                    const wy2=_bzPt(t,p0.y,p1.y,p2.y,p3.y);
-                    const tx2=_bzTan(t,p0.x,p1.x,p2.x,p3.x);
-                    const ty2=_bzTan(t,p0.y,p1.y,p2.y,p3.y);
-                    const ll=Math.hypot(tx2,ty2);
-                    const nx2=-ty2/ll, ny2=tx2/ll;
-                    const perpOff=Math.cos(i*5.1+i*0.7)*(this.width*0.36);
-                    const rx=wx2+nx2*perpOff, ry=wy2+ny2*perpOff;
-                    const lfc=tx2/ll, lfs=ty2/ll;
-                    const deep=Math.abs(Math.cos(i*5.1))<0.22;
-                    ctx.beginPath();ctx.moveTo(rx,ry);
-                    ctx.quadraticCurveTo(rx+lfc*16-lfs*6,ry+lfs*16+lfc*6,rx+lfc*32,ry+lfs*32);
-                    ctx.strokeStyle=deep?'#1a5276':'#2471a3';ctx.lineWidth=deep?2.5:1.5;ctx.stroke();
-                    if(deep){
-                        ctx.beginPath();ctx.moveTo(rx+lfc*2,ry+lfs*2);
-                        ctx.quadraticCurveTo(rx+lfc*12,ry+lfs*12,rx+lfc*22,ry+lfs*22);
-                        ctx.strokeStyle='#d4e6f1';ctx.lineWidth=1.8;ctx.stroke();
-                    }
-                }
+                // Batch 1: zwykłe fale (1 stroke)
+                ctx.beginPath();
+                for(let i=0;i<N;i++){const wp=this.wavePts[(i+flowOff)%N];
+                    if(!wp.deep){const rx=wp.cx+wp.nx*wp.perpOff,ry=wp.cy+wp.ny*wp.perpOff;
+                        ctx.moveTo(rx,ry);ctx.quadraticCurveTo(rx+wp.lfc*16-wp.lfs*6,ry+wp.lfs*16+wp.lfc*6,rx+wp.lfc*32,ry+wp.lfs*32);}}
+                ctx.strokeStyle='#2471a3';ctx.lineWidth=1.5;ctx.stroke();
+                // Batch 2: głębokie fale (1 stroke)
+                ctx.beginPath();
+                for(let i=0;i<N;i++){const wp=this.wavePts[(i+flowOff)%N];
+                    if(wp.deep){const rx=wp.cx+wp.nx*wp.perpOff,ry=wp.cy+wp.ny*wp.perpOff;
+                        ctx.moveTo(rx,ry);ctx.quadraticCurveTo(rx+wp.lfc*16-wp.lfs*6,ry+wp.lfs*16+wp.lfc*6,rx+wp.lfc*32,ry+wp.lfs*32);}}
+                ctx.strokeStyle='#1a5276';ctx.lineWidth=2.5;ctx.stroke();
+                // Batch 3: bałwanki (1 stroke)
+                ctx.beginPath();
+                for(let i=0;i<N;i++){const wp=this.wavePts[(i+flowOff)%N];
+                    if(wp.deep){const rx=wp.cx+wp.nx*wp.perpOff,ry=wp.cy+wp.ny*wp.perpOff;
+                        ctx.moveTo(rx+wp.lfc*2,ry+wp.lfs*2);ctx.quadraticCurveTo(rx+wp.lfc*12,ry+wp.lfs*12,rx+wp.lfc*22,ry+wp.lfs*22);}}
+                ctx.strokeStyle='#d4e6f1';ctx.lineWidth=1.8;ctx.stroke();
                 // 5. Kontur rzeki
                 B(this.width);ctx.strokeStyle='rgba(21,67,96,0.45)';ctx.lineWidth=3;ctx.stroke();
                 // 6. Mostki
@@ -4359,6 +4373,7 @@
                 // KARAWANA WIELBŁĄDÓW — klasa Caravan (kod kolegi)
                 _desertCaravan = new Caravan(WORLD_W*0.1, WORLD_H*0.42);
                 // TRAWA — BrawlGrassTuft na KAŻDEJ bush zone
+                _initGrassVariants(); // pre-render variants once
                 _desertGrassTufts = [];
                 environment.filter(e=>e.type==='bush').forEach(zone=>{
                     for(let gx=zone.x+18;gx<zone.x+zone.w-18;gx+=28){
