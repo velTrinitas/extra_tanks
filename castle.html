@@ -398,7 +398,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał i Mariusz Poparda</span><br>
         Created with ❤️ in Bielsko-Biała, Poland<br>
-        Game version: v4.7
+        Game version: v4.21
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1074,14 +1074,52 @@
                     ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 2;
                     ctx.strokeRect(this.x+5, this.y+5, this.w-10, this.h-10);
                 } else {
+                    // Castle walls — ceglana faktura
+                    const _isCastleWall = this.color==='#6b5d4a'||this.color==='#5a4a3a'||this.color==='#7a6a50';
+                    if(_isCastleWall) {
+                        // Gradient kierunkowy (słońce z NW)
+                        const _lg=ctx.createLinearGradient(this.x,this.y,this.x+this.w,this.y+this.h);
+                        _lg.addColorStop(0,'#8a7a60'); _lg.addColorStop(0.5,this.color); _lg.addColorStop(1,'#4a3a2a');
+                        ctx.fillStyle=_lg;
+                    }
                     ctx.fillRect(this.x, this.y, this.w, this.h);
-                    ctx.fillStyle = 'rgba(255,255,255,0.10)';
-                    ctx.fillRect(this.x, this.y, this.w, 4);
-                    ctx.fillStyle = 'rgba(0,0,0,0.30)';
-                    ctx.fillRect(this.x, this.y + this.h - 8, this.w, 8);
-                    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-                    ctx.fillRect(this.x + this.w, this.y, 5, this.h);
-                    ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+                    if(_isCastleWall) {
+                        // Spoiny cegieł
+                        ctx.strokeStyle='rgba(0,0,0,0.22)'; ctx.lineWidth=1;
+                        const bH=10, bW=22;
+                        ctx.beginPath();
+                        for(let _r=0;_r<=this.h/bH;_r++){
+                            const _cy=this.y+_r*bH;
+                            ctx.moveTo(this.x,_cy); ctx.lineTo(this.x+this.w,_cy);
+                            const _off=(_r%2===0)?0:bW/2;
+                            for(let _col=0;_col<this.w/bW+2;_col++){
+                                const _cx2=this.x+_col*bW+_off;
+                                if(_cx2>this.x&&_cx2<this.x+this.w){ctx.moveTo(_cx2,_cy);ctx.lineTo(_cx2,Math.min(_cy+bH,this.y+this.h));}
+                            }
+                        }
+                        ctx.stroke();
+                        // Blanki na górze (T=24 — proporcjonalnie)
+                        if(this.h<=30) {
+                            ctx.fillStyle='rgba(255,255,255,0.12)';
+                            ctx.fillRect(this.x,this.y,this.w,3);
+                            const mW=14, mH=12, mG=8;
+                            ctx.fillStyle='#8a7a60';
+                            for(let _mx=this.x+4;_mx<this.x+this.w-mW;_mx+=mW+mG){
+                                ctx.fillRect(_mx,this.y-mH,mW,mH);
+                                ctx.strokeStyle='#4a3a2a'; ctx.lineWidth=1.5;
+                                ctx.strokeRect(_mx,this.y-mH,mW,mH);
+                            }
+                        }
+                    } else {
+                        ctx.fillStyle = 'rgba(255,255,255,0.10)';
+                        ctx.fillRect(this.x, this.y, this.w, 4);
+                        ctx.fillStyle = 'rgba(0,0,0,0.30)';
+                        ctx.fillRect(this.x, this.y + this.h - 8, this.w, 8);
+                        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+                        ctx.fillRect(this.x + this.w, this.y, 5, this.h);
+                    }
+                    ctx.strokeStyle = _isCastleWall ? '#3a2a1a' : '#000';
+                    ctx.lineWidth = _isCastleWall ? 2 : 4;
                     ctx.strokeRect(this.x, this.y, this.w, this.h);
                 }
             }
@@ -4394,109 +4432,222 @@
             ctx.restore();
         }
         function drawCastleBuilding() {
-            // World-space 2.5D castle at center
+            const _time = Date.now() / 1000;
             const cx = CASTLE_CX, cy = CASTLE_CY;
-            const bw = CASTLE_W, bh = CASTLE_H;
-            const bx = cx - bw/2, by = cy - bh/2;
 
-            // 2.5D shadow
-            ctx.fillStyle='rgba(0,0,0,0.30)';
-            ctx.beginPath(); ctx.roundRect(bx+12,by+12,bw,bh,8); ctx.fill();
+            // Damage state z castleHP
+            const _hpPct = castleMaxHP > 0 ? castleHP / castleMaxHP : 0;
+            const _dmg = _hpPct > 0.66 ? 1 : _hpPct > 0.33 ? 2 : 3;
 
-            // Main walls
-            const wg=ctx.createLinearGradient(bx,by+bh,bx,by);
-            wg.addColorStop(0,'#3a2d1a'); wg.addColorStop(0.4,'#5a4a30'); wg.addColorStop(1,'#6b5a40');
-            ctx.fillStyle=wg; ctx.strokeStyle='#2a1d0a'; ctx.lineWidth=2;
-            ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,6); ctx.fill(); ctx.stroke();
+            ctx.save();
+            ctx.translate(cx, cy);
 
-            // Right face (2.5D depth)
-            ctx.fillStyle='rgba(0,0,0,0.35)';
-            ctx.beginPath();
-            ctx.moveTo(bx+bw,by); ctx.lineTo(bx+bw+16,by-10);
-            ctx.lineTo(bx+bw+16,by+bh-10); ctx.lineTo(bx+bw,by+bh);
-            ctx.closePath(); ctx.fill();
-            ctx.strokeStyle='#2a1d0a'; ctx.lineWidth=1.5;
-            ctx.beginPath();
-            ctx.moveTo(bx+bw,by); ctx.lineTo(bx+bw+16,by-10);
-            ctx.lineTo(bx+bw+16,by+bh-10); ctx.lineTo(bx+bw,by+bh);
-            ctx.stroke();
+            // ── CIEŃ GRUNTOWY ──────────────────────────────────────────
+            ctx.fillStyle = 'rgba(10,20,15,0.4)';
+            ctx.beginPath(); ctx.ellipse(30,40,140,50,0,0,Math.PI*2); ctx.fill();
 
-            // Battlements (top)
-            ctx.fillStyle='#5a4a30'; ctx.strokeStyle='#2a1d0a'; ctx.lineWidth=1;
-            for(let i=0;i<8;i++){
-                const bx2=bx+10+i*(bw-20)/7;
-                ctx.beginPath(); ctx.roundRect(bx2-6,by-14,12,16,2); ctx.fill(); ctx.stroke();
-            }
+            // ── PALETY ─────────────────────────────────────────────────
+            const BL='#d5d8dc', BM='#abb2b9', BD='#808b96';
+            const RB='#2e86c1', RS='#1b4f72';
+            let wGlow = '#f1c40f';
+            if(_dmg===2) wGlow=(Math.sin(_time*10)>0)?'#f1c40f':'#b7950b';
+            else if(_dmg===3) wGlow='#873600';
 
-            // Main gate (south center)
-            const gx=cx-40, gy=by+bh-55, gw2=80, ghh=55;
-            ctx.fillStyle='#1a1005'; ctx.strokeStyle='#2a1d0a'; ctx.lineWidth=1.5;
-            ctx.beginPath(); ctx.roundRect(gx,gy,gw2,ghh,4); ctx.fill();
-            // Arch
-            ctx.fillStyle='#2a1a08';
-            ctx.beginPath(); ctx.arc(cx,gy,gw2/2,Math.PI,0); ctx.closePath(); ctx.fill(); ctx.stroke();
-            // Gate doors
+            // ── HELPER: MUR Z CEGŁAMI ──────────────────────────────────
+            const drawBW=(sx,sy,sw,sh,cyl=false)=>{
+                let g=ctx.createLinearGradient(sx,0,sx+sw,0);
+                if(cyl){g.addColorStop(0,BM);g.addColorStop(0.3,BL);g.addColorStop(1,BD);}
+                else{g.addColorStop(0,BL);g.addColorStop(1,BD);}
+                ctx.fillStyle=g; ctx.fillRect(sx,sy,sw,sh);
+                ctx.strokeStyle='#5d6d7e'; ctx.lineWidth=1;
+                const bH=10, bW=20;
+                ctx.beginPath();
+                for(let r=0;r<sh/bH;r++){
+                    const cy2=sy+r*bH;
+                    ctx.moveTo(sx,cy2); ctx.lineTo(sx+sw,cy2);
+                    const off=(r%2===0)?0:bW/2;
+                    for(let col=0;col<sw/bW;col++){
+                        const cx2=sx+col*bW+off;
+                        if(cx2<sx+sw){ctx.moveTo(cx2,cy2);ctx.lineTo(cx2,cy2+bH);}
+                    }
+                }
+                ctx.stroke();
+                if(_dmg>=2){
+                    ctx.strokeStyle='#111'; ctx.lineWidth=2;
+                    ctx.beginPath();
+                    ctx.moveTo(sx+sw*0.3,sy); ctx.lineTo(sx+sw*0.4,sy+sh*0.3);
+                    ctx.lineTo(sx+sw*0.35,sy+sh*0.5); ctx.lineTo(sx+sw*0.5,sy+sh*0.8);
+                    ctx.stroke();
+                }
+                if(_dmg===3){
+                    ctx.fillStyle='#1a1a1a';
+                    ctx.beginPath();
+                    ctx.moveTo(sx+sw*0.7,sy+sh*0.4); ctx.lineTo(sx+sw*0.9,sy+sh*0.45);
+                    ctx.lineTo(sx+sw*0.85,sy+sh*0.7); ctx.lineTo(sx+sw*0.65,sy+sh*0.6);
+                    ctx.fill();
+                }
+                ctx.lineWidth=2.5; ctx.strokeStyle='#2c3e50'; ctx.strokeRect(sx,sy,sw,sh);
+            };
+
+            // ── HELPER: BLANKI ─────────────────────────────────────────
+            const drawBM2=(sx,sy,sw)=>{
+                const tW=14,gW=10,tH=16;
+                ctx.fillStyle=BL; ctx.strokeStyle='#2c3e50'; ctx.lineWidth=2;
+                for(let x=sx;x<sx+sw;x+=(tW+gW)){
+                    if(x+tW<=sx+sw){
+                        if(_dmg===3&&(x%3===0)) continue;
+                        ctx.beginPath(); ctx.rect(x,sy-tH,tW,tH); ctx.fill(); ctx.stroke();
+                    }
+                }
+            };
+
+            // ── HELPER: OKNO ŁUKOWE ────────────────────────────────────
+            const drawWin=(wx,wy)=>{
+                ctx.fillStyle=BD; ctx.strokeStyle='#2c3e50'; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.moveTo(wx-8,wy+20); ctx.lineTo(wx-8,wy);
+                ctx.arc(wx,wy,8,Math.PI,0); ctx.lineTo(wx+8,wy+20); ctx.fill(); ctx.stroke();
+                ctx.fillStyle=wGlow;
+                ctx.beginPath(); ctx.moveTo(wx-5,wy+18); ctx.lineTo(wx-5,wy);
+                ctx.arc(wx,wy,5,Math.PI,0); ctx.lineTo(wx+5,wy+18); ctx.fill();
+                if(_dmg===1){ctx.shadowColor=wGlow;ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0;}
+                ctx.strokeStyle='#111'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.moveTo(wx,wy-5); ctx.lineTo(wx,wy+18); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(wx-5,wy+8); ctx.lineTo(wx+5,wy+8); ctx.stroke();
+            };
+
+            // ── DONŻON (tył) ───────────────────────────────────────────
+            drawBW(-60,-140,120,130);
+            drawBM2(-60,-140,120);
+            drawWin(-25,-90); drawWin(25,-90);
+
+            // Maszt + flaga
+            ctx.strokeStyle='#5c4033'; ctx.lineWidth=4;
+            ctx.beginPath(); ctx.moveTo(0,-156); ctx.lineTo(0,-220); ctx.stroke();
+            const fw=_dmg===3?0:Math.sin(_time*5)*15;
+            ctx.fillStyle=_dmg===3?'#7b241c':'#e74c3c';
+            ctx.beginPath(); ctx.moveTo(0,-215);
+            ctx.quadraticCurveTo(30+fw,-210,50,-205); ctx.lineTo(0,-190); ctx.fill();
+
+            // ── WIEŻE (lewa/prawa) ─────────────────────────────────────
+            const drawTower=(tx,ty)=>{
+                drawBW(tx,ty,50,110,true);
+                drawWin(tx+25,ty+40);
+                let rg=ctx.createLinearGradient(tx,0,tx+50,0);
+                rg.addColorStop(0,'#5dade2'); rg.addColorStop(0.4,RB); rg.addColorStop(1,RS);
+                ctx.fillStyle=rg;
+                ctx.beginPath(); ctx.moveTo(tx-5,ty); ctx.lineTo(tx+25,ty-60);
+                ctx.lineTo(tx+55,ty); ctx.quadraticCurveTo(tx+25,ty+10,tx-5,ty); ctx.fill();
+                ctx.lineWidth=2; ctx.strokeStyle='#154360'; ctx.stroke();
+                if(_dmg===3){ctx.fillStyle='#111';ctx.beginPath();ctx.arc(tx+35,ty-20,10,0,Math.PI*2);ctx.fill();}
+            };
+            drawTower(-110,-60); drawTower(60,-60);
+
+            // ── MUR PRZEDNI ────────────────────────────────────────────
+            drawBW(-80,-30,160,80); drawBM2(-80,-30,160);
+
+            // ── BRAMA (zintegrowana z gateDestroyed + gateOpenProgress) ──
+            const gateW=60, gateH=65, gateX=-30, gateY=50-gateH;
+            // Jama wejścia
+            ctx.fillStyle='#050505';
+            ctx.beginPath(); ctx.arc(0,gateY+gateW/2,gateW/2+5,Math.PI,0);
+            ctx.fillRect(gateX-5,gateY+gateW/2,gateW+10,gateH-gateW/2); ctx.fill();
+            // Portal
+            ctx.strokeStyle=BL; ctx.lineWidth=6;
+            ctx.beginPath(); ctx.arc(0,gateY+gateW/2,gateW/2,Math.PI,0); ctx.stroke();
+
             if(!gateDestroyed) {
-                const dg=ctx.createLinearGradient(gx,gy,gx+gw2,gy);
-                dg.addColorStop(0,'#5a3a10'); dg.addColorStop(1,'#7a5a20');
-                ctx.fillStyle=dg;
-                ctx.beginPath(); ctx.roundRect(gx+2,gy+8,gw2/2-3,ghh-8,2); ctx.fill();
-                ctx.beginPath(); ctx.roundRect(cx+1,gy+8,gw2/2-3,ghh-8,2); ctx.fill();
-                // Iron studs
-                ctx.fillStyle='#888';
-                [[gx+8,gy+18],[gx+8,gy+34],[cx+8,gy+18],[cx+8,gy+34]].forEach(([sx,sy])=>{
-                    ctx.beginPath(); ctx.arc(sx,sy,3,0,Math.PI*2); ctx.fill();
+                const _openPx = gateOpenProgress * 28;
+                const _hpG = gateMaxHP>0?gateHP/gateMaxHP:1;
+                const _woodCol = _hpG>0.6?'#5c4033':_hpG>0.3?'#4a2a10':'#331a05';
+                // Lewa połowa
+                ctx.save(); ctx.translate(-_openPx,0);
+                ctx.fillStyle=_woodCol; ctx.strokeStyle='#271914'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.roundRect(gateX,gateY+gateW/2,gateW/2-1,gateH-gateW/2,1); ctx.fill(); ctx.stroke();
+                [1,2,3,4,5].forEach(i=>{ctx.beginPath();ctx.moveTo(gateX+i*5,gateY);ctx.lineTo(gateX+i*5,gateY+gateH);ctx.stroke();});
+                ctx.fillStyle='#34495e';
+                [gateY+20,gateY+40].forEach(yp=>{
+                    ctx.fillRect(gateX,yp,gateW/2,7);
+                    [3,8,14,20,26].forEach(xi=>{ctx.fillStyle='#111';ctx.beginPath();ctx.arc(gateX+xi,yp+3,2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#34495e';});
                 });
+                ctx.restore();
+                // Prawa połowa
+                ctx.save(); ctx.translate(_openPx,0);
+                ctx.fillStyle=_woodCol; ctx.strokeStyle='#271914'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.roundRect(1,gateY+gateW/2,gateW/2-1,gateH-gateW/2,1); ctx.fill(); ctx.stroke();
+                [1,2,3,4].forEach(i=>{ctx.beginPath();ctx.moveTo(i*5+1,gateY);ctx.lineTo(i*5+1,gateY+gateH);ctx.stroke();});
+                ctx.fillStyle='#34495e';
+                [gateY+20,gateY+40].forEach(yp=>{
+                    ctx.fillRect(1,yp,gateW/2-1,7);
+                    [3,8,14,20,26].forEach(xi=>{ctx.fillStyle='#111';ctx.beginPath();ctx.arc(xi,yp+3,2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#34495e';});
+                });
+                ctx.restore();
+                // Zamek centralny (gdy zamknięta)
+                if(gateOpenProgress<0.15){
+                    ctx.fillStyle='#7f8c8d'; ctx.strokeStyle='#555'; ctx.lineWidth=1;
+                    ctx.beginPath(); ctx.roundRect(-8,gateY+gateW/2+10,16,10,3); ctx.fill(); ctx.stroke();
+                }
+                // Pęknięcia gdy uszkodzona
+                if(_hpG<0.6){
+                    ctx.strokeStyle=`rgba(0,0,0,${(1-_hpG)*0.8})`; ctx.lineWidth=1.5;
+                    ctx.beginPath(); ctx.moveTo(-22,gateY+30); ctx.lineTo(-15,gateY+45); ctx.stroke();
+                }
             } else {
-                // Destroyed gate
                 ctx.fillStyle='rgba(80,20,0,0.7)';
-                ctx.beginPath(); ctx.roundRect(gx,gy,gw2,ghh,4); ctx.fill();
-                ctx.strokeStyle='#c0392b'; ctx.lineWidth=0.8;
-                for(let i=0;i<4;i++){
-                    const cx2=gx+Math.random()*gw2, cy2=gy+Math.random()*ghh;
-                    ctx.beginPath(); ctx.moveTo(cx2-8,cy2-8); ctx.lineTo(cx2+8,cy2+8); ctx.stroke();
+                ctx.beginPath(); ctx.roundRect(gateX,gateY,gateW,gateH,2); ctx.fill();
+                ctx.strokeStyle='#c0392b'; ctx.lineWidth=1;
+                for(let i=0;i<5;i++){
+                    const _cx3=gateX+Math.sin(i*2.3)*gateW/2+gateW/2-4;
+                    const _cy3=gateY+i*gateH/5+gateH/10;
+                    ctx.beginPath(); ctx.moveTo(_cx3-7,_cy3-6); ctx.lineTo(_cx3+7,_cy3+6); ctx.stroke();
                 }
             }
 
-            // Windows (2 on each side of gate)
-            [[bx+35,by+25],[bx+bw-55,by+25]].forEach(([wx2,wy2])=>{
-                ctx.fillStyle='rgba(255,200,50,0.4)'; ctx.strokeStyle='#2a1d0a'; ctx.lineWidth=1;
+            // ── OKNA GŁÓWNE ────────────────────────────────────────────
+            [[-80+35,-30+25],[-80+160-55,-30+25]].forEach(([wx2,wy2])=>{
+                ctx.fillStyle=`rgba(255,200,50,${_dmg===3?0.8:0.4})`;
+                ctx.strokeStyle='#2a1d0a'; ctx.lineWidth=1;
                 ctx.beginPath(); ctx.roundRect(wx2,wy2,30,40,2); ctx.fill(); ctx.stroke();
-                // Window bars
                 ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=1;
                 ctx.beginPath(); ctx.moveTo(wx2+15,wy2); ctx.lineTo(wx2+15,wy2+40); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(wx2,wy2+20); ctx.lineTo(wx2+30,wy2+20); ctx.stroke();
             });
 
-            // Castle flag on top
-            const pulse=Math.sin(frames*0.06)*0.1;
-            ctx.strokeStyle='#c8a86b'; ctx.lineWidth=2; ctx.lineCap='round';
-            ctx.beginPath(); ctx.moveTo(cx,by-14); ctx.lineTo(cx,by-44); ctx.stroke();
-            ctx.lineCap='butt';
-            const fw=Math.sin(frames*0.1)*3;
-            ctx.fillStyle='#e74c3c'; ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8;
-            ctx.beginPath(); ctx.moveTo(cx,by-44); ctx.lineTo(cx+22,by-36+fw); ctx.lineTo(cx,by-28); ctx.closePath(); ctx.fill(); ctx.stroke();
-
-            // HP cracks when castle is damaged
-            const hpPct = castleHP/castleMaxHP;
-            if(hpPct < 0.75) {
-                ctx.strokeStyle=`rgba(0,0,0,${0.5*(1-hpPct)*2})`; ctx.lineWidth=1.5;
-                ctx.beginPath(); ctx.moveTo(bx+bw*0.3,by+10); ctx.lineTo(bx+bw*0.25,by+40); ctx.lineTo(bx+bw*0.28,by+70); ctx.stroke();
-            }
-            if(hpPct < 0.4) {
-                ctx.strokeStyle=`rgba(0,0,0,0.6)`; ctx.lineWidth=2;
-                ctx.beginPath(); ctx.moveTo(bx+bw*0.7,by+5); ctx.lineTo(bx+bw*0.75,by+50); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(bx+bw*0.5,by+bh*0.4); ctx.lineTo(bx+bw*0.6,by+bh*0.8); ctx.stroke();
+            // ── EFEKT POŻARU (tylko w stanie 3) ───────────────────────
+            if(_dmg===3 && _castleFireParticles.length) {
+                ctx.globalCompositeOperation='screen';
+                for(const p of _castleFireParticles){
+                    const _py=p.y-(_time*60*p.speedY)%50;
+                    const _lr=1.0-Math.abs(p.y-_py)/50;
+                    const _ps=p.size*Math.max(0.1,_lr);
+                    const _sx=p.x+Math.sin(_time*3+p.life)*10;
+                    const _fg=ctx.createRadialGradient(_sx,_py,0,_sx,_py,_ps);
+                    _fg.addColorStop(0,'rgba(255,255,0,0.8)');
+                    _fg.addColorStop(0.5,'rgba(255,69,0,0.5)');
+                    _fg.addColorStop(1,'rgba(255,0,0,0)');
+                    ctx.fillStyle=_fg;
+                    ctx.beginPath(); ctx.arc(_sx,_py,_ps,0,Math.PI*2); ctx.fill();
+                }
+                ctx.globalCompositeOperation='source-over';
             }
 
-            // Castle HP bar — below south wall, thin 8px bar
-            const pillW=160, pillH=8, pillX=cx-pillW/2, pillY=by+bh+6;
-            ctx.fillStyle='rgba(0,0,0,0.50)'; ctx.beginPath(); ctx.roundRect(pillX,pillY,pillW,pillH,4); ctx.fill();
+            ctx.restore(); // ← koniec translate(cx,cy)
+
+            // ── HP BAR (world-space, pod zamkiem) ─────────────────────
+            const pillW=160, pillH=8, pillX=cx-pillW/2, pillY=cy+55;
+            ctx.fillStyle='rgba(0,0,0,0.50)';
+            ctx.beginPath(); ctx.roundRect(pillX,pillY,pillW,pillH,4); ctx.fill();
             const cpct=castleMaxHP>0?castleHP/castleMaxHP:0;
             const hcol=cpct>0.5?'#e74c3c':cpct>0.25?'#e67e22':'#c0392b';
-            ctx.fillStyle=hcol; ctx.beginPath(); ctx.roundRect(pillX+1,pillY+1,(pillW-2)*cpct,pillH-2,3); ctx.fill();
-            if(cpct<=0.25&&cpct>0){ctx.globalAlpha=0.3+Math.sin(frames*0.2)*0.25;ctx.fillStyle='#e74c3c';ctx.beginPath();ctx.roundRect(pillX,pillY,pillW,pillH,4);ctx.fill();ctx.globalAlpha=1;}
+            ctx.fillStyle=hcol;
+            ctx.beginPath(); ctx.roundRect(pillX+1,pillY+1,(pillW-2)*cpct,pillH-2,3); ctx.fill();
+            if(cpct<=0.25&&cpct>0){
+                ctx.globalAlpha=0.3+Math.sin(frames*0.2)*0.25;
+                ctx.fillStyle='#e74c3c';
+                ctx.beginPath(); ctx.roundRect(pillX,pillY,pillW,pillH,4); ctx.fill();
+                ctx.globalAlpha=1;
+            }
         }
+
 
         // ── WAVE SYSTEM ──────────────────────────────────────────────
         const WAVE_CONFIGS = [
@@ -4737,6 +4888,12 @@
         function generateMap() {
             environment = []; mapDecorations = [];
             quicksandZones = []; repairHangars = []; powerWells = []; lakeZones = [];
+            // Fire particles — pre-generated raz (nie w draw!)
+            _castleFireParticles = Array.from({length:30}, ()=>({
+                x:(Math.random()-0.5)*120, y:(Math.random()-0.5)*100,
+                size:10+Math.random()*15, speedY:1+Math.random()*2,
+                life:Math.random()*Math.PI*2
+            }));
 
             const W = WORLD_W, H = WORLD_H;
             const CX = CASTLE_CX, CY = CASTLE_CY;
@@ -5996,4 +6153,5 @@
         })();
     </script>
 </body>
-</html>
+</html>let _castleFireParticles = [];
+        
