@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.21.1
+        Game version: v4.22
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -798,7 +798,7 @@
             { id: 'scout', emoji: '🔍', icon: 'zwiadowca.png', name: 'Zwiad', colorMain: '#f1c40f', hp: 2, speed: 7.5, dmg: 0.8, reload: 250, type: 'standard' },
             { id: 'sniper', emoji: '🎯', icon: 'snajper.jpg', name: 'Snajper', colorMain: '#3498db', hp: 3, speed: 4.5, dmg: 3, reload: 1000, type: 'fast' },
             { id: 'plasma', emoji: '💻', icon: 'tech.jpg', name: 'Tech', colorMain: '#00cec9', hp: 4, speed: 5, dmg: 1.2, reload: 500, type: 'plasma' },
-            { id: 'pyro', emoji: '🔥', icon: 'ogniarz.png', name: 'Ogniarz', colorMain: '#e74c3c', hp: 5, speed: 4.8, dmg: 0.5, reload: 150, type: 'spread' },
+            { id: 'pyro', emoji: '🔥', icon: 'ogniarz.png', name: 'Ogniarz', colorMain: '#e74c3c', hp: 5, speed: 4.8, dmg: 0.5, reload: 210, type: 'spread' },
             { id: 'shadow', emoji: '🌑', icon: 'shadow.jpg', name: 'Shadow', colorMain: '#2c3e50', hp: 3, speed: 6.5, dmg: 1.5, reload: 600, type: 'standard' },
             { id: 'king', emoji: '👑', icon: 'krol.jpg', name: 'King', colorMain: '#d35400', hp: 5, speed: 5.5, dmg: 2, reload: 500, type: 'standard' }
         ];
@@ -1508,15 +1508,15 @@
 
             // Exhaust smoke from rear (all tanks, subtle)
             // Exhaust smoke from rear (all tanks, subtle)
-            if(id!=='pyro'){
-                const ex=-hhl+3, ey=hhw*0.38;
-                [0,0.38,0.72].forEach(off=>{
-                    const a=(age*0.022+off)%1;
-                    c.globalAlpha=(1-a)*0.16; c.fillStyle='#999';
-                    c.beginPath(); c.arc(ex-a*10, ey-a*6, (2+a*4.5), 0, Math.PI*2); c.fill();
-                });
-                c.globalAlpha=1;
-            }
+            const ex=-hhl+3, ey=hhw*0.38;
+            const _exCol = id==='pyro' ? '#ff6b00' : '#999';
+            const _exAlphaMult = id==='pyro' ? 0.30 : 0.16;
+            [0,0.38,0.72].forEach(off=>{
+                const a=(age*0.022+off)%1;
+                c.globalAlpha=(1-a)*_exAlphaMult; c.fillStyle=_exCol;
+                c.beginPath(); c.arc(ex-a*10, ey-a*6, (2+a*4.5), 0, Math.PI*2); c.fill();
+            });
+            c.globalAlpha=1;
         }
 
         function drawTankTurret(c, brawler, colorMain, lastShot, shootCooldown) {
@@ -1552,6 +1552,13 @@
                 c.stroke();
             } else if(id==='sniper'){
                 c.beginPath(); c.ellipse(2,0,tr*1.1,tr*0.72,0,0,Math.PI*2); c.fill(); c.stroke();
+            } else if(id==='pyro') {
+                // Gradient radialny — metaliczny połysk (v4.22)
+                const _tg=c.createRadialGradient(-3,-3,0,0,0,tr);
+                _tg.addColorStop(0, _pyroLerp('#e74c3c','#ffffff',0.45));
+                _tg.addColorStop(1, _pyroLerp('#e74c3c','#000000',0.35));
+                c.fillStyle=_tg;
+                c.beginPath(); c.arc(0,0,tr,0,Math.PI*2); c.fill(); c.stroke();
             } else {
                 c.beginPath(); c.arc(0,0,tr,0,Math.PI*2); c.fill(); c.stroke();
             }
@@ -1670,6 +1677,26 @@
             }
         }
 
+
+        // ─ Flag slot renderer — placeholder dla systemu skrzyń (v4.22) ───
+        function _drawFlagSlot(c, flagId) {
+            // Slot: x=-16, y=-6, 18×12px — za wieżyczką, przed pierścieniem turret
+            // Gdy equippedFlag=null → nic nie rysuje. Gotowe na v5.0.
+            if(!flagId) return;
+            // Przyszła implementacja: switch(flagId) { case 'poland': ... }
+        }
+
+        // ─ _pyroLerp — interpolacja kolorów TYLKO dla Ogniarz (v4.22) ─────
+        // Osobna funkcja, nie nadpisuje globalnego lerpHex(hex, pct)
+        function _pyroLerp(hex1, hex2, ratio) {
+            const p = c => parseInt(c.replace('#',''), 16);
+            const a = p(hex1), b2 = p(hex2);
+            const r = Math.round(((a>>16)*(1-ratio) + (b2>>16)*ratio));
+            const g = Math.round((((a>>8)&0xff)*(1-ratio) + ((b2>>8)&0xff)*ratio));
+            const bl = Math.round(((a&0xff)*(1-ratio) + (b2&0xff)*ratio));
+            return '#'+((1<<24|r<<16|g<<8|bl).toString(16).slice(1));
+        }
+
         class Player {
             constructor() {
                 this.width = 46; this.height = 58;
@@ -1677,6 +1704,9 @@
                 this.emote = null; this.emoteTimer = 0;
                 this.bushTime = 0; this.age = 0;
                 this.speedBoostMult = 1; this.speedBoostEnd = 0;
+            this.equippedFlag = null; // Placeholder — system skrzyń v5.0
+            // Juice — Ogniarz recoil/squash/flash
+            this._recoil = 0; this._squash = 1.0; this._muzzleFlash = 0;
                 this.isMoving = false;
             }
 
@@ -1697,6 +1727,12 @@
             }
 
             update() {
+                // Juice — wygaszanie recoil/squash/flash (LERP)
+                if(this.brawler && this.brawler.id==='pyro') {
+                    this._recoil += (0 - this._recoil) * 0.2;
+                    this._squash += (1.0 - this._squash) * 0.15;
+                    this._muzzleFlash = Math.max(0, this._muzzleFlash - 0.25);
+                }
                 // Speed boost timer
                 if(this.speedBoostMult > 1 && Date.now() > this.speedBoostEnd) {
                     this.speedBoostMult = 1;
@@ -1793,6 +1829,8 @@
                     }
                     const isSuperShot = superActive;
                     if(this.brawler.type === 'spread') {
+                        // Juice — Ogniarz recoil/squash/flash przy strzale
+                        this._recoil = 6; this._squash = 0.85; this._muzzleFlash = 1.0;
                         bullets.push(new Bullet(bx, by, this.turretAngle - 0.2, true, this.brawler, isSuperShot));
                         bullets.push(new Bullet(bx, by, this.turretAngle, true, this.brawler, isSuperShot));
                         bullets.push(new Bullet(bx, by, this.turretAngle + 0.2, true, this.brawler, isSuperShot));
@@ -1826,16 +1864,37 @@
                 // Hull (rotates with movement direction) — PLAYER SCALE ×1.75
                 ctx.save();
                 ctx.rotate(this.hullAngle);
-                ctx.scale(1.75, 1.75); // Only player tank is scaled up
+                // Juice — Ogniarz squash przy strzale
+                if(this.brawler.id==='pyro') ctx.scale(1.75/this._squash, 1.75*this._squash);
+                else ctx.scale(1.75, 1.75);
                 drawTankHull(ctx, this.brawler, this.trackOffset, this.age);
                 ctx.restore();
 
+                // Flag slot — placeholder dla systemu skrzyń (v4.22)
+                if(this.equippedFlag) {
+                    ctx.save(); ctx.rotate(this.hullAngle);
+                    ctx.scale(1.75, 1.75);
+                    _drawFlagSlot(ctx, this.equippedFlag);
+                    ctx.restore();
+                }
                 // Turret (rotates independently toward mouse) — also scaled ×1.75
                 ctx.save();
                 ctx.rotate(this.turretAngle);
                 ctx.scale(1.75, 1.75);
                 drawTankTurret(ctx, this.brawler, this.colorMain, this.lastShot, this.shootCooldown);
                 ctx.restore();
+                // Muzzle Flash — Ogniarz (screen blend, 4 klatki)
+                if(this.brawler.id==='pyro' && this._muzzleFlash > 0) {
+                    ctx.save(); ctx.rotate(this.turretAngle);
+                    // Czubek lufy w local space (r=12, bstart=7.8, bl=14) + recoil
+                    const _mfTip = 12*0.65 - this._recoil + 14;
+                    ctx.globalCompositeOperation = 'screen';
+                    ctx.globalAlpha = this._muzzleFlash;
+                    ctx.fillStyle = '#f1c40f';
+                    ctx.beginPath(); ctx.arc(_mfTip * 1.75, 0, 8 * this._muzzleFlash * 1.75, 0, Math.PI*2); ctx.fill();
+                    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+                    ctx.restore();
+                }
 
                 // Emote bubble
                 if(this.emote && Date.now() - this.emoteTimer < 2000) {
@@ -2020,13 +2079,22 @@
 
             _fireball(sup, age) {
                 const x=this.x, y=this.y, fl=Math.sin(age*0.4)*2, base=sup?14:10;
-                this.trail.forEach((p,i) => {
-                    const ratio=i/this.trail.length;
-                    const cols=['#e74c3c','#e67e22','#f39c12'];
-                    ctx.globalAlpha=ratio*0.45;
-                    ctx.fillStyle=cols[i%3];
-                    ctx.beginPath(); ctx.arc(p.x,p.y,base*ratio*0.75,0,Math.PI*2); ctx.fill();
-                });
+                // Trail jako ciągła linia (płynniejszy ogień)
+                if(this.trail.length > 1) {
+                    ctx.lineCap='round'; ctx.lineJoin='round';
+                    for(let _ti=0;_ti<this.trail.length-1;_ti++){
+                        const _ratio=1-(_ti/this.trail.length);
+                        const _col=_ti<3?'#f39c12':_ti<6?'#e67e22':'#e74c3c';
+                        ctx.globalAlpha=_ratio*0.45;
+                        ctx.strokeStyle=_col;
+                        ctx.lineWidth=base*0.8;
+                        ctx.beginPath();
+                        ctx.moveTo(this.trail[_ti].x,this.trail[_ti].y);
+                        ctx.lineTo(this.trail[_ti+1].x,this.trail[_ti+1].y);
+                        ctx.stroke();
+                    }
+                    ctx.lineCap='butt';
+                }
                 if(sup){
                     for(let i=0;i<5;i++){
                         const ang=age*0.09+i*(Math.PI*2/5);
@@ -2179,6 +2247,7 @@
                 this.maxHp = this.hp;
                 this.angle = 0; this.playerAngle = 0; this.active = true; this.lastShot = Date.now(); this.age = 0;
                 this._btX = null; this._btY = null; this._bridgeFrame = -999; // bridge cache
+                this.burnTimer = 0; this.burnTickTimer = 0; // Ogniarz burn DoT
                 this.flashTimer = 0;
                 // Mega boss shield
                 this.shieldActive = false;
@@ -2189,6 +2258,16 @@
             }
             update() {
                 if(this.flashTimer > 0) this.flashTimer--;
+                // Burn DoT — Ogniarz (no stacking, reset on rehit)
+                if(this.burnTimer > 0) {
+                    this.burnTimer--; this.burnTickTimer--;
+                    if(this.burnTickTimer <= 0) {
+                        this.burnTickTimer = 20; // tick co 20 klatek
+                        this.hp -= 0.05;
+                        createExplosion(this.x, this.y, '#ff6b00', 2);
+                        if(this.hp <= 0) this.active = false;
+                    }
+                }
                 // Mega boss ignores FREEZE, has own AI
                 if(this.isMegaBoss) {
                     this.age++;
@@ -4765,6 +4844,10 @@
                             b.active = false; e.hp -= b.dmg;
                             stats.bulletsHit++;
                             e.flashTimer = 3; // hit flash
+                            // Burn DoT — Ogniarz (no stacking)
+                            if(b.brawlerStyle==='pyro' && !e.isMegaBoss) {
+                                e.burnTimer = 90; e.burnTickTimer = 20;
+                            }
                             createExplosion(b.x, b.y, b.color, 5); 
                             if(e.hp <= 0) {
                                 e.active = false; stats.kills++;
