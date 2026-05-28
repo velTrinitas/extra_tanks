@@ -54,6 +54,9 @@
             width: 90%;
             max-height: 90vh;
             overflow-y: auto;
+            /* S2-3: fade-in transition */
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
 
         .screen::-webkit-scrollbar {
@@ -71,6 +74,7 @@
 
         .active-screen {
             display: flex;
+            opacity: 1; /* S2-3: docelowa wartość — MutationObserver animuje 0→1 */
         }
 
         /* Nowy Ekran Powitalny na cały ekran */
@@ -6151,7 +6155,26 @@
                 window._castleLoopRunning = true; gameLoop(); // Menu animations
             }
         })();
-    </script>
+    
+        // ─── S2-3: Screen fade-in transitions (200ms) ─────────────────────────
+        (function() {
+            const _sObs = new MutationObserver(muts => muts.forEach(m => {
+                const el = m.target;
+                if (!el.classList.contains('screen')) return;
+                const wasActive = (m.oldValue || '').split(' ').includes('active-screen');
+                if (!wasActive && el.classList.contains('active-screen')) {
+                    el.style.opacity = '0';
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        el.style.opacity = '';
+                    }));
+                }
+            }));
+            document.querySelectorAll('.screen').forEach(s =>
+                _sObs.observe(s, { attributes: true, attributeOldValue: true, attributeFilter: ['class'] })
+            );
+        })();
+        // ─── koniec S2-3 ──────────────────────────────────────────────────────
+</script>
 </body>
 </html>let _castleFireParticles = [];
         
