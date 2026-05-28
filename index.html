@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.24
+        Game version: v4.24.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2309,7 +2309,7 @@
                     if(this.burnTickTimer <= 0) {
                         this.burnTickTimer = 20; // tick co 20 klatek
                         this.hp -= 0.05;
-                        createExplosion(this.x, this.y, '#ff6b00', 6);
+                        createExplosion(this.x, this.y, '#ff6b00', 4); // count ≤5 = brak dźwięku (AudioSys próg: >5)
                         if(this.hp <= 0) this.active = false;
                     }
                 }
