@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.30
+        Game version: v4.31
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -822,7 +822,7 @@
             { id: 'desert', name: 'PUSTYNIA',  badge: '#b8720a', bg: '#e8d4a2', wall: '#d35400', bush: '#2ecc71', density: 0.08, music: 'pustynia.mp3' },
             { id: 'forest', name: 'TROPIKI',   badge: '#1a7a40', bg: '#27ae60', wall: '#7f8c8d', bush: '#1e8449', density: 0.12, music: 'las.mp3' },
             { id: 'ice',    name: 'ARKTYKA',   badge: '#1a6ea8', bg: '#d4e6f1', wall: '#85c1e9', bush: '#ecf0f1', density: 0.06, music: 'arktyka.mp3' },
-            { id: 'city',   name: 'CYBERPUNK', badge: '#5d3580', bg: '#546778', wall: '#b0bec5', bush: '#ff6fd8', density: 0.10, music: 'miasto.mp3' }
+            { id: 'city',   name: 'CYBERPUNK', badge: '#5d3580', bg: '#0d0d14',  wall: '#1a1a2e', bush: 'rgba(120,220,255,0.08)', density: 0, music: 'miasto.mp3' }
         ];
 
         const MAP_ICONS = {
@@ -4549,6 +4549,8 @@
         // ─ 
         const SUN_OFFSET_X = 6, SUN_OFFSET_Y = 4; // restored — was cut by str_replace
         let _desertOffscreen = null;   // pre-rendered bg+texture canvas
+        let _cityOffscreen = null;    // pre-rendered cyberpunk floor
+        let _cityBuildings = [];      // CyberBuilding instances
         let _desertGroundSpots = [];   // micro-texture spots
 
         function _buildDesertOffscreen() {
@@ -4846,7 +4848,44 @@
                     return (a._size||0)-(b._size||0); // Secondary: mniejsza zakryta przez większą
                 }); // Y-sort v4.21
                 _buildDesertOffscreen();
+
+            if(selectedMap.id === 'city') {
+                environment = []; _cityBuildings = [];
+                // 25 buildings — 5 types, spread across 8 active blocks + minimal center
+                [
+                    // Block(0,0) top-left
+                    [80,80,180,120,0.18,2],[310,60,100,180,0.22,1],[80,290,240,95,0.12,4],
+                    // Block(1,0) top-center
+                    [825,55,58,58,0.36,5],[930,100,155,115,0.20,2],[755,225,115,140,0.16,1],
+                    // Block(2,0) top-right
+                    [1455,80,200,160,0.25,3],[1705,60,85,180,0.20,1],[1455,300,145,100,0.10,4],
+                    // Block(0,1) left-center
+                    [55,785,115,160,0.20,1],[225,805,195,120,0.18,2],[485,910,58,58,0.30,5],
+                    // Block(1,1) CENTER — minimal
+                    [790,790,90,75,0.08,4],
+                    // Block(2,1) right-center
+                    [1445,800,195,140,0.22,2],[1705,785,98,160,0.18,1],[1445,1005,180,100,0.15,3],
+                    // Block(0,2) bottom-left
+                    [80,1440,125,178,0.20,1],[265,1445,58,58,0.28,5],[80,1688,195,118,0.18,2],
+                    // Block(1,2) bottom-center
+                    [748,1440,195,78,0.10,4],[925,1565,175,130,0.22,3],[758,1762,108,148,0.18,1],
+                    // Block(2,2) bottom-right
+                    [1445,1445,220,148,0.20,2],[1722,1452,158,78,0.12,4],[1882,1602,58,58,0.32,5],
+                ].forEach(([x,y,w,d,hF,t]) => {
+                    _cityBuildings.push(new CyberBuilding(x,y,w,d,hF,t));
+                    environment.push(new EnvironmentBlock(x,y,w,d,'wall','#1a1a2e'));
+                });
+                // Steam vent stealth zones (bush type) on streets
+                [[185,648],[475,655],[895,638],[1490,652],[1815,642],
+                 [638,895],[648,1195],[1315,998],[1345,1192],[295,1318],[795,1348],[1595,1315]
+                ].forEach(([sx,sy])=>{
+                    environment.push(new EnvironmentBlock(sx-28,sy-28,56,56,'bush',selectedMap.bush));
+                });
+                _buildCityOffscreen();
             } else {
+                _cityOffscreen = null; _cityBuildings = [];
+            }
+            } else if(selectedMap.id !== 'city') {
                 _desertOffscreen = null;
                 _desertGroundSpots = [];
                 _desertDunes = [];
@@ -5192,6 +5231,8 @@
                 ctx.drawImage(_desertOffscreen,
                     camera.x, camera.y, screenW, screenH,
                     0, 0, screenW, screenH);
+            } else if(selectedMap.id==='city' && _cityOffscreen) {
+                ctx.drawImage(_cityOffscreen,camera.x,camera.y,screenW,screenH,0,0,screenW,screenH);
             } else {
                 ctx.fillStyle = selectedMap.bg; ctx.fillRect(0,0,screenW,screenH);
             }
@@ -5216,6 +5257,12 @@
 
             // Env walls — za dekoracjami wizualnie
             environment.forEach(env => { if(env.type === 'wall') env.draw(); });
+
+            // Cyberpunk buildings (Y-sorted, before entities)
+            if(selectedMap.id==='city' && _cityBuildings.length) {
+                _cityBuildings.sort((a,b)=>(a.y+a.d)-(b.y+b.d));
+                _cityBuildings.forEach(b=>b.draw(ctx));
+            }
 
             // Decorations — Y-sorted (skip palm dla later 2.5D layer)
             mapDecorations.forEach(d => { if(d.mapId!=='desert_palm') drawDecoration(d); });
@@ -5579,6 +5626,146 @@
             // ─── koniec celownika ─────────────────────────────────────────────
 
         }
+
+
+        // ══════════════════════════════════════════════════════════════════════
+        // CYBERPUNK CITY MAP v4.31
+        // ══════════════════════════════════════════════════════════════════════
+        class CyberBuilding {
+            constructor(x,y,w,d,hF,type){
+                this.x=x;this.y=y;this.w=w;this.d=d;this.hF=hF;this.type=type;
+                this._fo=Math.floor(Math.random()*200);
+                const P=[null,
+                    {rf:'#1a1a2d',wD:'#101018',wL:'#181826',n1:'#00ffff',n2:'#ff0055'},
+                    {rf:'#1e2230',wD:'#141820',wL:'#1c2028',n1:'#aaddff',n2:'#0088ff'},
+                    {rf:'#222635',wD:'#181c24',wL:'#1e2030',n1:'#f1c40f',n2:'#ff6600'},
+                    {rf:'#1a1a1e',wD:'#111114',wL:'#181818',n1:'#ff3300',n2:'#ff9900'},
+                    {rf:'#12121a',wD:'#0e0e14',wL:'#141420',n1:'#cc00ff',n2:'#ff00aa'},
+                ];
+                this._c=P[type]||P[1];
+            }
+            draw(ctx){
+                const pcx=camera.x+screenW/2,pcy=camera.y+screenH/2;
+                const ox=(this.x+this.w/2-pcx)*this.hF, oy=(this.y+this.d/2-pcy)*this.hF;
+                const K=this._c, fa=(frames+this._fo)%220<9?0.12:1.0;
+                ctx.save();
+                ctx.fillStyle='rgba(0,0,0,0.38)';ctx.fillRect(this.x+10,this.y+10,this.w+6,this.d+6);
+                if(oy>0) this._W(ctx,this.x,this.y,this.x+this.w,this.y,this.x+ox,this.y+oy,this.x+this.w+ox,this.y+oy,K.wD);
+                else if(oy<0) this._W(ctx,this.x,this.y+this.d,this.x+this.w,this.y+this.d,this.x+ox,this.y+this.d+oy,this.x+this.w+ox,this.y+this.d+oy,K.wL);
+                if(ox>0){this._W(ctx,this.x,this.y,this.x,this.y+this.d,this.x+ox,this.y+oy,this.x+ox,this.y+this.d+oy,K.wL);this._N(ctx,this.x,this.y,this.x,this.y+this.d,ox,oy,fa);}
+                else if(ox<0){this._W(ctx,this.x+this.w,this.y,this.x+this.w,this.y+this.d,this.x+this.w+ox,this.y+oy,this.x+this.w+ox,this.y+this.d+oy,K.wD);this._N(ctx,this.x+this.w,this.y,this.x+this.w,this.y+this.d,ox,oy,fa);}
+                const rX=this.x+ox,rY=this.y+oy;
+                ctx.fillStyle=K.rf;ctx.strokeStyle='#222238';ctx.lineWidth=1.5;
+                ctx.beginPath();ctx.rect(rX,rY,this.w,this.d);ctx.fill();ctx.stroke();
+                this._R(ctx,rX,rY,fa);
+                ctx.restore();
+            }
+            _W(ctx,bx1,by1,bx2,by2,rx1,ry1,rx2,ry2,col){
+                ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(bx1,by1);ctx.lineTo(bx2,by2);
+                ctx.lineTo(rx2,ry2);ctx.lineTo(rx1,ry1);ctx.closePath();ctx.fill();
+                ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+            }
+            _NL(ctx,x1,y1,x2,y2,col,w,a){
+                ctx.globalAlpha=a*0.11;ctx.strokeStyle=col;ctx.lineWidth=w*4.5;ctx.lineCap='round';
+                ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+                ctx.globalAlpha=a*0.28;ctx.lineWidth=w*2;
+                ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+                ctx.globalAlpha=a;ctx.lineWidth=w;
+                ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+                ctx.globalAlpha=1;
+            }
+            _N(ctx,bx1,by1,bx2,by2,ox,oy,fa){
+                const K=this._c,mx=(bx1+bx2)/2,my=(by1+by2)/2;
+                ctx.save();ctx.globalCompositeOperation='screen';
+                if(this.type===1){this._NL(ctx,bx1,by1,bx1+ox,by1+oy,K.n1,2,0.9*fa);this._NL(ctx,bx2,by2,bx2+ox,by2+oy,K.n2,2,0.8*fa);ctx.fillStyle=`rgba(241,196,15,${0.35*fa})`;ctx.beginPath();ctx.arc(mx+ox*0.5,my+oy*0.5,3,0,Math.PI*2);ctx.fill();}
+                else if(this.type===2){this._NL(ctx,mx,by1+(by2-by1)*0.25,mx+ox,by1+(by2-by1)*0.25+oy,K.n1,3,0.70*fa);}
+                else if(this.type===3){this._NL(ctx,mx,my,mx+ox,my+oy,K.n1,4,0.85*fa);}
+                else if(this.type===4){for(let i=0.25;i<=0.75;i+=0.25)this._NL(ctx,bx1+(bx2-bx1)*i,by1+(by2-by1)*i,bx1+(bx2-bx1)*i+ox*0.8,by1+(by2-by1)*i+oy*0.8,K.n1,2,0.55*fa);}
+                else if(this.type===5){this._NL(ctx,bx1,by1,bx1+ox,by1+oy,K.n1,2,0.9*fa);this._NL(ctx,bx2,by2,bx2+ox,by2+oy,K.n2,2,0.7*fa);}
+                ctx.restore();
+            }
+            _R(ctx,rX,rY,fa){
+                const K=this._c;ctx.save();
+                if(this.type===1){ctx.fillStyle='#0a0a12';ctx.fillRect(rX+8,rY+8,this.w*0.28,this.d*0.28);ctx.fillRect(rX+this.w*0.62,rY+this.d*0.62,this.w*0.28,this.d*0.28);}
+                else if(this.type===2){ctx.fillStyle='rgba(150,200,235,0.30)';ctx.fillRect(rX+10,rY+10,this.w-20,this.d-20);ctx.strokeStyle='#3880a0';ctx.lineWidth=1;ctx.strokeRect(rX+10,rY+10,this.w-20,this.d-20);}
+                else if(this.type===3){
+                    const cx=rX+this.w/2,cy=rY+this.d/2,r=Math.min(this.w,this.d)*0.38;
+                    ctx.fillStyle='#060608';ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+                    ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=fa*0.85;
+                    ctx.strokeStyle=K.n1;ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+                    ctx.fillStyle=K.n1;ctx.font=`bold ${Math.floor(r*0.9)}px 'Lilita One',cursive`;
+                    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('H',cx,cy);ctx.restore();
+                }
+                else if(this.type===4){ctx.fillStyle='#181818';ctx.fillRect(rX+6,rY+6,14,this.d-12);ctx.fillRect(rX+this.w-20,rY+6,14,this.d-12);ctx.fillStyle=K.n1;ctx.globalAlpha=0.26*fa;ctx.fillRect(rX,rY,this.w,5);ctx.fillRect(rX,rY+this.d-5,this.w,5);ctx.globalAlpha=1;}
+                else if(this.type===5){
+                    const cx=rX+this.w/2,cy=rY+this.d/2;
+                    ctx.fillStyle='#160c1c';ctx.beginPath();ctx.arc(cx,cy,this.w*0.3,0,Math.PI*2);ctx.fill();
+                    ctx.strokeStyle='#36364a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-this.d*0.9);ctx.stroke();
+                    if((frames+this._fo)%60<30){ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=0.9;ctx.fillStyle=K.n1;ctx.beginPath();ctx.arc(cx,cy-this.d*0.9,4,0,Math.PI*2);ctx.fill();ctx.restore();}
+                }
+                ctx.restore();
+            }
+        }
+
+        function _buildCityOffscreen(){
+            const cv=document.createElement('canvas');cv.width=WORLD_W;cv.height=WORLD_H;
+            const c=cv.getContext('2d');
+            // Base asphalt
+            c.fillStyle='#14141e';c.fillRect(0,0,WORLD_W,WORLD_H);
+            // Streets
+            c.fillStyle='#09090f';
+            c.fillRect(0,617,WORLD_W,100);c.fillRect(0,1283,WORLD_W,100);
+            c.fillRect(617,0,100,WORLD_H);c.fillRect(1283,0,100,WORLD_H);
+            // Sidewalks
+            c.fillStyle='#1c1c2a';
+            [617,1283].forEach(y=>{c.fillRect(0,y-18,WORLD_W,18);c.fillRect(0,y+100,WORLD_W,18);});
+            [617,1283].forEach(x=>{c.fillRect(x-18,0,18,WORLD_H);c.fillRect(x+100,0,18,WORLD_H);});
+            // Curbs
+            c.strokeStyle='#282840';c.lineWidth=2;
+            [617,717,1283,1383].forEach(y=>{c.beginPath();c.moveTo(0,y);c.lineTo(WORLD_W,y);c.stroke();});
+            [617,717,1283,1383].forEach(x=>{c.beginPath();c.moveTo(x,0);c.lineTo(x,WORLD_H);c.stroke();});
+            // Yellow center dashes
+            c.strokeStyle='#f1c40f';c.lineWidth=3;c.setLineDash([35,22]);
+            [[0,667,WORLD_W,667],[0,1333,WORLD_W,1333],[667,0,667,WORLD_H],[1333,0,1333,WORLD_H]].forEach(([x1,y1,x2,y2])=>{c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();});
+            c.setLineDash([]);
+            // Crossings at 4 intersections
+            c.fillStyle='rgba(255,255,255,0.20)';
+            [[617,617],[617,1283],[1283,617],[1283,1283]].forEach(([ix,iy])=>{for(let t=iy;t<iy+100;t+=14)c.fillRect(ix,t,100,8);});
+            // Neon curb accents
+            c.globalCompositeOperation='screen';
+            [[619,'rgba(0,255,255,0.18)'],[715,'rgba(0,255,255,0.12)'],[1285,'rgba(255,0,85,0.18)'],[1381,'rgba(255,0,85,0.12)']].forEach(([x,col])=>{c.strokeStyle=col;c.lineWidth=2;c.beginPath();c.moveTo(x,0);c.lineTo(x,WORLD_H);c.stroke();});
+            [[617,'rgba(255,0,85,0.18)'],[717,'rgba(255,0,85,0.12)'],[1283,'rgba(0,255,255,0.18)'],[1383,'rgba(0,255,255,0.12)']].forEach(([y,col])=>{c.strokeStyle=col;c.lineWidth=2;c.beginPath();c.moveTo(0,y);c.lineTo(WORLD_W,y);c.stroke();});
+            c.globalCompositeOperation='source-over';
+            // Puddles
+            [{x:200,y:660,r:70,col:[0,255,255]},{x:800,y:667,r:55,col:[255,0,255]},{x:1500,y:660,r:65,col:[0,255,255]},{x:350,y:1330,r:60,col:[255,102,0]},{x:1000,y:1333,r:50,col:[255,0,255]},{x:1700,y:1330,r:65,col:[0,255,255]},{x:667,y:250,r:55,col:[241,196,15]},{x:667,y:1800,r:60,col:[255,0,85]},{x:1333,y:400,r:50,col:[0,255,255]},{x:1333,y:1700,r:65,col:[255,0,255]}].forEach(p=>{
+                const g=c.createRadialGradient(p.x,p.y,0,p.x,p.y+25,p.r);
+                g.addColorStop(0,`rgba(${p.col[0]},${p.col[1]},${p.col[2]},0.16)`);
+                g.addColorStop(0.6,`rgba(${p.col[0]},${p.col[1]},${p.col[2]},0.05)`);
+                g.addColorStop(1,`rgba(${p.col[0]},${p.col[1]},${p.col[2]},0)`);
+                c.fillStyle=g;c.save();c.translate(p.x,p.y);c.scale(1.9,0.45);c.translate(-p.x,-p.y);c.fillRect(p.x-p.r*2,p.y-p.r,p.r*4,p.r*4);c.restore();
+            });
+            // Oil slicks
+            [[150,670],[900,1310],[450,640],[1600,695],[680,800],[1320,920],[1800,1345],[290,1355],[1100,680],[750,1340]].forEach(([ox,oy])=>{
+                const g=c.createRadialGradient(ox,oy,0,ox,oy,28);
+                g.addColorStop(0,'rgba(255,0,255,0.12)');g.addColorStop(0.35,'rgba(0,255,255,0.09)');
+                g.addColorStop(0.7,'rgba(255,100,0,0.06)');g.addColorStop(1,'rgba(0,0,0,0)');
+                c.fillStyle=g;c.save();c.translate(ox,oy);c.scale(1,0.32);c.translate(-ox,-oy);c.fillRect(ox-40,oy-40,80,80);c.restore();
+            });
+            // Railway (200,50)→(1800,1950)
+            const[r1x,r1y,r2x,r2y]=[200,50,1800,1950],rlen=Math.hypot(r2x-r1x,r2y-r1y);
+            const rnx=(r2x-r1x)/rlen,rny=(r2y-r1y)/rlen,rpx=-rny,rpy=rnx;
+            c.strokeStyle='#1e1e32';c.lineWidth=7;
+            for(let t=0;t<=rlen;t+=44){const bx=r1x+rnx*t,by=r1y+rny*t;c.beginPath();c.moveTo(bx+rpx*13,by+rpy*13);c.lineTo(bx-rpx*13,by-rpy*13);c.stroke();}
+            c.strokeStyle='#3a3a58';c.lineWidth=3;
+            [-1,1].forEach(s=>{c.beginPath();c.moveTo(r1x+rpx*8*s,r1y+rpy*8*s);c.lineTo(r2x+rpx*8*s,r2y+rpy*8*s);c.stroke();});
+            c.globalCompositeOperation='screen';c.strokeStyle='rgba(70,70,150,0.15)';c.lineWidth=6;c.beginPath();c.moveTo(r1x,r1y);c.lineTo(r2x,r2y);c.stroke();c.globalCompositeOperation='source-over';
+            // Noise
+            const imgD=c.getImageData(0,0,WORLD_W,WORLD_H),px=imgD.data;
+            for(let n=0;n<55000;n++){const i=Math.floor(Math.random()*WORLD_W*WORLD_H)*4,v=Math.floor(Math.random()*20);px[i]=Math.min(255,px[i]+v);px[i+1]=Math.min(255,px[i+1]+v);px[i+2]=Math.min(255,px[i+2]+v);}
+            c.putImageData(imgD,0,0);
+            _cityOffscreen=cv;
+        }
+        // ══ END Cyberpunk City v4.31 ══════════════════════════════════════════
 
         function initGame() {
             const bgMusic = document.getElementById('bgMusic');
