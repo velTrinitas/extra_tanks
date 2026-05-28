@@ -14,7 +14,7 @@
             background-color: #1a1a2e;
             font-family: 'Lilita One', cursive, sans-serif;
             touch-action: none;
-            cursor: crosshair;
+            cursor: none; /* v4.27: własny celownik canvas */
             user-select: none;
         }
         
@@ -205,6 +205,12 @@
 
         .map-card { padding: 15px; font-size: 1.5rem; -webkit-text-stroke: 1px #000; text-shadow: 2px 2px 0 #000; color: #fff;}
         .diff-card { font-size: 1.3rem; text-transform: uppercase; color: #fff; -webkit-text-stroke: 1px #000; text-shadow: 2px 2px 0 #000;}
+        .diff-label {
+            font-family: 'Lilita One', cursive;
+            font-size: 1.2rem; text-transform: uppercase;
+            color: #fff; letter-spacing: 1px;
+            text-shadow: 0 2px 0 rgba(0,0,0,0.55), 0 -1px 0 rgba(0,0,0,0.2);
+        }
 
         /* Przycisk Główny */
         button.brawl-btn {
@@ -437,9 +443,9 @@
 
             <h2>Poziom trudu</h2>
             <div class="grid-container diff-grid" id="diffGrid">
-                <div class="select-card diff-card" style="background:#2ecc71;" data-diff="easy">Trening</div>
-                <div class="select-card diff-card selected" style="background:#f39c12;" data-diff="normal">Standard</div>
-                <div class="select-card diff-card" style="background:#e74c3c;" data-diff="hard">Rój!</div>
+                <div class="select-card diff-card" style="background:#2ecc71;" data-diff="easy"><canvas class="diff-gauge" width="50" height="32"></canvas><span class="diff-label">Trening</span></div>
+                <div class="select-card diff-card selected" style="background:#f39c12;" data-diff="normal"><canvas class="diff-gauge" width="50" height="32"></canvas><span class="diff-label">Standard</span></div>
+                <div class="select-card diff-card" style="background:#e74c3c;" data-diff="hard"><canvas class="diff-gauge" width="50" height="32"></canvas><span class="diff-label">Rój!</span></div>
             </div>
 
             <h2>Wybierz otoczenie</h2>
@@ -6041,6 +6047,28 @@
             }
 
             // CTF: super charge bar removed — turbo HUD handles bottom center
+            // ─── Czerwony celownik (v4.27) ──────────────────────────────────
+            if(gameState==='PLAYING'&&player.hp>0){
+                const _mx=mouse.x,_my=mouse.y,_cl=16,_cg=5;
+                ctx.strokeStyle='#111'; ctx.lineWidth=3.5; ctx.lineCap='round';
+                ctx.beginPath();
+                ctx.moveTo(_mx-_cl,_my); ctx.lineTo(_mx-_cg,_my);
+                ctx.moveTo(_mx+_cg,_my); ctx.lineTo(_mx+_cl,_my);
+                ctx.moveTo(_mx,_my-_cl); ctx.lineTo(_mx,_my-_cg);
+                ctx.moveTo(_mx,_my+_cg); ctx.lineTo(_mx,_my+_cl);
+                ctx.stroke();
+                ctx.strokeStyle='#e74c3c'; ctx.lineWidth=2;
+                ctx.beginPath();
+                ctx.moveTo(_mx-_cl,_my); ctx.lineTo(_mx-_cg,_my);
+                ctx.moveTo(_mx+_cg,_my); ctx.lineTo(_mx+_cl,_my);
+                ctx.moveTo(_mx,_my-_cl); ctx.lineTo(_mx,_my-_cg);
+                ctx.moveTo(_mx,_my+_cg); ctx.lineTo(_mx,_my+_cl);
+                ctx.stroke();
+                ctx.fillStyle='#e74c3c';
+                ctx.beginPath(); ctx.arc(_mx,_my,2.5,0,Math.PI*2); ctx.fill();
+            }
+            // ─── koniec celownika ─────────────────────────────────────────────
+
         }
 
         function initGame() {
@@ -6174,6 +6202,41 @@
             );
         })();
         // ─── koniec S2-3 ──────────────────────────────────────────────────────
+
+        // ─── Potencjometr trudności (v4.27) ─────────────────────────────────
+        function drawDiffGauge(canvas, diff) {
+            const gc = canvas.getContext('2d');
+            const W = canvas.width, H = canvas.height;
+            const cx = W/2, cy = H - 3, R = Math.min(W/2-3, H-6);
+            gc.clearRect(0,0,W,H);
+            gc.strokeStyle='rgba(0,0,0,0.45)'; gc.lineWidth=7; gc.lineCap='butt';
+            gc.beginPath(); gc.arc(cx,cy,R,Math.PI,2*Math.PI); gc.stroke();
+            ['#2ecc71','#f39c12','#e74c3c','#7b241c'].forEach((col,i)=>{
+                gc.strokeStyle=col; gc.lineWidth=5; gc.lineCap='round';
+                gc.beginPath(); gc.arc(cx,cy,R,Math.PI+i*Math.PI/4,Math.PI+(i+1)*Math.PI/4); gc.stroke();
+            });
+            gc.strokeStyle='rgba(255,255,255,0.45)'; gc.lineWidth=1;
+            [1,2,3].forEach(i=>{
+                const a=Math.PI+i*Math.PI/4;
+                gc.beginPath(); gc.moveTo(cx+Math.cos(a)*(R-4),cy+Math.sin(a)*(R-4));
+                gc.lineTo(cx+Math.cos(a)*(R+3),cy+Math.sin(a)*(R+3)); gc.stroke();
+            });
+            const pct={easy:.10,normal:.36,hard:.64,nightmare:.91}[diff]??0.5;
+            const ang=Math.PI+pct*Math.PI, nL=R*0.82;
+            gc.strokeStyle='rgba(0,0,0,0.5)'; gc.lineWidth=3; gc.lineCap='round';
+            gc.beginPath(); gc.moveTo(cx+1,cy+1); gc.lineTo(cx+Math.cos(ang)*nL+1,cy+Math.sin(ang)*nL+1); gc.stroke();
+            gc.strokeStyle='#fff'; gc.lineWidth=2;
+            gc.beginPath(); gc.moveTo(cx,cy); gc.lineTo(cx+Math.cos(ang)*nL,cy+Math.sin(ang)*nL); gc.stroke();
+            gc.fillStyle='#e74c3c'; gc.beginPath(); gc.arc(cx,cy,3,0,Math.PI*2); gc.fill();
+            gc.strokeStyle='#fff'; gc.lineWidth=1; gc.stroke();
+        }
+        function initDiffGauges(){
+            document.querySelectorAll('.diff-gauge').forEach(canvas=>{
+                const card=canvas.closest('[data-diff]');
+                if(card) drawDiffGauge(canvas,card.dataset.diff);
+            });
+        }
+        // ─── koniec potencjometru ─────────────────────────────────────────────
 </script>
 </body>
 </html>let _castleFireParticles = [];
