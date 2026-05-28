@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.22
+        Game version: v4.23
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1149,6 +1149,16 @@
             if(keys.hasOwnProperty(key)) keys[key] = true; 
             if(e.code==='Space') mouse.isDown=true; 
             if(gameState === 'PLAYING' && EMOTES[key]) player.showEmote(EMOTES[key]);
+            // ═══ [LIGHTS v4.23] HANDLER — rollback: usuń ten blok ═══
+            if(key === 'l' && gameState === 'PLAYING') {
+                tanksLightsOn = !tanksLightsOn;
+                floatingTexts.push(new FloatingText(
+                    player.x, player.y - 55,
+                    tanksLightsOn ? '💡 Światła ON' : '💡 Światła OFF',
+                    tanksLightsOn ? '#ffee88' : '#aaaaaa'
+                ));
+            }
+            // ═══ [LIGHTS v4.23] KONIEC HANDLERA ══════════════════════
         });
         window.addEventListener('keyup', e => { 
             let key = e.key.toLowerCase();
@@ -1509,17 +1519,26 @@
             // Exhaust smoke from rear (all tanks, subtle)
             // Exhaust smoke from rear (all tanks, subtle)
             const ex=-hhl+3, ey=hhw*0.38;
-            const _exCol = id==='pyro' ? '#ff6b00' : '#999';
-            const _exAlphaMult = id==='pyro' ? 0.30 : 0.16;
-            [0,0.38,0.72].forEach(off=>{
-                const a=(age*0.022+off)%1;
-                c.globalAlpha=(1-a)*_exAlphaMult; c.fillStyle=_exCol;
-                c.beginPath(); c.arc(ex-a*10, ey-a*6, (2+a*4.5), 0, Math.PI*2); c.fill();
-            });
+            if(id==='pyro') {
+                // Ogniarz — spaliny x2 wielkość, 3 kolory ognia
+                const _pyroCols=['#ff4500','#ff6b00','#ffd700'];
+                [0,0.28,0.56,0.80].forEach((off,ci)=>{
+                    const a=(age*0.022+off)%1;
+                    c.globalAlpha=(1-a)*0.50;
+                    c.fillStyle=_pyroCols[ci%3];
+                    c.beginPath(); c.arc(ex-a*18,ey-a*11,(4+a*9),0,Math.PI*2); c.fill();
+                });
+            } else {
+                [0,0.38,0.72].forEach(off=>{
+                    const a=(age*0.022+off)%1;
+                    c.globalAlpha=(1-a)*0.16; c.fillStyle='#999';
+                    c.beginPath(); c.arc(ex-a*10,ey-a*6,(2+a*4.5),0,Math.PI*2); c.fill();
+                });
+            }
             c.globalAlpha=1;
         }
 
-        function drawTankTurret(c, brawler, colorMain, lastShot, shootCooldown) {
+        function drawTankTurret(c, brawler, colorMain, lastShot, shootCooldown, recoilOff=0) {
             const id=brawler.id, col=colorMain;
             const cL=lerpHex(col,45), cD=lerpHex(col,-40);
             const tr={heavy:14,king:14,plasma:12,scout:10}[id]||12;
@@ -1593,8 +1612,12 @@
                          plasma:{bl:14,bw:2.5},pyro:{bl:14,bw:8.5},shadow:{bl:25,bw:4},king:{bl:20,bw:4.5}};
             const {bl,bw}=specs[id]||specs.twardy;
             const bstart = id==='heavy'?tr*0.6:id==='king'?tr*0.5:tr*0.65;
+            const _bstart = id==='pyro' ? bstart - recoilOff : bstart; // recoil offset dla Ogiarz
             c.fillStyle='#484848'; c.strokeStyle='#111'; c.lineWidth=1.5;
-            if(id==='plasma'){
+            if(id==='pyro'){
+                // Pyro barrel z recoil offset
+                c.beginPath(); c.roundRect(_bstart,-bw/2,bl,bw,bw*0.25); c.fill(); c.stroke();
+            } else if(id==='plasma'){
                 [-4,0,4].forEach(oy=>{
                     c.beginPath(); c.roundRect(tr-1,oy-1.5,14,3,1); c.fill(); c.stroke();
                     c.fillStyle=cL; c.globalAlpha=0.8;
@@ -1678,12 +1701,25 @@
         }
 
 
-        // ─ Flag slot renderer — placeholder dla systemu skrzyń (v4.22) ───
+        // ─ Flag slot renderer — system skrzyń (v4.22) ─────────────────────
         function _drawFlagSlot(c, flagId) {
-            // Slot: x=-16, y=-6, 18×12px — za wieżyczką, przed pierścieniem turret
-            // Gdy equippedFlag=null → nic nie rysuje. Gotowe na v5.0.
             if(!flagId) return;
-            // Przyszła implementacja: switch(flagId) { case 'poland': ... }
+            // Pozycja: za wieżyczką, na tylnym kadłubie. Rysowane przed pierścieniem turret.
+            const fx=-25, fy=-6, fw=18, fh=12;
+            // Cień
+            c.fillStyle='rgba(0,0,0,0.30)';
+            c.fillRect(fx+1,fy+1,fw,fh);
+            if(flagId==='poland') {
+                // Biało-czerwona — Polska
+                c.fillStyle='#FFFFFF'; c.fillRect(fx,fy,fw,fh/2);     // biały pas
+                c.fillStyle='#D4213D'; c.fillRect(fx,fy+fh/2,fw,fh/2); // czerwony pas
+            }
+            // Ramka
+            c.strokeStyle='rgba(0,0,0,0.55)'; c.lineWidth=0.8;
+            c.strokeRect(fx,fy,fw,fh);
+            // Mały maszt (linia pionowa po lewej)
+            c.strokeStyle='rgba(80,50,20,0.7)'; c.lineWidth=1.2;
+            c.beginPath(); c.moveTo(fx,fy-3); c.lineTo(fx,fy+fh+2); c.stroke();
         }
 
         // ─ _pyroLerp — interpolacja kolorów TYLKO dla Ogniarz (v4.22) ─────
@@ -1704,7 +1740,7 @@
                 this.emote = null; this.emoteTimer = 0;
                 this.bushTime = 0; this.age = 0;
                 this.speedBoostMult = 1; this.speedBoostEnd = 0;
-            this.equippedFlag = null; // Placeholder — system skrzyń v5.0
+            this.equippedFlag = 'poland'; // v4.22 — flaga testowa (cofnąć → null gdy system skrzyń gotowy)
             // Juice — Ogniarz recoil/squash/flash
             this._recoil = 0; this._squash = 1.0; this._muzzleFlash = 0;
                 this.isMoving = false;
@@ -1881,7 +1917,7 @@
                 ctx.save();
                 ctx.rotate(this.turretAngle);
                 ctx.scale(1.75, 1.75);
-                drawTankTurret(ctx, this.brawler, this.colorMain, this.lastShot, this.shootCooldown);
+                drawTankTurret(ctx, this.brawler, this.colorMain, this.lastShot, this.shootCooldown, this._recoil||0);
                 ctx.restore();
                 // Muzzle Flash — Ogniarz (screen blend, 4 klatki)
                 if(this.brawler.id==='pyro' && this._muzzleFlash > 0) {
@@ -2264,7 +2300,7 @@
                     if(this.burnTickTimer <= 0) {
                         this.burnTickTimer = 20; // tick co 20 klatek
                         this.hp -= 0.05;
-                        createExplosion(this.x, this.y, '#ff6b00', 2);
+                        createExplosion(this.x, this.y, '#ff6b00', 6);
                         if(this.hp <= 0) this.active = false;
                     }
                 }
@@ -2576,6 +2612,17 @@
 
                 ctx.save();
                 ctx.translate(this.x, this.y);
+
+                // Burn DoT glow ring — Ogniarz
+                if(this.burnTimer > 0 && !this.isMegaBoss) {
+                    const _bAlpha = (this.burnTimer/90)*(0.25+Math.sin(frames*0.35)*0.12);
+                    ctx.globalAlpha = _bAlpha;
+                    const _bg=ctx.createRadialGradient(0,0,this.height/2,0,0,this.height/2+14);
+                    _bg.addColorStop(0,'#ff6b00'); _bg.addColorStop(1,'rgba(255,69,0,0)');
+                    ctx.fillStyle=_bg;
+                    ctx.beginPath(); ctx.arc(0,0,this.height/2+14,0,Math.PI*2); ctx.fill();
+                    ctx.globalAlpha=1;
+                }
 
                 // HP bar (screen-aligned, not rotated)
                 const hpBarW = boss ? 72 : 44;
@@ -3127,6 +3174,67 @@
         const player = new Player();
         let bullets = [], enemies = [], gems = [], hearts = [], particles = [], environment = [], mapDecorations = [], powerCubes = [], floatingTexts = [], magnets = [];
         let frames = 0;
+        // ═══ [LIGHTS v4.23] START — rollback: usuń DO ═END═ + handler 'L' w keydown + wywołanie _drawHeadlights() ═══
+        let tanksLightsOn = false; // Toggle klawisze L — globalny stan świateł
+        // ═══ [LIGHTS v4.23] ═END═ zmiennej — reszta kodu sekcji poniżej ════════════════════════════════════════════
+
+
+
+        // ═══ [LIGHTS v4.23] FUNKCJA — rollback: usuń całą tę funkcję ═══════════════════════════════
+        function _drawHeadlights() {
+            // Rysuje stożki świetlne, reflektory (przód) i tylne lampki (tył)
+            // Wywoływana przed player.draw() żeby stożki leżały POD czołgiem
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.hullAngle);
+
+            const _hF = 26 * 1.75;   // krawędź przodu kadłuba = 45.5 px w world-space
+            const _hY = 8 * 1.75;    // boczne odsunięcie reflektora = 14 px
+            const _cL  = 185;        // długość stożka świetlnego
+            const _cS  = 65;         // rozwarcie na końcu stożka
+
+            // --- STOŻKI (nakładka na podłoże) ---
+            const _lg = ctx.createLinearGradient(_hF, 0, _hF + _cL, 0);
+            _lg.addColorStop(0, 'rgba(255,248,160,0.28)');
+            _lg.addColorStop(0.45, 'rgba(255,235,100,0.10)');
+            _lg.addColorStop(1,   'rgba(255,220,80,0)');
+            ctx.fillStyle = _lg;
+            // Lewy stożek
+            ctx.beginPath();
+            ctx.moveTo(_hF, -_hY);
+            ctx.lineTo(_hF + _cL, -_hY - _cS);
+            ctx.lineTo(_hF + _cL, -_hY + _cS * 0.35);
+            ctx.closePath(); ctx.fill();
+            // Prawy stożek
+            ctx.beginPath();
+            ctx.moveTo(_hF, _hY);
+            ctx.lineTo(_hF + _cL, _hY - _cS * 0.35);
+            ctx.lineTo(_hF + _cL, _hY + _cS);
+            ctx.closePath(); ctx.fill();
+
+            // --- REFLEKTORY PRZEDNIE (żółty glow) ---
+            [-_hY, _hY].forEach(yo => {
+                const _rg = ctx.createRadialGradient(_hF, yo, 0, _hF, yo, 13);
+                _rg.addColorStop(0, 'rgba(255,255,200,0.95)');
+                _rg.addColorStop(0.4, 'rgba(255,240,120,0.55)');
+                _rg.addColorStop(1,   'rgba(255,220,60,0)');
+                ctx.fillStyle = _rg;
+                ctx.beginPath(); ctx.arc(_hF, yo, 13, 0, Math.PI*2); ctx.fill();
+            });
+
+            // --- TYLNE LAMPKI (czerwony glow) ---
+            [-_hY, _hY].forEach(yo => {
+                const _tg = ctx.createRadialGradient(-_hF, yo, 0, -_hF, yo, 9);
+                _tg.addColorStop(0, 'rgba(255,50,50,0.90)');
+                _tg.addColorStop(0.5, 'rgba(200,0,0,0.40)');
+                _tg.addColorStop(1,   'rgba(180,0,0,0)');
+                ctx.fillStyle = _tg;
+                ctx.beginPath(); ctx.arc(-_hF, yo, 9, 0, Math.PI*2); ctx.fill();
+            });
+
+            ctx.restore();
+        }
+        // ═══ [LIGHTS v4.23] KONIEC FUNKCJI ═══════════════════════════════════════════════════════
 
         function drawDecoration(d) {
             if(d.x < camera.x-100 || d.x > camera.x+screenW+100 || d.y < camera.y-100 || d.y > camera.y+screenH+100) return;
@@ -5107,6 +5215,9 @@
             // Repair hangars and power wells
             repairHangars.forEach(rh => rh.draw());
             powerWells.forEach(pw => pw.draw());
+            // ═══ [LIGHTS v4.23] WYWOŁANIE — rollback: usuń tę linię ═══
+            if(tanksLightsOn && player.hp > 0) _drawHeadlights();
+            // ═══ [LIGHTS v4.23] KONIEC WYWOŁANIA ════════════════════
             if(player.hp > 0) player.draw();
             // AURA visual (world space, around player)
             if(auraActive && Date.now() < auraEndTime) {
