@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.20.1
+        Game version: v4.21.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2177,7 +2177,8 @@
                 if(isBoss && !isMegaBoss) this.hp *= 10;
                 if(this.hp < 1) this.hp = 1;
                 this.maxHp = this.hp;
-                this.angle = 0; this.active = true; this.lastShot = Date.now(); this.age = 0;
+                this.angle = 0; this.playerAngle = 0; this.active = true; this.lastShot = Date.now(); this.age = 0;
+                this._btX = null; this._btY = null; this._bridgeFrame = -999; // bridge cache
                 this.flashTimer = 0;
                 // Mega boss shield
                 this.shieldActive = false;
@@ -2201,10 +2202,16 @@
                     }
                     if(this.shieldActive && now > this.shieldEndTime) this.shieldActive = false;
 
-                    const _bt1=_getBridgeTarget(this.x,this.y);
-                    const dx = _bt1.x - this.x, dy = _bt1.y - this.y;
+                    // Bridge target cache (recalculate every 20 frames) — FPS fix
+                    if(frames - this._bridgeFrame > 20) {
+                        const _t=_getBridgeTarget(this.x,this.y);
+                        this._btX=_t.x; this._btY=_t.y; this._bridgeFrame=frames;
+                    }
+                    const dx = this._btX - this.x, dy = this._btY - this.y;
                     const dist = Math.hypot(dx, dy);
                     this.angle = Math.atan2(dy, dx);
+                    // Shooting angle ALWAYS toward player (not bridge)
+                    this.playerAngle = Math.atan2(player.y-this.y, player.x-this.x);
 
                     // Phase-based movement
                     let targetDist = phase === 1 ? 80 : phase === 2 ? 200 : 350;
@@ -2277,10 +2284,10 @@
                         this.lastShot = now;
                         if(phase === 3) {
                             // Triple spread
-                            [-0.25, 0, 0.25].forEach(off => bullets.push(new Bullet(this.x, this.y, this.angle+off, false)));
+                            [-0.25, 0, 0.25].forEach(off => bullets.push(new Bullet(this.x, this.y, this.playerAngle+off, false)));
                         } else {
-                            bullets.push(new Bullet(this.x, this.y, this.angle, false));
-                            if(phase === 2) bullets.push(new Bullet(this.x, this.y, this.angle + 0.15, false));
+                            bullets.push(new Bullet(this.x, this.y, this.playerAngle, false));
+                            if(phase === 2) bullets.push(new Bullet(this.x, this.y, this.playerAngle + 0.15, false));
                         }
                         AudioSys.playShoot('standard');
                     }
@@ -2300,8 +2307,7 @@
                         const d = Math.hypot(this.x - pc.x, this.y - pc.y);
                         if(d < bestCubeDist) { bestCubeDist = d; cubeTarget = pc; }
                     }
-                    const _bt2=_getBridgeTarget(this.x,this.y);
-                    const dxP = _bt2.x - this.x, dyP = _bt2.y - this.y;
+                    const dxP = (this._btX||player.x) - this.x, dyP = (this._btY||player.y) - this.y;
                     const distToPlayer = Math.sqrt(dxP*dxP + dyP*dyP);
 
                     if(cubeTarget && bestCubeDist < distToPlayer * 0.7) {
@@ -2317,9 +2323,9 @@
                         // Steal cube if touching
                         if(bestCubeDist < this.height/2 + cubeTarget.radius) cubeTarget.active = false;
                     } else {
-                    const _bt3=_getBridgeTarget(this.x,this.y);
-                    let dx = _bt3.x - this.x; let dy = _bt3.y - this.y;
+                    let dx = (this._btX||player.x) - this.x; let dy = (this._btY||player.y) - this.y;
                     this.angle = Math.atan2(dy, dx);
+                    this.playerAngle = Math.atan2(player.y-this.y, player.x-this.x);
                     let dist = Math.sqrt(dx*dx + dy*dy);
                     if (dist > 150) {
                         let nextX = this.x + Math.cos(this.angle) * this.speed;
@@ -4433,7 +4439,8 @@
                         const _rt=['mesa','dome','mushroom','cone'][Math.floor(Math.random()*4)];
                         const _dv=_s>=0.5?Array.from({length:20},(_,i)=>({x:Math.cos(i/20*Math.PI*2)*(0.85+Math.random()*0.15),y:Math.sin(i/20*Math.PI*2)*(0.85+Math.random()*0.15)})):null;
                         const _sh=_s>=0.5?_preRenderSmallHill(20+_s*14,_s*100+x*0.011+y*0.007):null;
-                        mapDecorations.push({x,y,mapId:'desert_rock',seed:_s,rockType:_rt,domeVerts:_dv,_hillCanvas:_sh});
+                        const _rockSz=20+_s*14;
+                        mapDecorations.push({x,y,mapId:'desert_rock',seed:_s,rockType:_rt,domeVerts:_dv,_hillCanvas:_sh,_size:_rockSz});
                     }
             }
 
@@ -4571,7 +4578,8 @@
                             const _gNrS=Math.hypot(_gx-WORLD_W*0.72,_gy-WORLD_H*0.10)<200;
                             // Szerszy margines rzeki dla trawy (+25px extra)
                             const _gNrR=_nilRiver&&(_nilRiver.isOnRiver(_gx+20,_gy)||_nilRiver.isOnRiver(_gx-20,_gy)||_nilRiver.isOnRiver(_gx,_gy+20)||_nilRiver.isOnRiver(_gx,_gy-20));
-                            if(!isBlockedByRiver(_gx,_gy)&&!_gNrR&&!_gInW&&!_gNrS)
+                            const _gOnBr=_nilRiver&&_nilRiver.bridges.some(b=>_ptRotRect(_gx,_gy,b.cx,b.cy,b.roadW+30,b.roadL+30,b.angle));
+                            if(!isBlockedByRiver(_gx,_gy)&&!_gNrR&&!_gOnBr&&!_gInW&&!_gNrS)
                                 _desertGrassTufts.push(new BrawlGrassTuft(_gx,_gy));
                         }
                     }
@@ -4608,7 +4616,11 @@
                         env._hill=_preRenderHill(env.w,env.h,seed);
                     }
                 });
-                mapDecorations.sort((a,b)=>a.y-b.y); // Y-sort
+                mapDecorations.sort((a,b)=>{
+                    const dy=a.y-b.y;
+                    if(Math.abs(dy)>20) return dy; // Primary: Y (południe zakrywa północ)
+                    return (a._size||0)-(b._size||0); // Secondary: mniejsza zakryta przez większą
+                }); // Y-sort v4.21
                 _buildDesertOffscreen();
             } else {
                 _desertOffscreen = null;
@@ -4967,12 +4979,12 @@
             }
 
             // Rzeka Nil (przed env walls, po offscreen)
-            // Lotusy — pływają na wodzie (po rzece, przed encjami)
-            if(selectedMap.id==='desert' && _desertLotus.length)
-                _desertLotus.forEach(l=>l.draw(Date.now()/1000));
             if(selectedMap.id==='desert' && _nilRiver) {
                 _nilRiver.draw(Date.now()/1000);
             }
+            // Lotusy — PO rzece (pływają na wodzie, v4.21)
+            if(selectedMap.id==='desert' && _desertLotus.length)
+                _desertLotus.forEach(l=>l.draw(Date.now()/1000));
 
             // Env walls — za dekoracjami wizualnie
             environment.forEach(env => { if(env.type === 'wall') env.draw(); });
