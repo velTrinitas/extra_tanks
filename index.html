@@ -14,7 +14,7 @@
             background-color: #1a1a2e;
             font-family: 'Lilita One', cursive, sans-serif;
             touch-action: none;
-            cursor: none; /* v4.27: własny celownik canvas */
+            cursor: default; /* menu i nieklikalne elementy */
             user-select: none;
         }
         
@@ -25,6 +25,7 @@
         }
 
         /* --- BRAWL STARS UI STYLE - CARTOON OVERHAUL --- */
+        body.game-cursor-hidden { cursor: none !important; }
         #uiLayer {
             position: absolute;
             top: 0;
@@ -545,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.27
+        Game version: v4.29
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -976,8 +977,8 @@
             div.style.borderColor = rank.border;
             div.style.boxShadow = `0 6px 0 rgba(0,0,0,0.55), 0 0 12px ${rank.border}`;
             div.innerHTML = `
-                <div style="width:100%;padding-top:100%;position:relative;margin-top:25px;margin-bottom:8px;">
-                    <img src="${b.icon}" alt="${b.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;border-radius:8px;border:3px solid #2c3e50;box-sizing:border-box;background:#fff;">
+                <div style="width:100%;padding-top:100%;position:relative;margin-top:25px;margin-bottom:8px;border-radius:10px;overflow:hidden;background:linear-gradient(135deg,${b.colorMain}22,#0a0a12);">
+                    <img src="${b.icon}" alt="${b.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;border-radius:8px;border:2px solid ${b.colorMain}66;box-sizing:border-box;background:linear-gradient(135deg,${b.colorMain}22,#0a0a12);">
                 </div>
                 <div class="name" style="background:${b.colorMain};border-radius:8px;padding:4px 2px;">${b.emoji} ${b.name}</div>
                 <div class="card-stats-row">
@@ -5518,8 +5519,41 @@
                 ctx.strokeText(`💜 SUPER GOTOWE! (x${superCharges})`, wx, wy);
                 ctx.fillText(`💜 SUPER GOTOWE! (x${superCharges})`, wx, wy);
             } else {
-                ctx.strokeText(`💚 ${gemsSinceLastSuper}/10 do Super`, wx, wy);
-                ctx.fillText(`💚 ${gemsSinceLastSuper}/10 do Super`, wx, wy);
+                // Gem + tekst zamiast 💚 emoji (v4.29)
+                const _gTxt = `${gemsSinceLastSuper}/10 do Super`;
+                ctx.textAlign = 'left';
+                const _gTxtW = ctx.measureText(_gTxt).width;
+                const _gSz = 13, _gGap = 6;
+                const _startX = wx - (_gSz + _gGap + _gTxtW) / 2;
+
+                // Pulsujący gem
+                ctx.save();
+                ctx.translate(_startX + _gSz/2, wy);
+                const _p = 1 + Math.sin(frames * 0.1) * 0.12;
+                const _r = _gSz/2 * _p;
+                ctx.fillStyle = '#2ecc71'; ctx.strokeStyle = '#1a7a40'; ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0,-_r); ctx.lineTo(_r*0.75,-_r*0.28);
+                ctx.lineTo(_r*0.75,_r*0.28); ctx.lineTo(0,_r);
+                ctx.lineTo(-_r*0.75,_r*0.28); ctx.lineTo(-_r*0.75,-_r*0.28);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                // Świecący reflex (rotujący)
+                const _sh = frames * 0.04;
+                ctx.fillStyle = 'rgba(255,255,255,0.60)';
+                ctx.beginPath();
+                ctx.ellipse(
+                    Math.cos(_sh)*_r*0.2 - _r*0.15,
+                    Math.sin(_sh)*_r*0.1 - _r*0.25,
+                    _r*0.28, _r*0.14, _sh*0.5, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+
+                // Tekst po prawej od gema
+                const _textX = _startX + _gSz + _gGap;
+                ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 3;
+                ctx.strokeText(_gTxt, _textX, wy);
+                ctx.fillStyle = '#fff'; ctx.fillText(_gTxt, _textX, wy);
+                ctx.textAlign = 'center'; // przywróć
             }
             ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
             // ─── Czerwony celownik (v4.27) ──────────────────────────────────
@@ -5569,6 +5603,7 @@
             player.speedBoostMult = 1; player.speedBoostEnd = 0;
             for(let i=0; i<15; i++) gems.push(new Gem());
             gameState = 'PLAYING';
+            document.body.classList.add('game-cursor-hidden');
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
             document.getElementById('welcomeScreenWrapper').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
@@ -5595,6 +5630,7 @@
 
         // Victory button
         document.getElementById('victoryBtn').addEventListener('click', () => {
+            document.body.classList.remove('game-cursor-hidden');
             document.getElementById('victoryScreen').classList.remove('active-screen');
             document.getElementById('welcomeScreenWrapper').style.display = 'block';
             document.getElementById('welcomeScreen').classList.add('active-screen');
@@ -5612,6 +5648,7 @@
             document.getElementById('welcomeScreen').classList.add('active-screen');
         });
         document.getElementById('restartBtn').addEventListener('click', () => {
+            document.body.classList.remove('game-cursor-hidden');
             document.getElementById('gameOverScreen').classList.remove('active-screen');
             document.getElementById('welcomeScreenWrapper').style.display = 'block';
             document.getElementById('welcomeScreen').classList.add('active-screen');
@@ -5752,6 +5789,7 @@
                     requestAnimationFrame(() => requestAnimationFrame(() => {
                         el.style.opacity = '';
                     }));
+                    if(el.id==='welcomeScreen') initDiffGauges();
                 }
             }));
             document.querySelectorAll('.screen').forEach(s =>
@@ -5793,6 +5831,7 @@
                 if(card) drawDiffGauge(canvas,card.dataset.diff);
             });
         }
+        initDiffGauges(); // auto-call v4.28.1 — DOM gotowy na tym etapie
         // ─── koniec potencjometru ─────────────────────────────────────────────
 </script>
 </body>
