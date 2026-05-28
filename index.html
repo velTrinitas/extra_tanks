@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.29
+        Game version: v4.30
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -603,10 +603,10 @@
 
             <h2>Poziom trudu</h2>
             <div class="grid-container diff-grid" id="diffGrid">
-                <div class="select-card diff-card" style="background:#27ae60;" data-diff="easy"><canvas class="diff-gauge" width="50" height="32"></canvas><span class="diff-label">EASY</span></div>
-                <div class="select-card diff-card selected" style="background:#e67e22;" data-diff="normal"><canvas class="diff-gauge" width="50" height="32"></canvas><span class="diff-label">NORMAL</span></div>
-                <div class="select-card diff-card" style="background:#c0392b;" data-diff="hard"><canvas class="diff-gauge" width="50" height="32"></canvas><span class="diff-label">HARD</span></div>
-                <div class="select-card diff-card" data-diff="nightmare"><canvas class="diff-gauge" width="50" height="32"></canvas><span class="diff-label">NIGHTMARE</span></div>
+                <div class="select-card diff-card" style="background:#27ae60;" data-diff="easy"><canvas class="diff-gauge" width="60" height="40"></canvas><span class="diff-label">EASY</span></div>
+                <div class="select-card diff-card selected" style="background:#e67e22;" data-diff="normal"><canvas class="diff-gauge" width="60" height="40"></canvas><span class="diff-label">NORMAL</span></div>
+                <div class="select-card diff-card" style="background:#c0392b;" data-diff="hard"><canvas class="diff-gauge" width="60" height="40"></canvas><span class="diff-label">HARD</span></div>
+                <div class="select-card diff-card" data-diff="nightmare"><canvas class="diff-gauge" width="60" height="40"></canvas><span class="diff-label">NIGHTMARE</span></div>
             </div>
 
             <h2>Wybierz scenariusz</h2>
@@ -5508,7 +5508,7 @@
                 ctx.beginPath(); ctx.roundRect(wx - bw/2, wy - bh/2, bw * Math.min(progress,1), bh, br); ctx.fill();
             }
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 18px "Lilita One", cursive';
+            ctx.font = 'bold 26px "Lilita One", cursive'; // v4.30: zwiększono z 18→26px
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 3;
             if(superActive) {
@@ -5523,7 +5523,7 @@
                 const _gTxt = `${gemsSinceLastSuper}/10 do Super`;
                 ctx.textAlign = 'left';
                 const _gTxtW = ctx.measureText(_gTxt).width;
-                const _gSz = 13, _gGap = 6;
+                const _gSz = 22, _gGap = 8; // v4.30: gem 13→22px
                 const _startX = wx - (_gSz + _gGap + _gTxtW) / 2;
 
                 // Pulsujący gem
@@ -5558,7 +5558,7 @@
             ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
             // ─── Czerwony celownik (v4.27) ──────────────────────────────────
             if(gameState==='PLAYING'&&player.hp>0){
-                const _mx=mouse.x,_my=mouse.y,_cl=16,_cg=5;
+                const _mx=mouse.screenX,_my=mouse.screenY,_cl=16,_cg=5; // v4.30: screenX/Y
                 ctx.strokeStyle='#111'; ctx.lineWidth=3.5; ctx.lineCap='round';
                 ctx.beginPath();
                 ctx.moveTo(_mx-_cl,_my); ctx.lineTo(_mx-_cg,_my);
@@ -5802,19 +5802,22 @@
         function drawDiffGauge(canvas, diff) {
             const gc = canvas.getContext('2d');
             const W = canvas.width, H = canvas.height;
-            const cx = W/2, cy = H - 3, R = Math.min(W/2-3, H-6);
+            // Grubszy łuk v4.30 — lw=15 (3× poprzednie 5), canvas 60×40
+            const lw = 15;
+            const cx = W/2, cy = H - 4;
+            const R = Math.min(W/2 - lw/2 - 2, H - lw/2 - 4); // ~20px dla 60×40
             gc.clearRect(0,0,W,H);
-            gc.strokeStyle='rgba(0,0,0,0.45)'; gc.lineWidth=7; gc.lineCap='butt';
+            gc.strokeStyle='rgba(0,0,0,0.50)'; gc.lineWidth=lw+5; gc.lineCap='butt';
             gc.beginPath(); gc.arc(cx,cy,R,Math.PI,2*Math.PI); gc.stroke();
             ['#2ecc71','#f39c12','#e74c3c','#7b241c'].forEach((col,i)=>{
-                gc.strokeStyle=col; gc.lineWidth=5; gc.lineCap='round';
+                gc.strokeStyle=col; gc.lineWidth=lw; gc.lineCap='round';
                 gc.beginPath(); gc.arc(cx,cy,R,Math.PI+i*Math.PI/4,Math.PI+(i+1)*Math.PI/4); gc.stroke();
             });
-            gc.strokeStyle='rgba(255,255,255,0.45)'; gc.lineWidth=1;
+            gc.strokeStyle='rgba(255,255,255,0.55)'; gc.lineWidth=1.5;
             [1,2,3].forEach(i=>{
                 const a=Math.PI+i*Math.PI/4;
-                gc.beginPath(); gc.moveTo(cx+Math.cos(a)*(R-4),cy+Math.sin(a)*(R-4));
-                gc.lineTo(cx+Math.cos(a)*(R+3),cy+Math.sin(a)*(R+3)); gc.stroke();
+                gc.beginPath(); gc.moveTo(cx+Math.cos(a)*(R-6),cy+Math.sin(a)*(R-6));
+                gc.lineTo(cx+Math.cos(a)*(R+5),cy+Math.sin(a)*(R+5)); gc.stroke();
             });
             const pct={easy:.10,normal:.36,hard:.64,nightmare:.91}[diff]??0.5;
             const ang=Math.PI+pct*Math.PI, nL=R*0.82;
