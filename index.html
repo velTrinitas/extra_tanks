@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.23
+        Game version: v4.24
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2284,6 +2284,15 @@
                 this.angle = 0; this.playerAngle = 0; this.active = true; this.lastShot = Date.now(); this.age = 0;
                 this._btX = null; this._btY = null; this._bridgeFrame = -999; // bridge cache
                 this.burnTimer = 0; this.burnTickTimer = 0; // Ogniarz burn DoT
+                // Pre-generate fire particles (jak castle fire, 1/4 skali) — v4.24
+                const _fw = this.width || 40;
+                this._fireParticles = Array.from({length:8}, () => ({
+                    x: (Math.random()-0.5)*_fw*1.1,
+                    y: (Math.random()-0.5)*_fw*0.6,
+                    size: 4+Math.random()*4,
+                    speedY: 1.2+Math.random()*1.5,
+                    life: Math.random()*Math.PI*2
+                }));
                 this.flashTimer = 0;
                 // Mega boss shield
                 this.shieldActive = false;
@@ -2613,15 +2622,28 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
 
-                // Burn DoT glow ring — Ogniarz
-                if(this.burnTimer > 0 && !this.isMegaBoss) {
-                    const _bAlpha = (this.burnTimer/90)*(0.25+Math.sin(frames*0.35)*0.12);
-                    ctx.globalAlpha = _bAlpha;
-                    const _bg=ctx.createRadialGradient(0,0,this.height/2,0,0,this.height/2+14);
-                    _bg.addColorStop(0,'#ff6b00'); _bg.addColorStop(1,'rgba(255,69,0,0)');
-                    ctx.fillStyle=_bg;
-                    ctx.beginPath(); ctx.arc(0,0,this.height/2+14,0,Math.PI*2); ctx.fill();
-                    ctx.globalAlpha=1;
+                // Burn DoT — ogień screen blending (jak castle fire) — v4.24
+                if(this.burnTimer > 0 && !this.isMegaBoss && this._fireParticles) {
+                    const _ft = Date.now()/1000;
+                    ctx.globalCompositeOperation = 'screen';
+                    for(const p of this._fireParticles) {
+                        // Wznoszenie ognia (co klatkę progress = time*60*speedY mod 20)
+                        const _py = p.y - (_ft*60*p.speedY)%20;
+                        // Cząsteczka gaśnie i maleje wraz z wznoszeniem
+                        const _lr = Math.max(0.05, 1.0 - Math.abs(p.y-_py)/20);
+                        const _ps = p.size * _lr;
+                        // Lekkie kołysanie boczne (jak żywy ogień)
+                        const _sx = p.x + Math.sin(_ft*3+p.life)*5;
+                        // Gradient: żółty rdzeń → pomarańcz → transparent
+                        const _fg = ctx.createRadialGradient(_sx,_py,0,_sx,_py,_ps);
+                        _fg.addColorStop(0,'rgba(255,255,0,0.8)');
+                        _fg.addColorStop(0.5,'rgba(255,69,0,0.5)');
+                        _fg.addColorStop(1,'rgba(255,0,0,0)');
+                        ctx.fillStyle=_fg;
+                        ctx.beginPath(); ctx.arc(_sx,_py,_ps,0,Math.PI*2); ctx.fill();
+                    }
+                    ctx.globalCompositeOperation = 'source-over'; // ZAWSZE reset po screen
+                    ctx.globalAlpha = 1;
                 }
 
                 // HP bar (screen-aligned, not rotated)
