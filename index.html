@@ -531,7 +531,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.24.1
+        Game version: v4.25
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1938,7 +1938,7 @@
                     ctx.fillStyle='#fff'; ctx.strokeStyle='#000'; ctx.lineWidth=3;
                     ctx.beginPath(); ctx.roundRect(-25,-25,50,50,12); ctx.fill(); ctx.stroke();
                     ctx.beginPath(); ctx.moveTo(-8,25); ctx.lineTo(8,25); ctx.lineTo(0,35); ctx.fill(); ctx.stroke();
-                    ctx.fillStyle='#000'; ctx.font='30px Arial';
+                    ctx.fillStyle='#000'; ctx.font='30px "Lilita One",cursive';
                     ctx.textAlign='center'; ctx.textBaseline='middle';
                     ctx.fillText(this.emote,0,2);
                 }
@@ -4898,7 +4898,7 @@
                 drawTankTurret(vctx, brawler, brawler.colorMain, 0, 1000);
                 vctx.restore();
                 // Stars
-                vctx.font='bold 24px sans-serif'; vctx.textAlign='center';
+                vctx.font='bold 24px "Lilita One",cursive'; vctx.textAlign='center';
                 vctx.fillStyle='#f1c40f'; vctx.fillText('⭐⭐⭐⭐⭐',vc.width/2,vc.height-14);
                 vf++;
                 requestAnimationFrame(animateVictory);
