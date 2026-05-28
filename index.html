@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.31
+        Game version: v4.31.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4848,8 +4848,8 @@
                     return (a._size||0)-(b._size||0); // Secondary: mniejsza zakryta przez większą
                 }); // Y-sort v4.21
                 _buildDesertOffscreen();
-
-            if(selectedMap.id === 'city') {
+            } else if(selectedMap.id === 'city') {
+                mapDecorations = [];
                 environment = []; _cityBuildings = [];
                 // 25 buildings — 5 types, spread across 8 active blocks + minimal center
                 [
@@ -4883,9 +4883,6 @@
                 });
                 _buildCityOffscreen();
             } else {
-                _cityOffscreen = null; _cityBuildings = [];
-            }
-            } else if(selectedMap.id !== 'city') {
                 _desertOffscreen = null;
                 _desertGroundSpots = [];
                 _desertDunes = [];
@@ -4895,6 +4892,7 @@
                 _desertLotus = [];
                 _desertGrassTufts = [];
                 _nilRiver = null;
+                _cityOffscreen = null; _cityBuildings = [];
             }
         }
 
@@ -5265,7 +5263,7 @@
             }
 
             // Decorations — Y-sorted (skip palm dla later 2.5D layer)
-            mapDecorations.forEach(d => { if(d.mapId!=='desert_palm') drawDecoration(d); });
+            if(selectedMap.id==='desert') mapDecorations.forEach(d => { if(d.mapId!=='desert_palm') drawDecoration(d); });
             // Tatarak PO encjach (efekt jazdy pod)
             if(selectedMap.id==='desert' && _desertAcorus.length)
                 _desertAcorus.forEach(a=>a.draw(Date.now()/1000));
