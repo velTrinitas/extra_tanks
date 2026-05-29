@@ -625,7 +625,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33
+        Game version: v4.33.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1272,6 +1272,7 @@
             }
             draw() {
                 if(this.x + this.w < camera.x || this.x > camera.x + screenW || this.y + this.h < camera.y || this.y > camera.y + screenH) return;
+                if(selectedMap.id==='city') return; // v4.33.1: CyberBuilding+SteamVent handle visuals
                 // Desert wall blocks — topographic hill (pre-rendered offscreen)
                 if(this.type==='wall' && selectedMap.id==='desert' && this.w>60) {
                     if(this._hill) {
