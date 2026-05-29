@@ -625,7 +625,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33.1
+        Game version: v4.33.3
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -5392,6 +5392,7 @@
             // Steam vents — update + draw (world space)
             if(selectedMap.id==='city') {
                 _cityVents.forEach(v=>{ v.update(); v.draw(ctx); });
+                ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; // safety reset
             }
 
             // Decorations — Y-sorted (skip palm dla later 2.5D layer)
@@ -5432,6 +5433,17 @@
             // ═══ [LIGHTS v4.23] WYWOŁANIE — rollback: usuń tę linię ═══
             if(tanksLightsOn && player.hp > 0) _drawHeadlights();
             // ═══ [LIGHTS v4.23] KONIEC WYWOŁANIA ════════════════════
+            // Explicit ctx state reset przed player.draw (v4.33.3)
+            ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; ctx.lineCap='butt';
+            // Shadow circle pod graczem — widoczność na ciemnym tle city
+            if(selectedMap.id==='city' && player.hp>0){
+                ctx.globalAlpha=0.35;
+                const _sg=ctx.createRadialGradient(player.x,player.y,0,player.x,player.y,32);
+                _sg.addColorStop(0,'rgba(255,255,255,0.25)');
+                _sg.addColorStop(1,'rgba(255,255,255,0)');
+                ctx.fillStyle=_sg; ctx.beginPath(); ctx.arc(player.x,player.y,32,0,Math.PI*2); ctx.fill();
+                ctx.globalAlpha=1;
+            }
             if(player.hp > 0) player.draw();
             // AURA visual (world space, around player)
             if(auraActive && Date.now() < auraEndTime) {
@@ -5538,8 +5550,8 @@
                 ctx.fillText('👁 UKRYTY', 24, 83);
                 ctx.restore();
             }
-            // City rain (screen space, po restore)
-            if(selectedMap.id==='city' && _cityRain) _cityRain.draw(ctx);
+            // City rain — wyłączone v4.33.3 (stabilizacja wizualna, TODO: v4.35+)
+            // if(selectedMap.id==='city' && _cityRain) _cityRain.draw(ctx);
 
             // HP pill — top left canvas (200×54, same as other pills)
             drawHPPill(14, 8, 200, 54, 16);
@@ -5833,24 +5845,7 @@
                 else if(this.type===2){this._NL(ctx,mx,by1+(by2-by1)*0.25,mx+ox,by1+(by2-by1)*0.25+oy,K.n1,3,0.70*fa);}
                 else if(this.type===3){this._NL(ctx,mx,my,mx+ox,my+oy,K.n1,4,0.85*fa);}
                 else if(this.type===4){for(let i=0.25;i<=0.75;i+=0.25)this._NL(ctx,bx1+(bx2-bx1)*i,by1+(by2-by1)*i,bx1+(bx2-bx1)*i+ox*0.8,by1+(by2-by1)*i+oy*0.8,K.n1,2,0.55*fa);}
-                else if(this.type===5){this._NL(ctx,bx1,by1,bx1+ox,by1+oy,K.n1,2,0.9*fa);this._NL(ctx,bx2,by2,bx2+ox,by2+oy,K.n2,2,0.7*fa);}
-                // Okna na ścianie (seed z pozycji)
-                const seed=(this.x*0.017+this.y*0.013)%1;
-                const wCols=['#ffdd88','#aaddff','#ff9944'];
-                const nW=Math.floor(3+seed*6);
-                for(let wi=0;wi<nW;wi++){
-                    const wt=(seed*(wi+1)*7.3)%1;
-                    const ws=(seed*(wi+1)*11.1)%1;
-                    if(ws>0.28) continue; // 72% zgaszone
-                    const wx2=bx1+(bx2-bx1)*0.1+(wt*0.8)*(bx2-bx1);
-                    const wy2=by1+(by2-by1)*0.1+(ws*3.5%0.8)*(by2-by1);
-                    const wrx=wx2+ox*(0.3+wt*0.5), wry2=wy2+oy*(0.3+wt*0.5);
-                    const wcol=wCols[this.type===2?1:this.type===4?2:0];
-                    ctx.fillStyle=wcol; ctx.globalAlpha=0.55*fa;
-                    const wpx=wx2+(wrx-wx2)*0.5, wpy=wy2+(wry2-wy2)*0.5;
-                    ctx.fillRect(wpx-2,wpy-1.5,4,3);
-                }
-                ctx.restore();
+                else if(this.type===5){this._NL(ctx,bx1,by1,bx1+ox,by1+oy,K.n1,2,0.9*fa);this._NL(ctx,bx2,by2,bx2+ox,by2+oy,K.n2,2,0.7*fa);}                ctx.restore();
             }
             _R(ctx,rX,rY,fa){
                 const K=this._c;ctx.save();
@@ -5928,7 +5923,7 @@
         // ─── CityRain (v4.32) ────────────────────────────────────────────────
         class CityRain {
             constructor() {
-                this.drops = Array.from({length:180},()=>this._spawn(true));
+                this.drops = Array.from({length:55},()=>this._spawn(true));
                 this.splashes = [];
             }
             _spawn(init=false) {
@@ -5936,8 +5931,8 @@
                     x: init ? Math.random()*screenW : -20+Math.random()*(screenW+40),
                     y: init ? Math.random()*screenH : -14,
                     spd: 7+Math.random()*5,
-                    len: 11+Math.random()*9,
-                    a: 0.14+Math.random()*0.12
+                    len: 8+Math.random()*6,
+                    a: 0.06+Math.random()*0.06
                 };
             }
             draw(ctx) {
@@ -5969,7 +5964,7 @@
             const cv=document.createElement('canvas');cv.width=WORLD_W;cv.height=WORLD_H;
             const c=cv.getContext('2d');
             // Base asphalt
-            c.fillStyle='#14141e';c.fillRect(0,0,WORLD_W,WORLD_H);
+            c.fillStyle='#1c1c28';c.fillRect(0,0,WORLD_W,WORLD_H); // v4.33.3: jaśniejszy dla widoczności
             // Streets
             c.fillStyle='#09090f';
             c.fillRect(0,617,WORLD_W,100);c.fillRect(0,1283,WORLD_W,100);
@@ -6081,7 +6076,7 @@
             })();
             // Noise
             const imgD=c.getImageData(0,0,WORLD_W,WORLD_H),px=imgD.data;
-            for(let n=0;n<55000;n++){const i=Math.floor(Math.random()*WORLD_W*WORLD_H)*4,v=Math.floor(Math.random()*20);px[i]=Math.min(255,px[i]+v);px[i+1]=Math.min(255,px[i+1]+v);px[i+2]=Math.min(255,px[i+2]+v);}
+            for(let n=0;n<8000;n++){const i=Math.floor(Math.random()*WORLD_W*WORLD_H)*4,v=Math.floor(Math.random()*20);px[i]=Math.min(255,px[i]+v);px[i+1]=Math.min(255,px[i+1]+v);px[i+2]=Math.min(255,px[i+2]+v);}
             c.putImageData(imgD,0,0);
             _cityOffscreen=cv;
         }
