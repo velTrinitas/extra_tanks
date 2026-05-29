@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.34
+        Game version: v4.35
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1110,7 +1110,8 @@
         let superCharges = 0;
         let superActive = false, superEndTime = 0;
         let gemsSinceLastSuper = 0;
-        let repairHangars = [], powerWells = [], quicksandZones = [], hoverPads = [], powerHoverPads = [], trackMarks = [];
+        let repairHangars = [], powerWells = [], quicksandZones = [], hoverPads = [], powerHoverPads = [], policeTanks = [], trackMarks = [];
+        let lastPoliceTankKills = -1;
         // Super powers
         const SUPER_POWERS = [
             {id:'aura',  name:'AURA',      col:'#f1c40f', COOLDOWN:30000, DURATION:5000},
@@ -4868,6 +4869,123 @@
                 }
             }
 
+
+            class PoliceTank {
+                constructor(x, y) {
+                    this.x = x; this.y = y;
+                    this.hp = 3; this.active = true;
+                    this.speed = 5.5;
+                    this.bodyAngle = 0; this.turretAngle = 0;
+                    this.playerAngle = 0;
+                    this.trackOff = 0;
+                    this.lastShot = 0;
+                    this.shootCD = 1500; // 1.5s — podwójna salwa
+                    this.flashTimer = 0;
+                }
+                update(player) {
+                    if(!this.active) return;
+                    if(this.flashTimer > 0) this.flashTimer--;
+                    const dx = player.x - this.x, dy = player.y - this.y;
+                    const dist = Math.hypot(dx, dy);
+                    this.playerAngle = Math.atan2(dy, dx);
+                    this.turretAngle = this.playerAngle;
+                    // Ruch w stronę gracza
+                    if(dist > 80) {
+                        this.bodyAngle = this.playerAngle;
+                        this.x += Math.cos(this.playerAngle) * this.speed;
+                        this.y += Math.sin(this.playerAngle) * this.speed;
+                        this.trackOff += this.speed * 0.15;
+                    }
+                    // Strzelanie — podwójna salwa (Opcja C)
+                    const now = Date.now();
+                    if(now - this.lastShot > this.shootCD && dist < 550) {
+                        this.lastShot = now;
+                        bullets.push(new Bullet(this.x, this.y, this.playerAngle - 0.08, false));
+                        bullets.push(new Bullet(this.x, this.y, this.playerAngle + 0.08, false));
+                    }
+                }
+                draw(ctx, time) {
+                    if(!this.active) return;
+                    if(this.x<camera.x-100||this.x>camera.x+screenW+100||
+                       this.y<camera.y-100||this.y>camera.y+screenH+100) return;
+                    const isRed = Math.sin(time * 15) > 0;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.bodyAngle);
+                    // Flash on hit
+                    if(this.flashTimer > 0) { ctx.globalAlpha = 0.5 + Math.random()*0.5; }
+                    // Gąsienice
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(-22,-12,44,4); ctx.fillRect(-22,8,44,4);
+                    ctx.fillStyle = '#00ffff';
+                    const tOff = (this.trackOff * 0.5) % 10;
+                    for(let i=-18;i<20;i+=10){
+                        const px=i+tOff;
+                        if(px>-20&&px<20){ ctx.fillRect(px,-12,2,4); ctx.fillRect(px,8,2,4); }
+                    }
+                    // Kadłub
+                    const hGrad = ctx.createLinearGradient(23,0,-23,0);
+                    hGrad.addColorStop(0,'#0a1930'); hGrad.addColorStop(1,'#050c18');
+                    ctx.fillStyle=hGrad;
+                    ctx.beginPath();
+                    ctx.moveTo(23,0); ctx.lineTo(15,-10); ctx.lineTo(-23,-10);
+                    ctx.lineTo(-23,10); ctx.lineTo(15,10); ctx.closePath();
+                    ctx.fill();
+                    ctx.strokeStyle='#00ffff'; ctx.lineWidth=1.5; ctx.stroke();
+                    ctx.strokeStyle='#1a3c5e'; ctx.strokeRect(-20,-6,8,12);
+                    ctx.fillStyle='#00ffff';
+                    ctx.fillRect(-18,-4,4,1); ctx.fillRect(-18,0,4,1); ctx.fillRect(-18,4,4,1);
+                    // Numer 112
+                    ctx.save();
+                    ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='bold 8px Courier New';
+                    ctx.translate(-8,3); ctx.rotate(-Math.PI/2);
+                    ctx.fillText('112',0,0); ctx.restore();
+                    ctx.restore();
+                    // HP bar nad czołgiem (bo 3HP)
+                    ctx.save();
+                    ctx.translate(this.x, this.y - 28);
+                    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(-18,-4,36,8);
+                    ctx.fillStyle='#ff0033';
+                    ctx.fillRect(-18,-4,36*(this.hp/3),8);
+                    ctx.restore();
+                    // Wieżyczka + railgun
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.turretAngle);
+                    ctx.fillStyle='#222';
+                    ctx.fillRect(5,-3,24,2); ctx.fillRect(5,1,24,2);
+                    ctx.strokeStyle='#00ffff'; ctx.lineWidth=0.5;
+                    ctx.strokeRect(5,-3,24,2); ctx.strokeRect(5,1,24,2);
+                    ctx.fillStyle='#0a1930';
+                    ctx.beginPath();
+                    ctx.moveTo(10,0); ctx.lineTo(0,-8); ctx.lineTo(-10,-8);
+                    ctx.lineTo(-10,8); ctx.lineTo(0,8); ctx.closePath();
+                    ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle='#00ffff'; ctx.stroke();
+                    // Koguty (syreny)
+                    ctx.globalCompositeOperation='screen';
+                    ctx.fillStyle='#ff0033';
+                    if(isRed){ ctx.shadowColor='#ff0033'; ctx.shadowBlur=15;
+                        ctx.beginPath(); ctx.arc(-5,-5,5,0,Math.PI*2); ctx.fill();
+                    } else { ctx.shadowBlur=0; ctx.fillRect(-7,-7,4,4); }
+                    ctx.fillStyle='#0044ff';
+                    if(!isRed){ ctx.shadowColor='#0044ff'; ctx.shadowBlur=15;
+                        ctx.beginPath(); ctx.arc(-5,5,5,0,Math.PI*2); ctx.fill();
+                    } else { ctx.shadowBlur=0; ctx.fillRect(-7,3,4,4); }
+                    ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
+                    ctx.restore();
+                    // Dynamiczne światło na asfalcie
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.globalCompositeOperation='screen';
+                    const fg=ctx.createRadialGradient(0,0,0,0,0,60);
+                    fg.addColorStop(0,isRed?'rgba(255,0,50,0.15)':'rgba(0,100,255,0.15)');
+                    fg.addColorStop(1,'rgba(0,0,0,0)');
+                    ctx.fillStyle=fg; ctx.fillRect(-60,-60,120,120);
+                    ctx.globalCompositeOperation='source-over';
+                    ctx.restore();
+                }
+            }
+
         function generateMap() {
             environment = []; mapDecorations = [];
             quicksandZones = []; repairHangars = []; powerWells = [];
@@ -5321,6 +5439,17 @@
                                 } else {
                                     gems.push(new Gem(e.x, e.y));
                                 }
+                                if (stats.kills > 0 && stats.kills % 10 === 0 && stats.kills !== lastPoliceTankKills) {
+                                    lastPoliceTankKills = stats.kills;
+                                    const _pSide=Math.floor(Math.random()*4);
+                                    let _px,_py;
+                                    if(_pSide===0){_px=camera.x+Math.random()*screenW;_py=camera.y-150;}
+                                    else if(_pSide===1){_px=camera.x+screenW+150;_py=camera.y+Math.random()*screenH;}
+                                    else if(_pSide===2){_px=camera.x+Math.random()*screenW;_py=camera.y+screenH+150;}
+                                    else{_px=camera.x-150;_py=camera.y+Math.random()*screenH;}
+                                    policeTanks.push(new PoliceTank(_px,_py));
+                                    addHudNotif('🚨 POLICJA 112!','#ff0033');
+                                }
                                 if (stats.kills > 0 && stats.kills % 20 === 0 && !e.isMegaBoss && regularKills < 100 && !megaBossSpawned) enemies.push(new Enemy(true));
                             }
                             break;
@@ -5439,7 +5568,9 @@
             if (frames % 1125 === 0) magnets.push(new MagnetItem());
 
             player.update(); bullets.forEach(b => b.update());
-            enemies.forEach(e => e.update()); gems.forEach(g => g.update());
+            enemies.forEach(e => e.update());
+            policeTanks = policeTanks.filter(pt => pt.active);
+            policeTanks.forEach(pt => pt.update(player)); gems.forEach(g => g.update());
             hearts.forEach(h => h.update()); particles.forEach(p => p.update());
             magnets.forEach(m => m.update());
             powerCubes.forEach(pc => pc.update()); floatingTexts.forEach(ft => ft.update());
@@ -5457,6 +5588,27 @@
             
             checkCollisions();
 
+            // Bullet hit detection — PoliceTank
+            bullets.forEach(b => {
+                if(!b.active || !b.isPlayer) return;
+                policeTanks.forEach(pt => {
+                    if(!pt.active) return;
+                    if(Math.hypot(b.x-pt.x, b.y-pt.y) < 20) {
+                        b.active=false; pt.hp -= b.dmg; pt.flashTimer=3;
+                        createExplosion(b.x, b.y, '#00ffff', 5);
+                        if(pt.hp <= 0) {
+                            pt.active=false; stats.kills++;
+                            lastPoliceTankKills = -1; // reset żeby nie triggerować spawnu
+                            shakeTimer=Math.max(shakeTimer,15);
+                            createExplosion(pt.x, pt.y, '#ff0033', 25);
+                            createExplosion(pt.x, pt.y, '#0044ff', 15);
+                            addHudNotif('🚔 POLICJA POKONANA!', '#00ffff');
+                            gems.push(new Gem(pt.x, pt.y));
+                            gems.push(new Gem(pt.x+20, pt.y));
+                        }
+                    }
+                });
+            });
             bullets = bullets.filter(b => b.active); enemies = enemies.filter(e => e.active);
             gems = gems.filter(g => g.active); hearts = hearts.filter(h => h.active);
             particles = particles.filter(p => p.active);
@@ -5612,6 +5764,7 @@
             }
             enemies.sort((a,b) => a.y - b.y); // Y-sort for 2.5D depth
             enemies.forEach(e => e.draw());
+            policeTanks.forEach(pt => pt.draw(ctx, frames/60));
             // bush blocks nie rysowane — trawa BrawlGrassTuft zastępuje wizual
             bullets.forEach(b => b.draw()); particles.forEach(p => p.draw());
             floatingTexts.forEach(ft => ft.draw());
@@ -6165,6 +6318,7 @@
             player.speedBoostMult = 1; player.speedBoostEnd = 0;
             for(let i=0; i<15; i++) gems.push(new Gem());
             gameState = 'PLAYING';
+            policeTanks = []; lastPoliceTankKills = -1;
             document.body.classList.add('game-cursor-hidden');
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
             document.getElementById('welcomeScreenWrapper').style.display = 'none';
