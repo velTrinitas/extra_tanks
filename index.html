@@ -625,7 +625,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.34.1
+        Game version: v4.34.3
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -5442,13 +5442,22 @@
             // ═══ [LIGHTS v4.23] KONIEC WYWOŁANIA ════════════════════
             // Explicit ctx state reset przed player.draw (v4.33.3)
             ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; ctx.lineCap='butt';
-            // Shadow circle pod graczem — widoczność na ciemnym tle city
+            enemies.sort((a,b) => a.y - b.y); // Y-sort for 2.5D depth
+            enemies.forEach(e => e.draw());
+            // Neonowy marker gracza — city map (v4.34.2)
             if(selectedMap.id==='city' && player.hp>0){
-                ctx.globalAlpha=0.35;
-                const _sg=ctx.createRadialGradient(player.x,player.y,0,player.x,player.y,32);
-                _sg.addColorStop(0,'rgba(255,255,255,0.25)');
-                _sg.addColorStop(1,'rgba(255,255,255,0)');
-                ctx.fillStyle=_sg; ctx.beginPath(); ctx.arc(player.x,player.y,32,0,Math.PI*2); ctx.fill();
+                const _pulse=0.6+Math.sin(frames*0.12)*0.4;
+                // Soft glow pod czołgiem
+                const _sg=ctx.createRadialGradient(player.x,player.y,0,player.x,player.y,38);
+                _sg.addColorStop(0,'rgba(0,220,255,0.30)');
+                _sg.addColorStop(0.5,'rgba(0,180,255,0.12)');
+                _sg.addColorStop(1,'rgba(0,0,0,0)');
+                ctx.globalAlpha=_pulse; ctx.fillStyle=_sg;
+                ctx.beginPath(); ctx.arc(player.x,player.y,38,0,Math.PI*2); ctx.fill();
+                // Cyan neonowy pierścień — zawsze widoczny
+                ctx.globalAlpha=0.85*_pulse;
+                ctx.strokeStyle='#00e5ff'; ctx.lineWidth=2.5; ctx.lineCap='butt';
+                ctx.beginPath(); ctx.arc(player.x,player.y,26,0,Math.PI*2); ctx.stroke();
                 ctx.globalAlpha=1;
             }
             if(player.hp > 0) player.draw();
@@ -5497,8 +5506,6 @@
                 ctx.globalAlpha=1;
                 if(br>=maxR) bombExplosion=null;
             }
-            enemies.sort((a,b) => a.y - b.y); // Y-sort for 2.5D depth
-            enemies.forEach(e => e.draw());
             // bush blocks nie rysowane — trawa BrawlGrassTuft zastępuje wizual
             bullets.forEach(b => b.draw()); particles.forEach(p => p.draw());
             floatingTexts.forEach(ft => ft.draw());
@@ -5971,7 +5978,7 @@
             const cv=document.createElement('canvas');cv.width=WORLD_W;cv.height=WORLD_H;
             const c=cv.getContext('2d');
             // Base asphalt
-            c.fillStyle='#1c1c28';c.fillRect(0,0,WORLD_W,WORLD_H); // v4.33.3: jaśniejszy dla widoczności
+            c.fillStyle='#1e1e2e';c.fillRect(0,0,WORLD_W,WORLD_H); // v4.34.2: base asphalt
             // Streets
             c.fillStyle='#09090f';
             c.fillRect(0,617,WORLD_W,100);c.fillRect(0,1283,WORLD_W,100);
@@ -6083,7 +6090,7 @@
             })();
             // Noise
             const imgD=c.getImageData(0,0,WORLD_W,WORLD_H),px=imgD.data;
-            for(let n=0;n<8000;n++){const i=Math.floor(Math.random()*WORLD_W*WORLD_H)*4,v=Math.floor(Math.random()*20);px[i]=Math.min(255,px[i]+v);px[i+1]=Math.min(255,px[i+1]+v);px[i+2]=Math.min(255,px[i+2]+v);}
+            for(let n=0;n<2000;n++){const i=Math.floor(Math.random()*WORLD_W*WORLD_H)*4,v=Math.floor(Math.random()*20);px[i]=Math.min(255,px[i]+v);px[i+1]=Math.min(255,px[i+1]+v);px[i+2]=Math.min(255,px[i+2]+v);}
             c.putImageData(imgD,0,0);
             _cityOffscreen=cv;
         }
@@ -6102,7 +6109,7 @@
             player.applyBrawler(selectedBrawler);
             // City spawn fix: applyBrawler już ma aktualny environment
             if(selectedMap.id==='city'){
-                const _csp=findSafeSpawn(667,667,player.height/2.5);
+                const _csp=findSafeSpawn(667,667,30); // v4.34.2: fixed radius 30px (środek skrzyżowania)
                 player.x=_csp.x; player.y=_csp.y;
             }
             bullets = []; enemies = []; gems = []; hearts = []; particles = []; powerCubes = []; floatingTexts = [];
