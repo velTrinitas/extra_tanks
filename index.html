@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33-alpha.4c
+        Game version: v4.33-alpha.5
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1110,7 +1110,7 @@
         let superCharges = 0;
         let superActive = false, superEndTime = 0;
         let gemsSinceLastSuper = 0;
-        let repairHangars = [], powerWells = [], quicksandZones = [], repairWash = [], trackMarks = [];
+        let repairHangars = [], powerWells = [], quicksandZones = [], hoverPads = [], trackMarks = [];
         // Super powers
         const SUPER_POWERS = [
             {id:'aura',  name:'AURA',      col:'#f1c40f', COOLDOWN:30000, DURATION:5000},
@@ -1796,7 +1796,7 @@
                 }
                 // Repair hangars check
                 for(let rh of repairHangars) rh.tryRepair(this);
-                for(let rw of repairWash) rw.update(this);
+                for(let hp of hoverPads) hp.update(this, keys.w||keys.a||keys.s||keys.d);
                 // Power well check
                 for(let pw of powerWells) pw.checkPlayer(this);
 
@@ -4638,81 +4638,110 @@
         }
 
 
-            class RepairWash {
+
+
+            class HoverRepairPad {
                 constructor(x, y) {
                     this.x = x; this.y = y;
-                    this.w = 90; this.d = 140; this.hFactor = 0.08;
-                    this.cooldownEnd = -1; this.healAmount = 1;
+                    this.size = 90;
+                    this.hFactor = 0.12;
+                    this.cooldownEnd = -1;
+                    this.repairRequiredTime = 180;
+                    this.repairProgress = 0;
+                    this.healAmount = 1;
                 }
-                update(player) {
-                    if(Date.now() < this.cooldownEnd) return;
-                    if(player.x > this.x && player.x < this.x + this.w &&
-                       player.y > this.y && player.y < this.y + this.d) {
-                        if(player.hp < player.maxHp) {
-                            player.hp = Math.min(player.maxHp, player.hp + this.healAmount);
-                            this.cooldownEnd = Date.now() + 60000;
-                            createExplosion(player.x, player.y, '#2ecc71', 12);
-                        }
-                    }
+                update(player, isMoving) {
+                    if(Date.now() < this.cooldownEnd) { this.repairProgress = 0; return; }
+                    const cx = this.x + this.size/2, cy = this.y + this.size/2;
+                    const dist = Math.hypot(player.x - cx, player.y - cy);
+                    if(dist < 45 && player.hp < player.brawler.hp) {
+                        if(!isMoving) {
+                            this.repairProgress++;
+                            if(this.repairProgress >= this.repairRequiredTime) {
+                                player.hp = Math.min(player.brawler.hp, player.hp + this.healAmount);
+                                this.cooldownEnd = Date.now() + 60000;
+                                this.repairProgress = 0;
+                                createExplosion(player.x, player.y, '#2ecc71', 15);
+                                addHudNotif('🔧 +1 HP', '#2ecc71');
+                                AudioSys.playGem(); updateHUD();
+                            }
+                        } else { this.repairProgress = 0; }
+                    } else { this.repairProgress = 0; }
                 }
-                drawFloor(ctx, time) {
+                draw(ctx, camX, camY, time) {
                     if(this.x<camera.x-120||this.x>camera.x+screenW+120||
-                       this.y<camera.y-160||this.y>camera.y+screenH+160) return;
+                       this.y<camera.y-120||this.y>camera.y+screenH+120) return;
                     const isActive = Date.now() >= this.cooldownEnd;
-                    ctx.save(); ctx.translate(this.x, this.y);
-                    ctx.fillStyle='#0a192f'; ctx.fillRect(0,0,this.w,this.d);
-                    ctx.fillStyle = isActive ? '#f1c40f' : '#555';
-                    let bo = isActive ? (time*20)%20 : 0;
-                    for(let i=-20;i<this.d;i+=20){let py=i+bo;
-                        if(py>0&&py<this.d-10){ctx.fillRect(5,py,10,10);ctx.fillRect(this.w-15,py,10,10);}}
-                    if(isActive){
-                        let sY=this.d/2+Math.sin(time*3)*(this.d/2-10);
-                        ctx.globalCompositeOperation='screen';
-                        ctx.shadowColor='#e74c3c'; ctx.shadowBlur=10;
-                        ctx.fillStyle='#e74c3c'; ctx.fillRect(15,sY,this.w-30,4);
-                        ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
-                    }
-                    ctx.restore();
-                }
-                drawRoof(ctx, camX, camY, time) {
-                    if(this.x<camera.x-120||this.x>camera.x+screenW+120||
-                       this.y<camera.y-160||this.y>camera.y+screenH+160) return;
-                    const isActive = Date.now() >= this.cooldownEnd;
-                    const cNeon = isActive ? '#e74c3c' : '#4a2333';
-                    let pX=(this.x+this.w/2-camX)*this.hFactor;
-                    let pY=(this.y+this.d/2-camY)*this.hFactor;
+                    const isRepairing = this.repairProgress > 0;
+                    const cx = this.x + this.size/2, cy = this.y + this.size/2;
+                    const pX = (cx - camX) * this.hFactor;
+                    const pY = (cy - camY) * this.hFactor;
+                    const hoverH = isActive ? 10 + Math.sin(time * 3) * 5 : 2;
                     ctx.save();
-                    const wall=(isLeft)=>{
-                        ctx.beginPath();
-                        if(isLeft){ctx.moveTo(this.x,this.y);ctx.lineTo(this.x,this.y+this.d);
-                            ctx.lineTo(this.x+pX,this.y+this.d+pY);ctx.lineTo(this.x+pX,this.y+pY);}
-                        else{ctx.moveTo(this.x+this.w,this.y);ctx.lineTo(this.x+this.w,this.y+this.d);
-                            ctx.lineTo(this.x+this.w+pX,this.y+this.d+pY);ctx.lineTo(this.x+this.w+pX,this.y+pY);}
-                        ctx.closePath();
-                        ctx.fillStyle=isLeft?'#112240':'#1d3557'; ctx.fill();
-                        ctx.lineWidth=2; ctx.strokeStyle='#0a192f'; ctx.stroke();
-                        if(isActive){
-                            let rx=isLeft?this.x+pX*0.5+10:this.x+this.w+pX*0.5-10;
-                            let ry=this.y+this.d/2+pY*0.5;
-                            ctx.save(); ctx.translate(rx,ry); ctx.scale(isLeft?1:-1,1);
-                            ctx.rotate(time*10); ctx.fillStyle='#00ffff';
-                            for(let i=0;i<4;i++){ctx.rotate(Math.PI/2);ctx.fillRect(0,-2,12,4);}
-                            ctx.restore();
+                    ctx.translate(this.x, this.y);
+                    // Cień na podłodze
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.beginPath(); ctx.roundRect(0, 0, this.size, this.size, 15); ctx.fill();
+                    // Glow na asfalcie
+                    if(isActive) {
+                        ctx.globalCompositeOperation = 'screen';
+                        const glowA = isRepairing ? 0.4 + Math.random()*0.2 : 0.2;
+                        const fg = ctx.createRadialGradient(this.size/2,this.size/2,10,this.size/2,this.size/2,this.size);
+                        fg.addColorStop(0, `rgba(255,0,60,${glowA})`);
+                        fg.addColorStop(1, 'rgba(0,0,0,0)');
+                        ctx.fillStyle = fg;
+                        ctx.fillRect(-this.size/2,-this.size/2,this.size*2,this.size*2);
+                        ctx.globalCompositeOperation = 'source-over';
+                    }
+                    // Boczne ściany (grubość 3D)
+                    ctx.fillStyle = isActive ? '#14050a' : '#0c0f12';
+                    ctx.beginPath(); ctx.roundRect(pX, pY - hoverH, this.size, this.size, 15); ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(15, 0); ctx.lineTo(15 + pX, pY - hoverH);
+                    ctx.lineTo(this.size - 15 + pX, pY - hoverH); ctx.lineTo(this.size - 15, 0);
+                    ctx.fill();
+                    // Powierzchnia platformy
+                    ctx.translate(pX, pY - hoverH);
+                    ctx.fillStyle = isActive ? '#1f0d14' : '#14181f';
+                    ctx.beginPath(); ctx.roundRect(0, 0, this.size, this.size, 15); ctx.fill();
+                    ctx.strokeStyle = isActive ? '#3b1622' : '#222';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(15,this.size/2); ctx.lineTo(this.size-15,this.size/2);
+                    ctx.moveTo(this.size/2,15); ctx.lineTo(this.size/2,this.size-15);
+                    ctx.stroke();
+                    // Neonowe krawędzie
+                    ctx.strokeStyle = isActive ? '#ff003c' : '#333333';
+                    ctx.lineWidth = 4;
+                    if(isActive) { ctx.shadowColor='#ff003c'; ctx.shadowBlur=15; }
+                    ctx.beginPath(); ctx.roundRect(2, 2, this.size-4, this.size-4, 15); ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    // Lasery naprawcze z rogów
+                    if(isRepairing) {
+                        ctx.globalCompositeOperation = 'screen';
+                        ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 10;
+                        ctx.strokeStyle = 'rgba(200,255,255,0.8)';
+                        ctx.lineWidth = 1.5 + Math.random();
+                        const tx = this.size/2 + (Math.random()-0.5)*5;
+                        const ty = this.size/2 + (Math.random()-0.5)*5;
+                        for(const [cx2,cy2] of [[10,10],[this.size-10,10],[10,this.size-10],[this.size-10,this.size-10]]) {
+                            ctx.beginPath(); ctx.moveTo(cx2,cy2); ctx.lineTo(tx,ty); ctx.stroke();
+                            ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx2,cy2,3,0,Math.PI*2); ctx.fill();
                         }
-                    };
-                    wall(true); wall(false);
-                    ctx.translate(this.x+pX,this.y+pY);
-                    ctx.fillStyle='#0b1d3a'; ctx.fillRect(0,0,this.w,this.d);
-                    ctx.strokeStyle='#1a3c5e'; ctx.lineWidth=4; ctx.strokeRect(0,0,this.w,this.d);
-                    ctx.shadowColor=isActive?cNeon:'transparent'; ctx.shadowBlur=isActive?15:0;
-                    ctx.fillStyle=isActive?cNeon:'#333';
-                    ctx.fillRect(0,0,this.w,6); ctx.fillRect(0,this.d-6,this.w,6);
-                    ctx.translate(this.w/2,this.d/2);
-                    ctx.scale(isActive?1+Math.sin(time*8)*0.15:0.8, isActive?1+Math.sin(time*8)*0.15:0.8);
-                    ctx.globalCompositeOperation='screen';
-                    ctx.fillStyle=cNeon; ctx.shadowColor=cNeon; ctx.shadowBlur=isActive?20:0;
-                    ctx.beginPath(); ctx.rect(-8,-25,16,50); ctx.rect(-25,-8,50,16); ctx.fill();
-                    ctx.globalCompositeOperation='source-over';
+                        ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
+                    }
+                    // Pasek postępu
+                    if(isRepairing) {
+                        ctx.translate(this.size/2, -20);
+                        ctx.fillStyle='rgba(0,0,0,0.7)';
+                        ctx.beginPath(); ctx.roundRect(-40,-10,80,12,4); ctx.fill();
+                        const prog = this.repairProgress / this.repairRequiredTime;
+                        ctx.fillStyle='#00ffff';
+                        ctx.beginPath(); ctx.roundRect(-38,-8,76*prog,8,3); ctx.fill();
+                        ctx.fillStyle='#fff'; ctx.font='bold 10px Courier New';
+                        ctx.textAlign='center'; ctx.textBaseline='bottom';
+                        ctx.fillText('NAPRAWIAM...', 0, -12);
+                    }
                     ctx.restore();
                 }
             }
@@ -4971,12 +5000,12 @@
                 ].forEach(([sx,sy])=>_cityVents.push(new SteamVent(sx,sy)));
                 _cityRain = new CityRain();
                 // MEDI STATION i PWR NODE na ulicach miasta (v4.33-alpha.3)
-                repairHangars = []; // pusty dla city — używamy repairWash
-                repairWash = [];
-                // MEDI STATIONS — rozstawione na V1/V2 ulicach (v4.33-alpha.4)
-                repairWash.push(new RepairWash(617,  200));  // V1 street, północ
-                repairWash.push(new RepairWash(1283, 850));  // V2 street, środek
-                repairWash.push(new RepairWash(617, 1450));  // V1 street, południe
+                repairHangars = [];
+                // MEDI STATION — HoverRepairPad (v4.33-alpha.5)
+                hoverPads = [];
+                hoverPads.push(new HoverRepairPad(617,  200));   // V1 street, północ
+                hoverPads.push(new HoverRepairPad(1283, 850));   // V2 street, środek
+                hoverPads.push(new HoverRepairPad(617, 1450));   // V1 street, południe
                 powerWells = [];
                 powerWells.push(new PowerWell(1333, 1000));  // V2 street, środek
                 _buildCityOffscreen();
@@ -5400,16 +5429,16 @@
             magnets.forEach(m => m.draw());
             hearts.forEach(h => h.draw());
             // Repair hangars and power wells
-            // RepairWash floor — rysowane PRZED graczem (v4.33-alpha.4)
-            if(selectedMap.id==='city'){const _t=frames/60;repairWash.forEach(rw=>rw.drawFloor(ctx,_t));}
             repairHangars.forEach(rh => rh.draw());
+            // HoverRepairPad — przed graczem (v4.33-alpha.5)
+            if(selectedMap.id==='city'){const _t=frames/60,_cx=camera.x+screenW/2,_cy=camera.y+screenH/2;
+                hoverPads.forEach(hp=>hp.draw(ctx,_cx,_cy,_t));}
+
             powerWells.forEach(pw => pw.draw());
             // ═══ [LIGHTS v4.23] WYWOŁANIE — rollback: usuń tę linię ═══
             if(tanksLightsOn && player.hp > 0) _drawHeadlights();
             // ═══ [LIGHTS v4.23] KONIEC WYWOŁANIA ════════════════════
             if(player.hp > 0) player.draw();
-            // RepairWash roof — rysowane PO graczu (przykrywa czołg w tunelu)
-            if(selectedMap.id==='city') { const _t=frames/60; repairWash.forEach(rw=>rw.drawRoof(ctx,camera.x,camera.y,_t)); }
             // AURA visual (world space, around player)
             if(auraActive && Date.now() < auraEndTime) {
                 const ax=player.x, ay=player.y, t=frames*0.09;
