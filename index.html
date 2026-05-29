@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.35
+        Game version: v4.36
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4916,20 +4916,20 @@
                     if(this.flashTimer > 0) { ctx.globalAlpha = 0.5 + Math.random()*0.5; }
                     // Gąsienice
                     ctx.fillStyle = '#111';
-                    ctx.fillRect(-22,-12,44,4); ctx.fillRect(-22,8,44,4);
+                    ctx.fillRect(-22,-18,44,5); ctx.fillRect(-22,13,44,5);
                     ctx.fillStyle = '#00ffff';
                     const tOff = (this.trackOff * 0.5) % 10;
                     for(let i=-18;i<20;i+=10){
                         const px=i+tOff;
-                        if(px>-20&&px<20){ ctx.fillRect(px,-12,2,4); ctx.fillRect(px,8,2,4); }
+                        if(px>-20&&px<20){ ctx.fillRect(px,-18,2,5); ctx.fillRect(px,13,2,5); }
                     }
                     // Kadłub
                     const hGrad = ctx.createLinearGradient(23,0,-23,0);
                     hGrad.addColorStop(0,'#0a1930'); hGrad.addColorStop(1,'#050c18');
                     ctx.fillStyle=hGrad;
                     ctx.beginPath();
-                    ctx.moveTo(23,0); ctx.lineTo(15,-10); ctx.lineTo(-23,-10);
-                    ctx.lineTo(-23,10); ctx.lineTo(15,10); ctx.closePath();
+                    ctx.moveTo(24,0); ctx.lineTo(15,-15); ctx.lineTo(-24,-15);
+                    ctx.lineTo(-24,15); ctx.lineTo(15,15); ctx.closePath();
                     ctx.fill();
                     ctx.strokeStyle='#00ffff'; ctx.lineWidth=1.5; ctx.stroke();
                     ctx.strokeStyle='#1a3c5e'; ctx.strokeRect(-20,-6,8,12);
@@ -4953,23 +4953,23 @@
                     ctx.translate(this.x, this.y);
                     ctx.rotate(this.turretAngle);
                     ctx.fillStyle='#222';
-                    ctx.fillRect(5,-3,24,2); ctx.fillRect(5,1,24,2);
+                    ctx.fillRect(5,-5,24,2); ctx.fillRect(5,3,24,2);
                     ctx.strokeStyle='#00ffff'; ctx.lineWidth=0.5;
-                    ctx.strokeRect(5,-3,24,2); ctx.strokeRect(5,1,24,2);
+                    ctx.strokeRect(5,-5,24,2); ctx.strokeRect(5,3,24,2);
                     ctx.fillStyle='#0a1930';
                     ctx.beginPath();
-                    ctx.moveTo(10,0); ctx.lineTo(0,-8); ctx.lineTo(-10,-8);
-                    ctx.lineTo(-10,8); ctx.lineTo(0,8); ctx.closePath();
+                    ctx.moveTo(10,0); ctx.lineTo(0,-11); ctx.lineTo(-10,-11);
+                    ctx.lineTo(-10,11); ctx.lineTo(0,11); ctx.closePath();
                     ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle='#00ffff'; ctx.stroke();
                     // Koguty (syreny)
                     ctx.globalCompositeOperation='screen';
                     ctx.fillStyle='#ff0033';
                     if(isRed){ ctx.shadowColor='#ff0033'; ctx.shadowBlur=15;
-                        ctx.beginPath(); ctx.arc(-5,-5,5,0,Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(-5,-7,5,0,Math.PI*2); ctx.fill();
                     } else { ctx.shadowBlur=0; ctx.fillRect(-7,-7,4,4); }
                     ctx.fillStyle='#0044ff';
                     if(!isRed){ ctx.shadowColor='#0044ff'; ctx.shadowBlur=15;
-                        ctx.beginPath(); ctx.arc(-5,5,5,0,Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(-5,7,5,0,Math.PI*2); ctx.fill();
                     } else { ctx.shadowBlur=0; ctx.fillRect(-7,3,4,4); }
                     ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
                     ctx.restore();
@@ -5221,7 +5221,11 @@
                     [80,1440,125,178,0.20,1],[265,1445,58,58,0.28,5],[80,1688,195,118,0.18,2],
                     // Block(1,2) bottom-center
                     [748,1440,195,78,0.10,4],[925,1565,175,130,0.22,3],[758,1762,108,148,0.18,1],
-                    // Block(2,2) bottom-right
+                    // Nowe typy 6 (Cylinder) i 7 (Ziggurat)
+                    [480, 200, 80, 80, 0.22, 6],[1600, 300, 72, 72, 0.20, 6],
+                    [200, 1200, 95, 95, 0.25, 6],
+                    [900, 300, 110, 90, 0.18, 7],[1700, 1200, 100, 80, 0.20, 7],
+                                        // Block(2,2) bottom-right
                     [1445,1445,220,148,0.20,2],[1722,1452,158,78,0.12,4],[1882,1602,58,58,0.32,5],
                 ].forEach(([x,y,w,d,hF,t]) => {
                     _cityBuildings.push(new CyberBuilding(x,y,w,d,hF,t));
@@ -5439,17 +5443,6 @@
                                 } else {
                                     gems.push(new Gem(e.x, e.y));
                                 }
-                                if (stats.kills > 0 && stats.kills % 10 === 0 && stats.kills !== lastPoliceTankKills) {
-                                    lastPoliceTankKills = stats.kills;
-                                    const _pSide=Math.floor(Math.random()*4);
-                                    let _px,_py;
-                                    if(_pSide===0){_px=camera.x+Math.random()*screenW;_py=camera.y-150;}
-                                    else if(_pSide===1){_px=camera.x+screenW+150;_py=camera.y+Math.random()*screenH;}
-                                    else if(_pSide===2){_px=camera.x+Math.random()*screenW;_py=camera.y+screenH+150;}
-                                    else{_px=camera.x-150;_py=camera.y+Math.random()*screenH;}
-                                    policeTanks.push(new PoliceTank(_px,_py));
-                                    addHudNotif('🚨 POLICJA 112!','#ff0033');
-                                }
                                 if (stats.kills > 0 && stats.kills % 20 === 0 && !e.isMegaBoss && regularKills < 100 && !megaBossSpawned) enemies.push(new Enemy(true));
                             }
                             break;
@@ -5561,6 +5554,20 @@
             if(gameState !== 'PLAYING') return;
 
             frames++;
+            // PoliceTank spawn — każde 10 kills (tier system)
+            { const _tier=Math.floor(stats.kills/10);
+              if(_tier>0 && _tier!==lastPoliceTankKills){
+                lastPoliceTankKills=_tier;
+                const _s=Math.floor(Math.random()*4),_cx=camera.x,_cy=camera.y;
+                let _px,_py;
+                if(_s===0){_px=_cx+Math.random()*screenW;_py=_cy-160;}
+                else if(_s===1){_px=_cx+screenW+160;_py=_cy+Math.random()*screenH;}
+                else if(_s===2){_px=_cx+Math.random()*screenW;_py=_cy+screenH+160;}
+                else{_px=_cx-160;_py=_cy+Math.random()*screenH;}
+                policeTanks.push(new PoliceTank(_px,_py));
+                addHudNotif('🚨 POLICJA 112!','#ff0033');
+              }
+            }
             let diffBase = selectedDifficulty === 'easy' ? 200 : (selectedDifficulty === 'hard' ? 60 : 120);
             let spawnRate = Math.max(20, diffBase - Math.floor(gameTime * 1.5));
             if (frames % spawnRate === 0 && enemies.length < 25) enemies.push(new Enemy());
@@ -5598,7 +5605,6 @@
                         createExplosion(b.x, b.y, '#00ffff', 5);
                         if(pt.hp <= 0) {
                             pt.active=false; stats.kills++;
-                            lastPoliceTankKills = -1; // reset żeby nie triggerować spawnu
                             shakeTimer=Math.max(shakeTimer,15);
                             createExplosion(pt.x, pt.y, '#ff0033', 25);
                             createExplosion(pt.x, pt.y, '#0044ff', 15);
@@ -6059,8 +6065,11 @@
                     {rf:'#222635',wD:'#181c24',wL:'#1e2030',n1:'#f1c40f',n2:'#ff6600'},
                     {rf:'#1a1a1e',wD:'#111114',wL:'#181818',n1:'#ff3300',n2:'#ff9900'},
                     {rf:'#12121a',wD:'#0e0e14',wL:'#141420',n1:'#cc00ff',n2:'#ff00aa'},
+                    {rf:'#1c3024',wD:'#0f1814',wL:'#162a1e',n1:'#00ff66',n2:'#00cc44'},  // 6: Cylinder
+                    {rf:'#2e1338',wD:'#190a1f',wL:'#250f2e',n1:'#ff00ff',n2:'#cc00cc'},  // 7: Ziggurat
                 ];
                 this._c=P[type]||P[1];
+                if(type===6){this.d=this.w;} // Cylinder: kwadrat
             }
             draw(ctx){
                 const pcx=camera.x+screenW/2,pcy=camera.y+screenH/2;
@@ -6072,6 +6081,9 @@
                 else if(oy<0) this._W(ctx,this.x,this.y+this.d,this.x+this.w,this.y+this.d,this.x+ox,this.y+this.d+oy,this.x+this.w+ox,this.y+this.d+oy,K.wL);
                 if(ox>0){this._W(ctx,this.x,this.y,this.x,this.y+this.d,this.x+ox,this.y+oy,this.x+ox,this.y+this.d+oy,K.wL);this._N(ctx,this.x,this.y,this.x,this.y+this.d,ox,oy,fa);}
                 else if(ox<0){this._W(ctx,this.x+this.w,this.y,this.x+this.w,this.y+this.d,this.x+this.w+ox,this.y+oy,this.x+this.w+ox,this.y+this.d+oy,K.wD);this._N(ctx,this.x+this.w,this.y,this.x+this.w,this.y+this.d,ox,oy,fa);}
+                // Typy 6 i 7: deleguj do nowych metod
+                if(this.type===6){this._drawCylinder6(ctx,ox,oy,fa);ctx.restore();return;}
+                if(this.type===7){this._drawZiggurat7(ctx,ox,oy,fa);ctx.restore();return;}
                 const rX=this.x+ox,rY=this.y+oy;
                 ctx.fillStyle=K.rf;ctx.strokeStyle='#222238';ctx.lineWidth=1.5;
                 ctx.beginPath();ctx.rect(rX,rY,this.w,this.d);ctx.fill();ctx.stroke();
@@ -6121,6 +6133,67 @@
                     ctx.strokeStyle='#36364a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-this.d*0.9);ctx.stroke();
                     if((frames+this._fo)%60<30){ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=0.9;ctx.fillStyle=K.n1;ctx.beginPath();ctx.arc(cx,cy-this.d*0.9,4,0,Math.PI*2);ctx.fill();ctx.restore();}
                 }
+                ctx.restore();
+            }
+            _drawCylinder6(ctx,ox,oy,fa){
+                const cx=this.x+this.w/2,cy=this.y+this.d/2,r=this.w/2;
+                const rx=cx+ox,ry=cy+oy;
+                const K=this._c;
+                // Cień bazy
+                ctx.fillStyle='#0f1814';
+                ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+                // Ściana walca — tangenty
+                const ang=Math.atan2(oy,ox);
+                const p1x=cx+Math.cos(ang+Math.PI/2)*r,p1y=cy+Math.sin(ang+Math.PI/2)*r;
+                const p2x=cx+Math.cos(ang-Math.PI/2)*r,p2y=cy+Math.sin(ang-Math.PI/2)*r;
+                const r1x=rx+Math.cos(ang+Math.PI/2)*r,r1y=ry+Math.sin(ang+Math.PI/2)*r;
+                const r2x=rx+Math.cos(ang-Math.PI/2)*r,r2y=ry+Math.sin(ang-Math.PI/2)*r;
+                const wg=ctx.createLinearGradient(p1x,p1y,p2x,p2y);
+                wg.addColorStop(0,'#0a100d');wg.addColorStop(0.5,'#16281e');wg.addColorStop(1,'#050a07');
+                ctx.fillStyle=wg;
+                ctx.beginPath();ctx.moveTo(p1x,p1y);ctx.lineTo(r1x,r1y);ctx.lineTo(r2x,r2y);ctx.lineTo(p2x,p2y);ctx.closePath();
+                ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+                // Dach cylindra
+                ctx.fillStyle=K.rf;ctx.beginPath();ctx.arc(rx,ry,r,0,Math.PI*2);ctx.fill();
+                ctx.strokeStyle='#224030';ctx.lineWidth=3;ctx.stroke();
+                // Zielone neony
+                ctx.save();ctx.globalCompositeOperation='screen';
+                ctx.shadowColor=K.n1;ctx.shadowBlur=15*fa;ctx.strokeStyle=K.n1;ctx.lineWidth=2;
+                ctx.beginPath();ctx.arc(cx+ox*0.5,cy+oy*0.5,r,0,Math.PI*2);ctx.stroke();
+                ctx.fillStyle=K.n1;ctx.globalAlpha=0.7*fa;
+                ctx.beginPath();ctx.arc(rx,ry,r*0.4,0,Math.PI*2);ctx.fill();
+                ctx.globalAlpha=1;ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';
+                ctx.restore();
+            }
+            _drawZiggurat7(ctx,ox,oy,fa){
+                const K=this._c;
+                const _W=(bx,by,bx2,by2,rx1,ry1,rx2,ry2,col)=>{
+                    ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx2,by2);
+                    ctx.lineTo(rx2,ry2);ctx.lineTo(rx1,ry1);ctx.closePath();ctx.fill();
+                    ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+                };
+                const drawTier=(bx,by,w,d,ox2,oy2,dkC,ltC,rfC)=>{
+                    if(oy2>0) _W(bx,by,bx+w,by,bx+ox2,by+oy2,bx+w+ox2,by+oy2,dkC);
+                    else if(oy2<0) _W(bx,by+d,bx+w,by+d,bx+ox2,by+d+oy2,bx+w+ox2,by+d+oy2,ltC);
+                    if(ox2>0) _W(bx,by,bx,by+d,bx+ox2,by+oy2,bx+ox2,by+d+oy2,ltC);
+                    else if(ox2<0) _W(bx+w,by,bx+w,by+d,bx+w+ox2,by+oy2,bx+w+ox2,by+d+oy2,dkC);
+                    ctx.fillStyle=rfC;ctx.strokeStyle='#111';ctx.lineWidth=2;
+                    ctx.beginPath();ctx.rect(bx+ox2,by+oy2,w,d);ctx.fill();ctx.stroke();
+                };
+                // Poziom 1 (baza)
+                drawTier(this.x,this.y,this.w,this.d,ox*0.5,oy*0.5,'#190a1f','#250f2e','#2e1338');
+                // Cień między poziomami
+                ctx.fillStyle='rgba(0,0,0,0.4)';
+                ctx.fillRect(this.x+ox*0.5+5,this.y+oy*0.5+5,this.w*0.6,this.d*0.6);
+                // Poziom 2 (węższy)
+                const w2=this.w*0.6,d2=this.d*0.6;
+                const x2=this.x+(this.w-w2)/2+ox*0.5,y2=this.y+(this.d-d2)/2+oy*0.5;
+                drawTier(x2,y2,w2,d2,ox*0.5,oy*0.5,'#1e0c26','#31143d','#3e1a4d');
+                // Magenta neony na dachu
+                ctx.save();ctx.globalCompositeOperation='screen';
+                ctx.shadowColor=K.n1;ctx.shadowBlur=15*fa;ctx.strokeStyle=K.n1;ctx.lineWidth=3;
+                ctx.strokeRect(x2+ox*0.5+4,y2+oy*0.5+4,w2-8,d2-8);
+                ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';
                 ctx.restore();
             }
         }
