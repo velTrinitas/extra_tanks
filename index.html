@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33-alpha.1
+        Game version: v4.33-alpha.2
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4913,6 +4913,7 @@
         function triggerVictory() {
             if(gameState === 'VICTORY') return;
             gameState = 'VICTORY';
+            document.body.classList.remove('game-cursor-hidden');
             clearInterval(gameTimerInterval);
             document.getElementById('hud').style.display = 'none';
             document.getElementById('controlsHelper').style.display = 'none';
@@ -4969,6 +4970,7 @@
 
         function triggerGameOver() {
             gameState = 'GAMEOVER';
+            document.body.classList.remove('game-cursor-hidden');
             clearInterval(gameTimerInterval);
             document.getElementById('hud').style.display = 'none';
             document.getElementById('controlsHelper').style.display = 'none';
