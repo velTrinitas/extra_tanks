@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33-alpha.5
+        Game version: v4.33-alpha.5b
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4644,7 +4644,7 @@
                 constructor(x, y) {
                     this.x = x; this.y = y;
                     this.size = 90;
-                    this.hFactor = 0.12;
+                    this.hFactor = 0.0; // platforma przy ziemi — brak parallaxu
                     this.cooldownEnd = -1;
                     this.repairRequiredTime = 180;
                     this.repairProgress = 0;
