@@ -625,7 +625,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33.5
+        Game version: v4.34.1
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -886,6 +886,7 @@
     </div>
 
     <script>
+
         const BRAWLERS = [
             { id: 'twardy', emoji: '🪖', icon: 'twardy.jpg', name: 'Twardy', colorMain: '#27ae60', hp: 4, speed: 5, dmg: 1, reload: 400, type: 'standard' },
             { id: 'heavy', emoji: '🛡️', icon: 'pancerny.png', name: 'Pancerny', colorMain: '#8e44ad', hp: 7, speed: 3.5, dmg: 1.5, reload: 700, type: 'standard' },
@@ -1175,6 +1176,8 @@
         const WORLD_W = 3000;
         const WORLD_H = 3000;
         let camera = { x: 0, y: 0 };
+
+
 
         function resize() {
             screenW = window.innerWidth; screenH = window.innerHeight;
@@ -4739,10 +4742,10 @@
             quicksandZones = []; repairHangars = []; powerWells = [];
             let numBlocks = Math.floor((WORLD_W * WORLD_H) / 15000 * selectedMap.density);
             for(let i=0; i<numBlocks; i++) {
-                let w = 75 + Math.random() * 112;  // -25% od oryginału
-                let h = 75 + Math.random() * 112;
-                let x = Math.random() * (WORLD_W - w);
-                let y = Math.random() * (WORLD_H - h);
+                let w = Math.floor(75 + Math.random() * 112);  // floor → pixel-perfect (v4.34.1)
+                let h = Math.floor( 75 + Math.random() * 112);
+                let x = Math.floor(Math.random() * (WORLD_W - w));
+                let y = Math.floor(Math.random() * (WORLD_H - h));
                 if(x > WORLD_W/2 - 150 && x < WORLD_W/2 + 150 && y > WORLD_H/2 - 150 && y < WORLD_H/2 + 150) continue;
                 if([[WORLD_W*0.2,WORLD_H*0.7],[WORLD_W*0.75,WORLD_H*0.3],[WORLD_W*0.65,WORLD_H*0.55]]
                    .some(([px,py])=>Math.hypot(x-px,y-py)<220)) continue; // pyramid exclusion
@@ -5278,8 +5281,9 @@
         }
 
         function updateCamera() {
-            camera.x = player.x - screenW / 2;
-            camera.y = player.y - screenH / 2;
+            // Math.round → pixel snapping: eliminuje sub-pixel rendering (v4.34.1)
+            camera.x = Math.round(player.x - screenW / 2);
+            camera.y = Math.round(player.y - screenH / 2);
             camera.x = Math.max(0, Math.min(WORLD_W - screenW, camera.x));
             camera.y = Math.max(0, Math.min(WORLD_H - screenH, camera.y));
         }
@@ -5336,7 +5340,7 @@
 
             updateCamera();
 
-            // Background — clearRect przed każdą klatką (v4.33.5 fix)
+            // clearRect — gwarantuje czyste tło każdą klatkę (v4.33.5)
             ctx.clearRect(0, 0, screenW, screenH);
             // Background — desert uses pre-rendered offscreen canvas
             if(selectedMap.id==='desert' && _desertOffscreen) {
@@ -5344,12 +5348,13 @@
                     camera.x, camera.y, screenW, screenH,
                     0, 0, screenW, screenH);
             } else if(selectedMap.id==='city' && _cityOffscreen) {
-                ctx.drawImage(_cityOffscreen,camera.x,camera.y,screenW,screenH,0,0,screenW,screenH);
+                ctx.drawImage(_cityOffscreen,Math.round(camera.x),Math.round(camera.y),screenW,screenH,0,0,screenW,screenH); // v4.34.1 pixel snap
             } else {
                 ctx.fillStyle = selectedMap.bg; ctx.fillRect(0,0,screenW,screenH);
             }
             ctx.save();
-            ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
+            // pixel-snap translate: round cały wektor (kamera + shake) → v4.34.1
+            ctx.translate(-Math.round(camera.x - shakeX), -Math.round(camera.y - shakeY));
 
             // Grid lines — only for non-desert (desert uses offscreen)
             if(selectedMap.id !== 'desert') {
