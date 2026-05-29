@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33-alpha.4
+        Game version: v4.33-alpha.4b
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4637,6 +4637,86 @@
 
         }
 
+
+            class RepairWash {
+                constructor(x, y) {
+                    this.x = x; this.y = y;
+                    this.w = 90; this.d = 140; this.hFactor = 0.5;
+                    this.cooldownEnd = -1; this.healAmount = 1;
+                }
+                update(player) {
+                    if(Date.now() < this.cooldownEnd) return;
+                    if(player.x > this.x && player.x < this.x + this.w &&
+                       player.y > this.y && player.y < this.y + this.d) {
+                        if(player.hp < player.maxHp) {
+                            player.hp = Math.min(player.maxHp, player.hp + this.healAmount);
+                            this.cooldownEnd = Date.now() + 60000;
+                            createExplosion(player.x, player.y, '#2ecc71', 12);
+                        }
+                    }
+                }
+                drawFloor(ctx, time) {
+                    if(this.x<camera.x-120||this.x>camera.x+screenW+120||
+                       this.y<camera.y-160||this.y>camera.y+screenH+160) return;
+                    const isActive = Date.now() >= this.cooldownEnd;
+                    ctx.save(); ctx.translate(this.x, this.y);
+                    ctx.fillStyle='#0a192f'; ctx.fillRect(0,0,this.w,this.d);
+                    ctx.fillStyle = isActive ? '#f1c40f' : '#555';
+                    let bo = isActive ? (time*20)%20 : 0;
+                    for(let i=-20;i<this.d;i+=20){let py=i+bo;
+                        if(py>0&&py<this.d-10){ctx.fillRect(5,py,10,10);ctx.fillRect(this.w-15,py,10,10);}}
+                    if(isActive){
+                        let sY=this.d/2+Math.sin(time*3)*(this.d/2-10);
+                        ctx.globalCompositeOperation='screen';
+                        ctx.shadowColor='#e74c3c'; ctx.shadowBlur=10;
+                        ctx.fillStyle='#e74c3c'; ctx.fillRect(15,sY,this.w-30,4);
+                        ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
+                    }
+                    ctx.restore();
+                }
+                drawRoof(ctx, camX, camY, time) {
+                    if(this.x<camera.x-120||this.x>camera.x+screenW+120||
+                       this.y<camera.y-160||this.y>camera.y+screenH+160) return;
+                    const isActive = Date.now() >= this.cooldownEnd;
+                    const cNeon = isActive ? '#e74c3c' : '#4a2333';
+                    let pX=(this.x+this.w/2-camX)*this.hFactor;
+                    let pY=(this.y+this.d/2-camY)*this.hFactor;
+                    ctx.save();
+                    const wall=(isLeft)=>{
+                        ctx.beginPath();
+                        if(isLeft){ctx.moveTo(this.x,this.y);ctx.lineTo(this.x,this.y+this.d);
+                            ctx.lineTo(this.x+pX,this.y+this.d+pY);ctx.lineTo(this.x+pX,this.y+pY);}
+                        else{ctx.moveTo(this.x+this.w,this.y);ctx.lineTo(this.x+this.w,this.y+this.d);
+                            ctx.lineTo(this.x+this.w+pX,this.y+this.d+pY);ctx.lineTo(this.x+this.w+pX,this.y+pY);}
+                        ctx.closePath();
+                        ctx.fillStyle=isLeft?'#112240':'#1d3557'; ctx.fill();
+                        ctx.lineWidth=2; ctx.strokeStyle='#0a192f'; ctx.stroke();
+                        if(isActive){
+                            let rx=isLeft?this.x+pX*0.5+10:this.x+this.w+pX*0.5-10;
+                            let ry=this.y+this.d/2+pY*0.5;
+                            ctx.save(); ctx.translate(rx,ry); ctx.scale(isLeft?1:-1,1);
+                            ctx.rotate(time*10); ctx.fillStyle='#00ffff';
+                            for(let i=0;i<4;i++){ctx.rotate(Math.PI/2);ctx.fillRect(0,-2,12,4);}
+                            ctx.restore();
+                        }
+                    };
+                    wall(true); wall(false);
+                    ctx.translate(this.x+pX,this.y+pY);
+                    ctx.fillStyle='#0b1d3a'; ctx.fillRect(0,0,this.w,this.d);
+                    ctx.strokeStyle='#1a3c5e'; ctx.lineWidth=4; ctx.strokeRect(0,0,this.w,this.d);
+                    ctx.shadowColor=isActive?cNeon:'transparent'; ctx.shadowBlur=isActive?15:0;
+                    ctx.fillStyle=isActive?cNeon:'#333';
+                    ctx.fillRect(0,0,this.w,6); ctx.fillRect(0,this.d-6,this.w,6);
+                    ctx.translate(this.w/2,this.d/2);
+                    ctx.scale(isActive?1+Math.sin(time*8)*0.15:0.8, isActive?1+Math.sin(time*8)*0.15:0.8);
+                    ctx.globalCompositeOperation='screen';
+                    ctx.fillStyle=cNeon; ctx.shadowColor=cNeon; ctx.shadowBlur=isActive?20:0;
+                    ctx.beginPath(); ctx.rect(-8,-25,16,50); ctx.rect(-25,-8,50,16); ctx.fill();
+                    ctx.globalCompositeOperation='source-over';
+                    ctx.restore();
+                }
+            }
+
         function generateMap() {
             environment = []; mapDecorations = [];
             quicksandZones = []; repairHangars = []; powerWells = [];
@@ -6166,82 +6246,4 @@
 </script>
 </body>
 </html
-
-            class RepairWash {
-                constructor(x, y) {
-                    this.x = x; this.y = y;
-                    this.w = 90; this.d = 140; this.hFactor = 0.5;
-                    this.cooldownEnd = -1; this.healAmount = 1;
-                }
-                update(player) {
-                    if(Date.now() < this.cooldownEnd) return;
-                    if(player.x > this.x && player.x < this.x + this.w &&
-                       player.y > this.y && player.y < this.y + this.d) {
-                        if(player.hp < player.maxHp) {
-                            player.hp = Math.min(player.maxHp, player.hp + this.healAmount);
-                            this.cooldownEnd = Date.now() + 60000;
-                            createExplosion(player.x, player.y, '#2ecc71', 12);
-                        }
-                    }
-                }
-                drawFloor(ctx, time) {
-                    if(this.x<camera.x-120||this.x>camera.x+screenW+120||
-                       this.y<camera.y-160||this.y>camera.y+screenH+160) return;
-                    const isActive = Date.now() >= this.cooldownEnd;
-                    ctx.save(); ctx.translate(this.x, this.y);
-                    ctx.fillStyle='#0a192f'; ctx.fillRect(0,0,this.w,this.d);
-                    ctx.fillStyle = isActive ? '#f1c40f' : '#555';
-                    let bo = isActive ? (time*20)%20 : 0;
-                    for(let i=-20;i<this.d;i+=20){let py=i+bo;
-                        if(py>0&&py<this.d-10){ctx.fillRect(5,py,10,10);ctx.fillRect(this.w-15,py,10,10);}}
-                    if(isActive){
-                        let sY=this.d/2+Math.sin(time*3)*(this.d/2-10);
-                        ctx.globalCompositeOperation='screen';
-                        ctx.shadowColor='#e74c3c'; ctx.shadowBlur=10;
-                        ctx.fillStyle='#e74c3c'; ctx.fillRect(15,sY,this.w-30,4);
-                        ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
-                    }
-                    ctx.restore();
-                }
-                drawRoof(ctx, camX, camY, time) {
-                    if(this.x<camera.x-120||this.x>camera.x+screenW+120||
-                       this.y<camera.y-160||this.y>camera.y+screenH+160) return;
-                    const isActive = Date.now() >= this.cooldownEnd;
-                    const cNeon = isActive ? '#e74c3c' : '#4a2333';
-                    let pX=(this.x+this.w/2-camX)*this.hFactor;
-                    let pY=(this.y+this.d/2-camY)*this.hFactor;
-                    ctx.save();
-                    const wall=(isLeft)=>{
-                        ctx.beginPath();
-                        if(isLeft){ctx.moveTo(this.x,this.y);ctx.lineTo(this.x,this.y+this.d);
-                            ctx.lineTo(this.x+pX,this.y+this.d+pY);ctx.lineTo(this.x+pX,this.y+pY);}
-                        else{ctx.moveTo(this.x+this.w,this.y);ctx.lineTo(this.x+this.w,this.y+this.d);
-                            ctx.lineTo(this.x+this.w+pX,this.y+this.d+pY);ctx.lineTo(this.x+this.w+pX,this.y+pY);}
-                        ctx.closePath();
-                        ctx.fillStyle=isLeft?'#112240':'#1d3557'; ctx.fill();
-                        ctx.lineWidth=2; ctx.strokeStyle='#0a192f'; ctx.stroke();
-                        if(isActive){
-                            let rx=isLeft?this.x+pX*0.5+10:this.x+this.w+pX*0.5-10;
-                            let ry=this.y+this.d/2+pY*0.5;
-                            ctx.save(); ctx.translate(rx,ry); ctx.scale(isLeft?1:-1,1);
-                            ctx.rotate(time*10); ctx.fillStyle='#00ffff';
-                            for(let i=0;i<4;i++){ctx.rotate(Math.PI/2);ctx.fillRect(0,-2,12,4);}
-                            ctx.restore();
-                        }
-                    };
-                    wall(true); wall(false);
-                    ctx.translate(this.x+pX,this.y+pY);
-                    ctx.fillStyle='#0b1d3a'; ctx.fillRect(0,0,this.w,this.d);
-                    ctx.strokeStyle='#1a3c5e'; ctx.lineWidth=4; ctx.strokeRect(0,0,this.w,this.d);
-                    ctx.shadowColor=isActive?cNeon:'transparent'; ctx.shadowBlur=isActive?15:0;
-                    ctx.fillStyle=isActive?cNeon:'#333';
-                    ctx.fillRect(0,0,this.w,6); ctx.fillRect(0,this.d-6,this.w,6);
-                    ctx.translate(this.w/2,this.d/2);
-                    ctx.scale(isActive?1+Math.sin(time*8)*0.15:0.8, isActive?1+Math.sin(time*8)*0.15:0.8);
-                    ctx.globalCompositeOperation='screen';
-                    ctx.fillStyle=cNeon; ctx.shadowColor=cNeon; ctx.shadowBlur=isActive?20:0;
-                    ctx.beginPath(); ctx.rect(-8,-25,16,50); ctx.rect(-25,-8,50,16); ctx.fill();
-                    ctx.globalCompositeOperation='source-over';
-                    ctx.restore();
-                }
-            }>
+>
