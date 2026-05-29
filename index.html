@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.36
+        Game version: v4.37
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -5235,7 +5235,7 @@
                 [[185,648],[475,655],[895,638],[1490,652],[1815,642],
                  [638,895],[648,1195],[1315,998],[1345,1192],[295,1318],[795,1348],[1595,1315]
                 ].forEach(([sx,sy])=>{
-                    environment.push(new EnvironmentBlock(sx-28,sy-28,56,56,'bush',selectedMap.bush));
+                    environment.push(new EnvironmentBlock(sx-50,sy-50,100,100,'bush',selectedMap.bush));
                 });
                 // Steam vents
                 _cityVents = [];
@@ -6156,12 +6156,18 @@
                 // Dach cylindra
                 ctx.fillStyle=K.rf;ctx.beginPath();ctx.arc(rx,ry,r,0,Math.PI*2);ctx.fill();
                 ctx.strokeStyle='#224030';ctx.lineWidth=3;ctx.stroke();
-                // Zielone neony
+                // Zielone neony — wszystkie na dachu (rx,ry)
                 ctx.save();ctx.globalCompositeOperation='screen';
-                ctx.shadowColor=K.n1;ctx.shadowBlur=15*fa;ctx.strokeStyle=K.n1;ctx.lineWidth=2;
-                ctx.beginPath();ctx.arc(cx+ox*0.5,cy+oy*0.5,r,0,Math.PI*2);ctx.stroke();
-                ctx.fillStyle=K.n1;ctx.globalAlpha=0.7*fa;
-                ctx.beginPath();ctx.arc(rx,ry,r*0.4,0,Math.PI*2);ctx.fill();
+                ctx.shadowColor=K.n1;ctx.shadowBlur=15*fa;
+                // Zewnętrzny pierścień na krawędzi dachu
+                ctx.strokeStyle=K.n1;ctx.lineWidth=2.5;
+                ctx.beginPath();ctx.arc(rx,ry,r,0,Math.PI*2);ctx.stroke();
+                // Środkowy pierścień (60% radius)
+                ctx.globalAlpha=0.5*fa;ctx.lineWidth=1.5;
+                ctx.beginPath();ctx.arc(rx,ry,r*0.6,0,Math.PI*2);ctx.stroke();
+                // Mała kropka anteny w centrum
+                ctx.globalAlpha=0.85*fa;ctx.fillStyle=K.n1;
+                ctx.beginPath();ctx.arc(rx,ry,r*0.12,0,Math.PI*2);ctx.fill();
                 ctx.globalAlpha=1;ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';
                 ctx.restore();
             }
@@ -6204,23 +6210,24 @@
             constructor(x, y) {
                 this.x = x; this.y = y;
                 this.particles = [];
-                for(let i=0; i<10; i++) this.particles.push(this._spawn(true));
+                for(let i=0; i<20; i++) this.particles.push(this._spawn(true));
             }
             _spawn(init=false) {
                 return {
-                    x: this.x + (Math.random()-0.5)*10,
+                    x: this.x + (Math.random()-0.5)*14,
                     y: this.y,
-                    vx: (Math.random()-0.5)*0.55,
-                    vy: -(0.7 + Math.random()*0.7),
-                    r: 4 + Math.random()*4,
-                    age: init ? Math.floor(Math.random()*90) : 0,
-                    life: 75 + Math.floor(Math.random()*35)
+                    vx: (Math.random()-0.5)*0.9,
+                    vy: -(1.0 + Math.random()*1.2),
+                    r: 7 + Math.random()*9,
+                    age: init ? Math.floor(Math.random()*100) : 0,
+                    life: 90 + Math.floor(Math.random()*50)
                 };
             }
             update() {
                 for(let i=this.particles.length-1; i>=0; i--) {
                     const p=this.particles[i];
-                    p.age++; p.x+=p.vx; p.y+=p.vy; p.r+=0.13;
+                    p.age++; p.x+=p.vx; p.y+=p.vy; p.r+=0.18;
+                    p.vx+=(Math.random()-0.5)*0.04;
                     if(p.age >= p.life) { this.particles.splice(i,1); this.particles.push(this._spawn()); }
                 }
             }
@@ -6628,4 +6635,32 @@
 </script>
 </body>
 </html
+
+            // Lampy uliczne wzdłuż H1, H2, V1, V2 (v4.37)
+            {
+                const lamps = [
+                    // H1 (y≈660)
+                    ...[150,350,550,800,1050,1200,1450,1650,1850].map(x=>({x,y:660})),
+                    // H2 (y≈1330)
+                    ...[150,350,550,800,1050,1200,1450,1650,1850].map(x=>({x,y:1330})),
+                    // V1 (x≈660)
+                    ...[150,350,500,800,1000,1200,1450].map(y=>({x:660,y})),
+                    // V2 (x≈1330)
+                    ...[150,350,500,800,1000,1200,1450].map(y=>({x:1330,y})),
+                ];
+                lamps.forEach(({x,y})=>{
+                    // Słupek
+                    c.fillStyle='#3a3a4e';
+                    c.fillRect(x-1,y,2,10);
+                    c.fillRect(x-4,y-2,8,3);
+                    // Poświata na asfalcie
+                    c.globalCompositeOperation='screen';
+                    const gl=c.createRadialGradient(x,y,0,x,y,28);
+                    gl.addColorStop(0,'rgba(255,210,100,0.28)');
+                    gl.addColorStop(1,'rgba(0,0,0,0)');
+                    c.fillStyle=gl;
+                    c.fillRect(x-28,y-28,56,56);
+                    c.globalCompositeOperation='source-over';
+                });
+            }
 >
