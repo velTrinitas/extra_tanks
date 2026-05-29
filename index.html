@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33-alpha.2
+        Game version: v4.33-alpha.3
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4889,6 +4889,13 @@
                  [638,895],[648,1195],[1315,998],[1345,1192],[295,1318],[795,1348],[1595,1315]
                 ].forEach(([sx,sy])=>_cityVents.push(new SteamVent(sx,sy)));
                 _cityRain = new CityRain();
+                // MEDI STATION i PWR NODE na ulicach miasta (v4.33-alpha.3)
+                repairHangars = [];
+                repairHangars.push(new RepairHangar(300,  667));   // H1 street, zachodnia
+                repairHangars.push(new RepairHangar(1000, 1333));  // H2 street, środkowa
+                repairHangars.push(new RepairHangar(667,  1550));  // V1 street, południowa
+                powerWells = [];
+                powerWells.push(new PowerWell(1333, 1000));       // V2 street, środek
                 _buildCityOffscreen();
             } else {
                 _desertOffscreen = null;
