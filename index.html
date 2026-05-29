@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.33-alpha.5b
+        Game version: v4.34
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -1110,7 +1110,7 @@
         let superCharges = 0;
         let superActive = false, superEndTime = 0;
         let gemsSinceLastSuper = 0;
-        let repairHangars = [], powerWells = [], quicksandZones = [], hoverPads = [], trackMarks = [];
+        let repairHangars = [], powerWells = [], quicksandZones = [], hoverPads = [], powerHoverPads = [], trackMarks = [];
         // Super powers
         const SUPER_POWERS = [
             {id:'aura',  name:'AURA',      col:'#f1c40f', COOLDOWN:30000, DURATION:5000},
@@ -1797,6 +1797,7 @@
                 // Repair hangars check
                 for(let rh of repairHangars) rh.tryRepair(this);
                 for(let hp of hoverPads) hp.update(this, keys.w||keys.a||keys.s||keys.d);
+                for(let pp of powerHoverPads) pp.update(this);
                 // Power well check
                 for(let pw of powerWells) pw.checkPlayer(this);
 
@@ -4643,10 +4644,10 @@
             class HoverRepairPad {
                 constructor(x, y) {
                     this.x = x; this.y = y;
-                    this.size = 90;
-                    this.hFactor = 0.0; // platforma przy ziemi — brak parallaxu
+                    this.size = 100;           // v4.33-alpha.6: 100x100
+                    this.hFactor = 0.0;
                     this.cooldownEnd = -1;
-                    this.repairRequiredTime = 180;
+                    this.repairRequiredTime = 180; // 3s @ 60fps
                     this.repairProgress = 0;
                     this.healAmount = 1;
                 }
@@ -4654,7 +4655,7 @@
                     if(Date.now() < this.cooldownEnd) { this.repairProgress = 0; return; }
                     const cx = this.x + this.size/2, cy = this.y + this.size/2;
                     const dist = Math.hypot(player.x - cx, player.y - cy);
-                    if(dist < 45 && player.hp < player.brawler.hp) {
+                    if(dist < 48 && player.hp < player.brawler.hp) {
                         if(!isMoving) {
                             this.repairProgress++;
                             if(this.repairProgress >= this.repairRequiredTime) {
@@ -4669,41 +4670,39 @@
                     } else { this.repairProgress = 0; }
                 }
                 draw(ctx, camX, camY, time) {
-                    if(this.x<camera.x-120||this.x>camera.x+screenW+120||
-                       this.y<camera.y-120||this.y>camera.y+screenH+120) return;
+                    if(this.x<camera.x-130||this.x>camera.x+screenW+130||
+                       this.y<camera.y-130||this.y>camera.y+screenH+130) return;
                     const isActive = Date.now() >= this.cooldownEnd;
                     const isRepairing = this.repairProgress > 0;
-                    const cx = this.x + this.size/2, cy = this.y + this.size/2;
-                    const pX = (cx - camX) * this.hFactor;
-                    const pY = (cy - camY) * this.hFactor;
+                    const pX = 0, pY = 0; // hFactor=0, brak parallaxu
                     const hoverH = isActive ? 10 + Math.sin(time * 3) * 5 : 2;
                     ctx.save();
                     ctx.translate(this.x, this.y);
                     // Cień na podłodze
                     ctx.fillStyle = 'rgba(0,0,0,0.6)';
-                    ctx.beginPath(); ctx.roundRect(0, 0, this.size, this.size, 15); ctx.fill();
-                    // Glow na asfalcie
+                    ctx.beginPath(); ctx.roundRect(0,0,this.size,this.size,15); ctx.fill();
+                    // Floor glow
                     if(isActive) {
                         ctx.globalCompositeOperation = 'screen';
-                        const glowA = isRepairing ? 0.4 + Math.random()*0.2 : 0.2;
+                        const glowA = isRepairing ? 0.4+Math.random()*0.2 : 0.2;
                         const fg = ctx.createRadialGradient(this.size/2,this.size/2,10,this.size/2,this.size/2,this.size);
-                        fg.addColorStop(0, `rgba(255,0,60,${glowA})`);
-                        fg.addColorStop(1, 'rgba(0,0,0,0)');
-                        ctx.fillStyle = fg;
-                        ctx.fillRect(-this.size/2,-this.size/2,this.size*2,this.size*2);
-                        ctx.globalCompositeOperation = 'source-over';
+                        fg.addColorStop(0,`rgba(255,0,60,${glowA})`);
+                        fg.addColorStop(1,'rgba(0,0,0,0)');
+                        ctx.fillStyle=fg; ctx.fillRect(-this.size/2,-this.size/2,this.size*2,this.size*2);
+                        ctx.globalCompositeOperation='source-over';
                     }
-                    // Boczne ściany (grubość 3D)
+                    // Ściany boczne (grubość 3D)
                     ctx.fillStyle = isActive ? '#14050a' : '#0c0f12';
-                    ctx.beginPath(); ctx.roundRect(pX, pY - hoverH, this.size, this.size, 15); ctx.fill();
+                    ctx.beginPath(); ctx.roundRect(0,-hoverH,this.size,this.size,15); ctx.fill();
                     ctx.beginPath();
-                    ctx.moveTo(15, 0); ctx.lineTo(15 + pX, pY - hoverH);
-                    ctx.lineTo(this.size - 15 + pX, pY - hoverH); ctx.lineTo(this.size - 15, 0);
+                    ctx.moveTo(15,0); ctx.lineTo(15,-hoverH);
+                    ctx.lineTo(this.size-15,-hoverH); ctx.lineTo(this.size-15,0);
                     ctx.fill();
                     // Powierzchnia platformy
-                    ctx.translate(pX, pY - hoverH);
+                    ctx.translate(0,-hoverH);
                     ctx.fillStyle = isActive ? '#1f0d14' : '#14181f';
-                    ctx.beginPath(); ctx.roundRect(0, 0, this.size, this.size, 15); ctx.fill();
+                    ctx.beginPath(); ctx.roundRect(0,0,this.size,this.size,15); ctx.fill();
+                    // Wzór technologiczny
                     ctx.strokeStyle = isActive ? '#3b1622' : '#222';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
@@ -4713,36 +4712,159 @@
                     // Neonowe krawędzie
                     ctx.strokeStyle = isActive ? '#ff003c' : '#333333';
                     ctx.lineWidth = 4;
-                    if(isActive) { ctx.shadowColor='#ff003c'; ctx.shadowBlur=15; }
-                    ctx.beginPath(); ctx.roundRect(2, 2, this.size-4, this.size-4, 15); ctx.stroke();
-                    ctx.shadowBlur = 0;
-                    // Lasery naprawcze z rogów
+                    if(isActive){ctx.shadowColor='#ff003c'; ctx.shadowBlur=15;}
+                    ctx.beginPath(); ctx.roundRect(2,2,this.size-4,this.size-4,15); ctx.stroke();
+                    ctx.shadowBlur=0;
+                    // Krzyż medyczny — mniejszy, grubszy, czerwony glow (v4.33-alpha.6)
+                    ctx.save();
+                    ctx.translate(this.size/2, this.size/2);
+                    const cw=8, ch=22; // grubość i długość ramienia
+                    ctx.fillStyle = isActive ? '#ff003c' : '#552233';
+                    if(isActive){ctx.shadowColor='#ff003c'; ctx.shadowBlur=14;}
+                    ctx.fillRect(-cw/2,-ch/2,cw,ch);  // pionowe
+                    ctx.fillRect(-ch/2,-cw/2,ch,cw);  // poziome
+                    ctx.shadowBlur=0;
+                    ctx.restore();
+                    // Lasery naprawcze
                     if(isRepairing) {
-                        ctx.globalCompositeOperation = 'screen';
-                        ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 10;
-                        ctx.strokeStyle = 'rgba(200,255,255,0.8)';
-                        ctx.lineWidth = 1.5 + Math.random();
-                        const tx = this.size/2 + (Math.random()-0.5)*5;
-                        const ty = this.size/2 + (Math.random()-0.5)*5;
-                        for(const [cx2,cy2] of [[10,10],[this.size-10,10],[10,this.size-10],[this.size-10,this.size-10]]) {
+                        ctx.globalCompositeOperation='screen';
+                        ctx.shadowColor='#00ffff'; ctx.shadowBlur=10;
+                        ctx.strokeStyle='rgba(200,255,255,0.8)';
+                        ctx.lineWidth=1.5+Math.random();
+                        const tx=this.size/2+(Math.random()-0.5)*5;
+                        const ty=this.size/2+(Math.random()-0.5)*5;
+                        for(const [cx2,cy2] of [[10,10],[this.size-10,10],[10,this.size-10],[this.size-10,this.size-10]]){
                             ctx.beginPath(); ctx.moveTo(cx2,cy2); ctx.lineTo(tx,ty); ctx.stroke();
                             ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx2,cy2,3,0,Math.PI*2); ctx.fill();
                         }
-                        ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
+                        ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
                     }
                     // Pasek postępu
-                    if(isRepairing) {
-                        ctx.translate(this.size/2, -20);
+                    if(isRepairing){
+                        ctx.translate(this.size/2,-18);
                         ctx.fillStyle='rgba(0,0,0,0.7)';
                         ctx.beginPath(); ctx.roundRect(-40,-10,80,12,4); ctx.fill();
-                        const prog = this.repairProgress / this.repairRequiredTime;
+                        const prog=this.repairProgress/this.repairRequiredTime;
                         ctx.fillStyle='#00ffff';
                         ctx.beginPath(); ctx.roundRect(-38,-8,76*prog,8,3); ctx.fill();
                         ctx.fillStyle='#fff'; ctx.font='bold 10px Courier New';
                         ctx.textAlign='center'; ctx.textBaseline='bottom';
-                        ctx.fillText('NAPRAWIAM...', 0, -12);
+                        ctx.fillText('NAPRAWIAM...',0,-12);
                     }
                     ctx.restore();
+                    // Licznik cooldownu (v4.33-alpha.6) — jak na pustyni
+                    if(!isActive){
+                        const cdLeft=Math.ceil((this.cooldownEnd-Date.now())/1000);
+                        ctx.save();
+                        ctx.translate(this.x+this.size/2, this.y-hoverH-8);
+                        ctx.fillStyle='rgba(0,0,0,0.65)';
+                        ctx.beginPath(); ctx.roundRect(-20,-12,40,14,4); ctx.fill();
+                        ctx.fillStyle='#ffd'; ctx.font='bold 9px sans-serif';
+                        ctx.textAlign='center'; ctx.textBaseline='middle';
+                        ctx.fillText('\u23F1 '+cdLeft+'s',0,-5);
+                        ctx.restore();
+                    }
+                }
+            }
+
+
+            class PowerHoverPad {
+                constructor(x, y) {
+                    this.x = x; this.y = y;
+                    this.size = 100;
+                    this.hFactor = 0.0;
+                    this.cooldownEnd = -1;
+                    this.turboDuration = 5000; // 5s w ms
+                }
+                update(player) {
+                    if(Date.now() < this.cooldownEnd) return;
+                    const cx = this.x + this.size/2, cy = this.y + this.size/2;
+                    if(Math.hypot(player.x - cx, player.y - cy) < 50) {
+                        player.speedBoostMult = 2.0;
+                        player.speedBoostEnd = Date.now() + this.turboDuration;
+                        this.cooldownEnd = Date.now() + 20000;
+                        createExplosion(player.x, player.y, '#ffaa00', 25);
+                        addHudNotif('⚡ TURBO x2 — 5s', '#ffcc00');
+                        AudioSys.playGem();
+                    }
+                }
+                draw(ctx, camX, camY, time) {
+                    if(this.x<camera.x-130||this.x>camera.x+screenW+130||
+                       this.y<camera.y-130||this.y>camera.y+screenH+130) return;
+                    const isActive = Date.now() >= this.cooldownEnd;
+                    const cNeonO = '#ff6600', cNeonY = '#ffcc00';
+                    const hoverH = isActive ? 12 + Math.sin(time * 6) * 4 : 4;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    // Cień
+                    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                    ctx.beginPath(); ctx.roundRect(0,0,this.size,this.size,15); ctx.fill();
+                    // Floor glow — pomarańczowy
+                    if(isActive) {
+                        ctx.globalCompositeOperation = 'screen';
+                        const fg = ctx.createRadialGradient(this.size/2,this.size/2,10,this.size/2,this.size/2,this.size+20);
+                        fg.addColorStop(0,'rgba(255,102,0,0.4)'); fg.addColorStop(1,'rgba(0,0,0,0)');
+                        ctx.fillStyle=fg; ctx.fillRect(-this.size/2,-this.size/2,this.size*2,this.size*2);
+                        ctx.globalCompositeOperation='source-over';
+                    }
+                    // Ściany boczne
+                    ctx.fillStyle = isActive ? '#2b1400' : '#0a0805';
+                    ctx.beginPath(); ctx.roundRect(0,-hoverH,this.size,this.size,15); ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(15,0); ctx.lineTo(15,-hoverH);
+                    ctx.lineTo(this.size-15,-hoverH); ctx.lineTo(this.size-15,0);
+                    ctx.fill();
+                    // Powierzchnia
+                    ctx.translate(0,-hoverH);
+                    ctx.fillStyle = isActive ? '#140d05' : '#121212';
+                    ctx.beginPath(); ctx.roundRect(0,0,this.size,this.size,15); ctx.fill();
+                    // Panel przemysłowy
+                    ctx.strokeStyle = isActive ? '#3b2308' : '#222';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(15,15,this.size-30,this.size-30);
+                    // Neonowe krawędzie — pomarańczowe
+                    ctx.strokeStyle = isActive ? cNeonO : '#332200';
+                    ctx.lineWidth = 5;
+                    if(isActive){ctx.shadowColor=cNeonO; ctx.shadowBlur=15;}
+                    ctx.beginPath(); ctx.roundRect(3,3,this.size-6,this.size-6,15); ctx.stroke();
+                    ctx.shadowBlur=0;
+                    // Symbol ⚡ — centralny
+                    ctx.save();
+                    ctx.translate(this.size/2, this.size/2);
+                    const sc = isActive ? 1+Math.sin(time*6)*0.08 : 0.85;
+                    ctx.scale(sc,sc);
+                    ctx.fillStyle = isActive ? cNeonY : '#554400';
+                    if(isActive){ctx.shadowColor=cNeonY; ctx.shadowBlur=18;}
+                    ctx.font='bold 32px sans-serif';
+                    ctx.textAlign='center'; ctx.textBaseline='middle';
+                    ctx.fillText('⚡',0,0);
+                    ctx.shadowBlur=0;
+                    // Rotujące łuki energii gdy aktywny
+                    if(isActive){
+                        ctx.globalCompositeOperation='screen';
+                        ctx.strokeStyle=cNeonO; ctx.lineWidth=2;
+                        ctx.shadowColor=cNeonO; ctx.shadowBlur=8;
+                        for(let i=0;i<4;i++){
+                            ctx.beginPath();
+                            ctx.arc(0,0,28,time*2+i*Math.PI/2,time*2+i*Math.PI/2+0.9);
+                            ctx.stroke();
+                        }
+                        ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
+                    }
+                    ctx.restore();
+                    ctx.restore();
+                    // Licznik cooldownu
+                    if(!isActive){
+                        const cdLeft=Math.ceil((this.cooldownEnd-Date.now())/1000);
+                        ctx.save();
+                        ctx.translate(this.x+this.size/2, this.y-hoverH-8);
+                        ctx.fillStyle='rgba(0,0,0,0.65)';
+                        ctx.beginPath(); ctx.roundRect(-20,-12,40,14,4); ctx.fill();
+                        ctx.fillStyle='#ffd'; ctx.font='bold 9px sans-serif';
+                        ctx.textAlign='center'; ctx.textBaseline='middle';
+                        ctx.fillText('\u23F1 '+cdLeft+'s',0,-5);
+                        ctx.restore();
+                    }
                 }
             }
 
@@ -5006,8 +5128,11 @@
                 hoverPads.push(new HoverRepairPad(617,  200));   // V1 street, północ
                 hoverPads.push(new HoverRepairPad(1283, 850));   // V2 street, środek
                 hoverPads.push(new HoverRepairPad(617, 1450));   // V1 street, południe
-                powerWells = [];
-                powerWells.push(new PowerWell(1333, 1000));  // V2 street, środek
+                powerWells = []; // pusty dla city — używamy PowerHoverPad
+                // PWR NODE — PowerHoverPad (v4.34)
+                powerHoverPads = [];
+                powerHoverPads.push(new PowerHoverPad(617,  900));  // V1 street, środek
+                powerHoverPads.push(new PowerHoverPad(1283, 400));  // V2 street, północ
                 _buildCityOffscreen();
             } else {
                 _desertOffscreen = null;
@@ -5432,7 +5557,8 @@
             repairHangars.forEach(rh => rh.draw());
             // HoverRepairPad — przed graczem (v4.33-alpha.5)
             if(selectedMap.id==='city'){const _t=frames/60,_cx=camera.x+screenW/2,_cy=camera.y+screenH/2;
-                hoverPads.forEach(hp=>hp.draw(ctx,_cx,_cy,_t));}
+                hoverPads.forEach(hp=>hp.draw(ctx,_cx,_cy,_t));
+                powerHoverPads.forEach(pp=>pp.draw(ctx,_cx,_cy,_t));}
 
             powerWells.forEach(pw => pw.draw());
             // ═══ [LIGHTS v4.23] WYWOŁANIE — rollback: usuń tę linię ═══
