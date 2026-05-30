@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.37
+        Game version: v4.38
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -5221,11 +5221,7 @@
                     [80,1440,125,178,0.20,1],[265,1445,58,58,0.28,5],[80,1688,195,118,0.18,2],
                     // Block(1,2) bottom-center
                     [748,1440,195,78,0.10,4],[925,1565,175,130,0.22,3],[758,1762,108,148,0.18,1],
-                    // Nowe typy 6 (Cylinder) i 7 (Ziggurat)
-                    [480, 200, 80, 80, 0.22, 6],[1600, 300, 72, 72, 0.20, 6],
-                    [200, 1200, 95, 95, 0.25, 6],
-                    [900, 300, 110, 90, 0.18, 7],[1700, 1200, 100, 80, 0.20, 7],
-                                        // Block(2,2) bottom-right
+                    // Block(2,2) bottom-right
                     [1445,1445,220,148,0.20,2],[1722,1452,158,78,0.12,4],[1882,1602,58,58,0.32,5],
                 ].forEach(([x,y,w,d,hF,t]) => {
                     _cityBuildings.push(new CyberBuilding(x,y,w,d,hF,t));
@@ -5255,6 +5251,22 @@
                 powerHoverPads = [];
                 powerHoverPads.push(new PowerHoverPad(617,  900));  // V1 street, środek
                 powerHoverPads.push(new PowerHoverPad(1283, 400));  // V2 street, północ
+                // Zigguraty — City center (type 9)
+                [[900, 300, 110, 90, 0.18, 9],[1700, 1200, 100, 80, 0.20, 9]].forEach(
+                    ([x,y,w,d,hF,t])=>{_cityBuildings.push(new CyberBuilding(x,y,w,d,hF,t));
+                    environment.push(new EnvironmentBlock(x,y,w,d,'wall','#1a1a2e'));});
+                // Przedmieścia Przemysłowe — Wschodnia strefa (type 6/7/8)
+                [
+                    [2150,250,180,140,0.20,6],[2380,600,200,160,0.22,6],[2500,1100,190,150,0.19,6],
+                    [150,2250,200,160,0.20,6],[600,2450,180,140,0.18,6],
+                    [2200,950,140,100,0.15,7],[2620,1450,150,110,0.16,7],
+                    [350,2520,130,100,0.14,7],[1100,2350,140,110,0.15,7],
+                    [2150,1500,160,120,0.18,8],[2450,220,150,110,0.17,8],
+                    [950,2520,130,100,0.15,8],[1550,2250,150,120,0.16,8],
+                ].forEach(([x,y,w,d,hF,t])=>{
+                    _cityBuildings.push(new CyberBuilding(x,y,w,d,hF,t));
+                    environment.push(new EnvironmentBlock(x,y,w,d,'wall','#1a1a2e'));
+                });
                 _buildCityOffscreen();
             } else {
                 _desertOffscreen = null;
@@ -5716,7 +5728,8 @@
             // HoverRepairPad — przed graczem (v4.33-alpha.5)
             if(selectedMap.id==='city'){const _t=frames/60,_cx=camera.x+screenW/2,_cy=camera.y+screenH/2;
                 hoverPads.forEach(hp=>hp.draw(ctx,_cx,_cy,_t));
-                powerHoverPads.forEach(pp=>pp.draw(ctx,_cx,_cy,_t));}
+                powerHoverPads.forEach(pp=>pp.draw(ctx,_cx,_cy,_t));
+                _cityBuildings.forEach(b=>b.draw(ctx,_t));}
 
             powerWells.forEach(pw => pw.draw());
             // ═══ [LIGHTS v4.23] WYWOŁANIE — rollback: usuń tę linię ═══
@@ -6060,34 +6073,33 @@
                 this.x=x;this.y=y;this.w=w;this.d=d;this.hF=hF;this.type=type;
                 this._fo=Math.floor(Math.random()*200);
                 const P=[null,
-                    {rf:'#1a1a2d',wD:'#101018',wL:'#181826',n1:'#00ffff',n2:'#ff0055'},
-                    {rf:'#1e2230',wD:'#141820',wL:'#1c2028',n1:'#aaddff',n2:'#0088ff'},
-                    {rf:'#222635',wD:'#181c24',wL:'#1e2030',n1:'#f1c40f',n2:'#ff6600'},
-                    {rf:'#1a1a1e',wD:'#111114',wL:'#181818',n1:'#ff3300',n2:'#ff9900'},
-                    {rf:'#12121a',wD:'#0e0e14',wL:'#141420',n1:'#cc00ff',n2:'#ff00aa'},
-                    {rf:'#1c3024',wD:'#0f1814',wL:'#162a1e',n1:'#00ff66',n2:'#00cc44'},  // 6: Cylinder
-                    {rf:'#2e1338',wD:'#190a1f',wL:'#250f2e',n1:'#ff00ff',n2:'#cc00cc'},  // 7: Ziggurat
+                    {rf:'#1a1a2d',wD:'#101018',wL:'#181826',n1:'#00ffff',n2:'#ff0055'}, // 1 Apartament
+                    {rf:'#1e2230',wD:'#141820',wL:'#1c2028',n1:'#aaddff',n2:'#0088ff'}, // 2 Biuro
+                    {rf:'#222635',wD:'#181c24',wL:'#1e2030',n1:'#f1c40f',n2:'#ff6600'}, // 3 Helipad
+                    {rf:'#1a1a1e',wD:'#111114',wL:'#181818',n1:'#ff3300',n2:'#ff9900'}, // 4 Przemysłowy
+                    {rf:'#12121a',wD:'#0e0e14',wL:'#141420',n1:'#cc00ff',n2:'#ff00aa'}, // 5 Antena
+                    {rf:'#2c2422',wD:'#1a1412',wL:'#241b18',n1:'#ff6600',n2:'#cc3300'}, // 6 Fabryka
+                    {rf:'#1f2421',wD:'#111412',wL:'#181c19',n1:'#00ff44',n2:'#00cc22'}, // 7 Chemiczny
+                    {rf:'#1d222b',wD:'#13161c',wL:'#1a1e26',n1:'#00ccff',n2:'#0088cc'}, // 8 Podstacja
+                    {rf:'#2e1338',wD:'#190a1f',wL:'#250f2e',n1:'#ff00ff',n2:'#cc00cc'}, // 9 Ziggurat
                 ];
                 this._c=P[type]||P[1];
-                if(type===6){this.d=this.w;} // Cylinder: kwadrat
             }
-            draw(ctx){
+            draw(ctx,time=0){
                 const pcx=camera.x+screenW/2,pcy=camera.y+screenH/2;
                 const ox=(this.x+this.w/2-pcx)*this.hF, oy=(this.y+this.d/2-pcy)*this.hF;
                 const K=this._c, fa=(frames+this._fo)%220<9?0.12:1.0;
                 ctx.save();
                 ctx.fillStyle='rgba(0,0,0,0.38)';ctx.fillRect(this.x+10,this.y+10,this.w+6,this.d+6);
+                if(this.type===9){this._drawZiggurat7(ctx,ox,oy,fa);ctx.restore();return;}
                 if(oy>0) this._W(ctx,this.x,this.y,this.x+this.w,this.y,this.x+ox,this.y+oy,this.x+this.w+ox,this.y+oy,K.wD);
                 else if(oy<0) this._W(ctx,this.x,this.y+this.d,this.x+this.w,this.y+this.d,this.x+ox,this.y+this.d+oy,this.x+this.w+ox,this.y+this.d+oy,K.wL);
                 if(ox>0){this._W(ctx,this.x,this.y,this.x,this.y+this.d,this.x+ox,this.y+oy,this.x+ox,this.y+this.d+oy,K.wL);this._N(ctx,this.x,this.y,this.x,this.y+this.d,ox,oy,fa);}
                 else if(ox<0){this._W(ctx,this.x+this.w,this.y,this.x+this.w,this.y+this.d,this.x+this.w+ox,this.y+oy,this.x+this.w+ox,this.y+this.d+oy,K.wD);this._N(ctx,this.x+this.w,this.y,this.x+this.w,this.y+this.d,ox,oy,fa);}
-                // Typy 6 i 7: deleguj do nowych metod
-                if(this.type===6){this._drawCylinder6(ctx,ox,oy,fa);ctx.restore();return;}
-                if(this.type===7){this._drawZiggurat7(ctx,ox,oy,fa);ctx.restore();return;}
                 const rX=this.x+ox,rY=this.y+oy;
-                ctx.fillStyle=K.rf;ctx.strokeStyle='#222238';ctx.lineWidth=1.5;
+                ctx.fillStyle=K.rf;ctx.strokeStyle='#111';ctx.lineWidth=1.5;
                 ctx.beginPath();ctx.rect(rX,rY,this.w,this.d);ctx.fill();ctx.stroke();
-                this._R(ctx,rX,rY,fa);
+                this._R(ctx,rX,rY,fa,time);
                 ctx.restore();
             }
             _W(ctx,bx1,by1,bx2,by2,rx1,ry1,rx2,ry2,col){
@@ -6112,9 +6124,12 @@
                 else if(this.type===3){this._NL(ctx,mx,my,mx+ox,my+oy,K.n1,4,0.85*fa);}
                 else if(this.type===4){for(let i=0.25;i<=0.75;i+=0.25)this._NL(ctx,bx1+(bx2-bx1)*i,by1+(by2-by1)*i,bx1+(bx2-bx1)*i+ox*0.8,by1+(by2-by1)*i+oy*0.8,K.n1,2,0.55*fa);}
                 else if(this.type===5){this._NL(ctx,bx1,by1,bx1+ox,by1+oy,K.n1,2,0.9*fa);this._NL(ctx,bx2,by2,bx2+ox,by2+oy,K.n2,2,0.7*fa);}
-                ctx.restore();
+                else if(this.type===6){ctx.shadowBlur=12;ctx.fillStyle=K.n1;ctx.shadowColor=K.n1;ctx.beginPath();ctx.arc(bx1+ox*0.8,by1+oy*0.8,5,0,Math.PI*2);ctx.fill();}
+                else if(this.type===7){ctx.shadowBlur=10;ctx.strokeStyle=K.n1;ctx.shadowColor=K.n1;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(mx,my);ctx.lineTo(mx+ox*0.5,my+oy*0.5);ctx.stroke();}
+                else if(this.type===8){ctx.shadowBlur=15;ctx.strokeStyle=K.n1;ctx.shadowColor=K.n1;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(bx1+ox*0.2,by1+oy*0.2);ctx.lineTo(bx2+ox*0.2,by2+oy*0.2);ctx.stroke();}
+                ctx.shadowBlur=0;ctx.restore();
             }
-            _R(ctx,rX,rY,fa){
+            _R(ctx,rX,rY,fa,time=0){
                 const K=this._c;ctx.save();
                 if(this.type===1){ctx.fillStyle='#0a0a12';ctx.fillRect(rX+8,rY+8,this.w*0.28,this.d*0.28);ctx.fillRect(rX+this.w*0.62,rY+this.d*0.62,this.w*0.28,this.d*0.28);}
                 else if(this.type===2){ctx.fillStyle='rgba(150,200,235,0.30)';ctx.fillRect(rX+10,rY+10,this.w-20,this.d-20);ctx.strokeStyle='#3880a0';ctx.lineWidth=1;ctx.strokeRect(rX+10,rY+10,this.w-20,this.d-20);}
@@ -6133,42 +6148,70 @@
                     ctx.strokeStyle='#36364a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-this.d*0.9);ctx.stroke();
                     if((frames+this._fo)%60<30){ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=0.9;ctx.fillStyle=K.n1;ctx.beginPath();ctx.arc(cx,cy-this.d*0.9,4,0,Math.PI*2);ctx.fill();ctx.restore();}
                 }
-                ctx.restore();
-            }
-            _drawCylinder6(ctx,ox,oy,fa){
-                const cx=this.x+this.w/2,cy=this.y+this.d/2,r=this.w/2;
-                const rx=cx+ox,ry=cy+oy;
-                const K=this._c;
-                // Cień bazy
-                ctx.fillStyle='#0f1814';
-                ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
-                // Ściana walca — tangenty
-                const ang=Math.atan2(oy,ox);
-                const p1x=cx+Math.cos(ang+Math.PI/2)*r,p1y=cy+Math.sin(ang+Math.PI/2)*r;
-                const p2x=cx+Math.cos(ang-Math.PI/2)*r,p2y=cy+Math.sin(ang-Math.PI/2)*r;
-                const r1x=rx+Math.cos(ang+Math.PI/2)*r,r1y=ry+Math.sin(ang+Math.PI/2)*r;
-                const r2x=rx+Math.cos(ang-Math.PI/2)*r,r2y=ry+Math.sin(ang-Math.PI/2)*r;
-                const wg=ctx.createLinearGradient(p1x,p1y,p2x,p2y);
-                wg.addColorStop(0,'#0a100d');wg.addColorStop(0.5,'#16281e');wg.addColorStop(1,'#050a07');
-                ctx.fillStyle=wg;
-                ctx.beginPath();ctx.moveTo(p1x,p1y);ctx.lineTo(r1x,r1y);ctx.lineTo(r2x,r2y);ctx.lineTo(p2x,p2y);ctx.closePath();
-                ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
-                // Dach cylindra
-                ctx.fillStyle=K.rf;ctx.beginPath();ctx.arc(rx,ry,r,0,Math.PI*2);ctx.fill();
-                ctx.strokeStyle='#224030';ctx.lineWidth=3;ctx.stroke();
-                // Zielone neony — wszystkie na dachu (rx,ry)
-                ctx.save();ctx.globalCompositeOperation='screen';
-                ctx.shadowColor=K.n1;ctx.shadowBlur=15*fa;
-                // Zewnętrzny pierścień na krawędzi dachu
-                ctx.strokeStyle=K.n1;ctx.lineWidth=2.5;
-                ctx.beginPath();ctx.arc(rx,ry,r,0,Math.PI*2);ctx.stroke();
-                // Środkowy pierścień (60% radius)
-                ctx.globalAlpha=0.5*fa;ctx.lineWidth=1.5;
-                ctx.beginPath();ctx.arc(rx,ry,r*0.6,0,Math.PI*2);ctx.stroke();
-                // Mała kropka anteny w centrum
-                ctx.globalAlpha=0.85*fa;ctx.fillStyle=K.n1;
-                ctx.beginPath();ctx.arc(rx,ry,r*0.12,0,Math.PI*2);ctx.fill();
-                ctx.globalAlpha=1;ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';
+                // ─── TYPY PRZEMYSŁOWE (v4.38) ───────────────────────────
+                else if(this.type===6){
+                    // Fabryka — komin z animowanym dymem
+                    const cW=Math.floor(this.w*0.28),cD=Math.floor(this.d*0.28);
+                    const cBx=rX+this.w-cW-8,cBy=rY+8;
+                    const pcx2=camera.x+screenW/2,pcy2=camera.y+screenH/2;
+                    const cox=(this.x+this.w/2-pcx2)*this.hF*0.8,coy=(this.y+this.d/2-pcy2)*this.hF*0.8;
+                    const cTx=cBx+cox,cTy=cBy+coy;
+                    // Ściany komina
+                    this._W(ctx,cBx,cBy,cBx+cW,cBy,cTx,cTy,cTx+cW,cTy,'#1a110e');
+                    this._W(ctx,cBx,cBy+cD,cBx+cW,cBy+cD,cTx,cTy+cD,cTx+cW,cTy+cD,'#241a16');
+                    this._W(ctx,cBx,cBy,cBx,cBy+cD,cTx,cTy,cTx,cTy+cD,'#1a110e');
+                    this._W(ctx,cBx+cW,cBy,cBx+cW,cBy+cD,cTx+cW,cTy,cTx+cW,cTy+cD,'#241a16');
+                    ctx.fillStyle='#0a0504';ctx.fillRect(cTx,cTy,cW,cD);
+                    ctx.strokeStyle=K.n1;ctx.lineWidth=1;ctx.strokeRect(cTx+2,cTy+2,cW-4,cD-4);
+                    // Dym animowany
+                    ctx.save();ctx.globalCompositeOperation='screen';
+                    for(let i=0;i<4;i++){
+                        const sp=((time*18)+(i*18))%72;
+                        const sx=cTx+cW/2+Math.sin(time*2+i*1.5)*8;
+                        const sy=cTy+cD/2-sp;
+                        const sr=6+sp*0.4;
+                        ctx.globalAlpha=(1-sp/72)*0.5*fa;
+                        ctx.fillStyle='#909090';
+                        ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);ctx.fill();
+                    }
+                    ctx.globalAlpha=1;ctx.restore();
+                    // Detale dachu — panele wentylacyjne
+                    ctx.fillStyle='#1a0e0a';ctx.fillRect(rX+8,rY+8,this.w*0.45,cD);
+                }
+                else if(this.type===7){
+                    // Chemiczny — dwa pulsujące zbiorniki
+                    const drawVat=(vx,vy,r)=>{
+                        ctx.fillStyle='#111';ctx.beginPath();ctx.arc(vx,vy,r,0,Math.PI*2);ctx.fill();
+                        ctx.strokeStyle='#222';ctx.lineWidth=3;ctx.stroke();
+                        ctx.save();ctx.globalCompositeOperation='screen';
+                        const pulse=0.5+Math.abs(Math.sin(time*3))*0.4;
+                        ctx.shadowColor=K.n1;ctx.shadowBlur=12*pulse;ctx.fillStyle=K.n1;
+                        ctx.globalAlpha=0.7*pulse*fa;
+                        ctx.beginPath();ctx.arc(vx,vy,r-4,0,Math.PI*2);ctx.fill();
+                        ctx.globalAlpha=1;ctx.restore();
+                    };
+                    const r2=Math.min(this.w,this.d)*0.28;
+                    drawVat(rX+r2+6,rY+r2+6,r2);
+                    drawVat(rX+this.w-r2-6,rY+this.d-r2-6,r2);
+                    ctx.strokeStyle='#222';ctx.lineWidth=6;
+                    ctx.beginPath();ctx.moveTo(rX+r2+6,rY+r2+6);ctx.lineTo(rX+this.w-r2-6,rY+this.d-r2-6);ctx.stroke();
+                }
+                else if(this.type===8){
+                    // Podstacja — rury i losowe iskry
+                    ctx.strokeStyle='#11151c';ctx.lineWidth=12;ctx.lineCap='round';
+                    ctx.beginPath();ctx.moveTo(rX+8,rY+this.d/2-10);ctx.lineTo(rX+this.w-8,rY+this.d/2-10);ctx.stroke();
+                    ctx.beginPath();ctx.moveTo(rX+8,rY+this.d/2+10);ctx.lineTo(rX+this.w-8,rY+this.d/2+10);ctx.stroke();
+                    ctx.fillStyle='#0a0d12';ctx.fillRect(rX+this.w/2-14,rY+this.d/2-18,28,36);
+                    ctx.strokeStyle='#333';ctx.lineWidth=2;ctx.strokeRect(rX+this.w/2-14,rY+this.d/2-18,28,36);
+                    if(Math.random()>0.82){
+                        ctx.save();ctx.globalCompositeOperation='screen';
+                        ctx.shadowColor=K.n1;ctx.shadowBlur=12;ctx.strokeStyle='#fff';ctx.lineWidth=2;
+                        ctx.beginPath();ctx.moveTo(rX+this.w/2,rY+this.d/2-8);
+                        ctx.lineTo(rX+this.w/2+(Math.random()-0.5)*10,rY+this.d/2);
+                        ctx.lineTo(rX+this.w/2,rY+this.d/2+8);ctx.stroke();
+                        ctx.restore();
+                    }
+                }
                 ctx.restore();
             }
             _drawZiggurat7(ctx,ox,oy,fa){
@@ -6186,21 +6229,15 @@
                     ctx.fillStyle=rfC;ctx.strokeStyle='#111';ctx.lineWidth=2;
                     ctx.beginPath();ctx.rect(bx+ox2,by+oy2,w,d);ctx.fill();ctx.stroke();
                 };
-                // Poziom 1 (baza)
                 drawTier(this.x,this.y,this.w,this.d,ox*0.5,oy*0.5,'#190a1f','#250f2e','#2e1338');
-                // Cień między poziomami
-                ctx.fillStyle='rgba(0,0,0,0.4)';
-                ctx.fillRect(this.x+ox*0.5+5,this.y+oy*0.5+5,this.w*0.6,this.d*0.6);
-                // Poziom 2 (węższy)
+                ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(this.x+ox*0.5+5,this.y+oy*0.5+5,this.w*0.6,this.d*0.6);
                 const w2=this.w*0.6,d2=this.d*0.6;
                 const x2=this.x+(this.w-w2)/2+ox*0.5,y2=this.y+(this.d-d2)/2+oy*0.5;
                 drawTier(x2,y2,w2,d2,ox*0.5,oy*0.5,'#1e0c26','#31143d','#3e1a4d');
-                // Magenta neony na dachu
                 ctx.save();ctx.globalCompositeOperation='screen';
                 ctx.shadowColor=K.n1;ctx.shadowBlur=15*fa;ctx.strokeStyle=K.n1;ctx.lineWidth=3;
                 ctx.strokeRect(x2+ox*0.5+4,y2+oy*0.5+4,w2-8,d2-8);
-                ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';
-                ctx.restore();
+                ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';ctx.restore();
             }
         }
 
@@ -6636,31 +6673,30 @@
 </body>
 </html
 
-            // Lampy uliczne wzdłuż H1, H2, V1, V2 (v4.37)
+            // Lampy uliczne — krawędzie chodników (v4.38)
             {
-                const lamps = [
-                    // H1 (y≈660)
-                    ...[150,350,550,800,1050,1200,1450,1650,1850].map(x=>({x,y:660})),
-                    // H2 (y≈1330)
-                    ...[150,350,550,800,1050,1200,1450,1650,1850].map(x=>({x,y:1330})),
-                    // V1 (x≈660)
-                    ...[150,350,500,800,1000,1200,1450].map(y=>({x:660,y})),
-                    // V2 (x≈1330)
-                    ...[150,350,500,800,1000,1200,1450].map(y=>({x:1330,y})),
+                const lampPositions = [
+                    // H1 (y=617-717) — obie krawędzie
+                    ...[200,380,560,740,920,1100,1450,1650,1850].map(x=>({x,y:610})),
+                    ...[200,380,560,740,920,1100,1450,1650,1850].map(x=>({x,y:724})),
+                    // H2 (y=1283-1383) — obie krawędzie
+                    ...[200,380,560,740,920,1100,1450,1650,1850].map(x=>({x,y:1276})),
+                    ...[200,380,560,740,920,1100,1450,1650,1850].map(x=>({x,y:1390})),
+                    // V1 (x=617-717) — obie krawędzie
+                    ...[200,380,560,740,920,1100,1450,1650].map(y=>({x:610,y})),
+                    ...[200,380,560,740,920,1100,1450,1650].map(y=>({x:724,y})),
+                    // V2 (x=1283-1383) — obie krawędzie
+                    ...[200,380,560,740,920,1100,1450,1650].map(y=>({x:1276,y})),
+                    ...[200,380,560,740,920,1100,1450,1650].map(y=>({x:1390,y})),
                 ];
-                lamps.forEach(({x,y})=>{
-                    // Słupek
-                    c.fillStyle='#3a3a4e';
-                    c.fillRect(x-1,y,2,10);
-                    c.fillRect(x-4,y-2,8,3);
-                    // Poświata na asfalcie
+                lampPositions.forEach(({x,y})=>{
+                    c.fillStyle='#4a4a60'; c.fillRect(x-1,y-6,2,8); c.fillRect(x-3,y-8,6,3);
                     c.globalCompositeOperation='screen';
-                    const gl=c.createRadialGradient(x,y,0,x,y,28);
-                    gl.addColorStop(0,'rgba(255,210,100,0.28)');
+                    const gl=c.createRadialGradient(x,y,0,x,y,35);
+                    gl.addColorStop(0,'rgba(255,215,100,0.50)');
+                    gl.addColorStop(0.4,'rgba(255,190,60,0.20)');
                     gl.addColorStop(1,'rgba(0,0,0,0)');
-                    c.fillStyle=gl;
-                    c.fillRect(x-28,y-28,56,56);
+                    c.fillStyle=gl; c.fillRect(x-35,y-35,70,70);
                     c.globalCompositeOperation='source-over';
                 });
-            }
->
+            }>
