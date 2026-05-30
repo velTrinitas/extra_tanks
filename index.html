@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.41
+        Game version: v4.42
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -785,7 +785,7 @@
 
         <!-- GAME OVER SCREEN -->
         <div id="gameOverScreen" class="screen">
-            <h1>Podsumowanie</h1>
+            <h1>PRZEGRANA</h1>
             <div id="starRating" style="font-size:3.5rem;line-height:1;margin:6px 0;"></div>
             <div id="rankTitle" style="font-size:1.4rem;color:#e67e22;font-family:sans-serif;font-weight:bold;margin-bottom:6px;text-shadow:1px 1px 0 #000;"></div>
             <div id="trophyChangeDisplay" class="trophy-change-box"></div>
@@ -5236,8 +5236,19 @@
                 });
                 // Steam vents
                 _cityVents = [];
-                [[185,648],[475,655],[895,638],[1490,652],[1815,642],
-                 [638,895],[648,1195],[1315,998],[1345,1192],[295,1318],[795,1348],[1595,1315]
+                // Wenty rozlokowane po całej mapie 3000×3000 (v4.42)
+                [
+                    // Centrum miasta — ulice
+                    [185,648],[895,638],[1815,642],
+                    [638,895],[1315,1195],[795,1348],[1595,1315],
+                    // Daleka północ
+                    [350,120],[1300,180],[2200,250],
+                    // Wschodnie przedmieścia
+                    [2100,520],[2450,950],[2300,1550],[2550,1900],
+                    // Południowe przedmieścia
+                    [420,2150],[1050,2350],[1750,2200],[2400,2400],
+                    // Zachodnia rubież
+                    [80,1200],[150,2500],
                 ].forEach(([sx,sy])=>_cityVents.push(new SteamVent(sx,sy)));
                 _cityRain = new CityRain();
                 // MEDI STATION i PWR NODE na ulicach miasta (v4.33-alpha.3)
@@ -6248,6 +6259,18 @@
 
 
         // ─── SteamVent (v4.32) ──────────────────────────────────────────────
+            // SteamVent pre-rendered cache (v4.42)
+            const _steamCache = (()=>{
+                const cv = document.createElement('canvas');
+                cv.width = 40; cv.height = 40;
+                const cx2 = cv.getContext('2d');
+                const g = cx2.createRadialGradient(20,20,0,20,20,20);
+                g.addColorStop(0, 'rgba(160,208,255,1)');
+                g.addColorStop(0.5, 'rgba(160,208,255,0.4)');
+                g.addColorStop(1, 'rgba(0,0,0,0)');
+                cx2.fillStyle = g; cx2.fillRect(0,0,40,40);
+                return cv;
+            })();
         class SteamVent {
             constructor(x, y) {
                 this.x = x; this.y = y;
@@ -6283,11 +6306,10 @@
                 }
                 // Para (screen blend)
                 ctx.globalCompositeOperation='screen';
-                ctx.fillStyle='#a0d0ff'; // Flat — brak createRadialGradient
                 this.particles.forEach(p=>{
                     const t=p.age/p.life;
                     ctx.globalAlpha = t<0.2 ? (t/0.2)*0.16 : (1-t)*0.16;
-                    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+                    ctx.drawImage(_steamCache, p.x-p.r, p.y-p.r, p.r*2, p.r*2);
                 });
                 ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
                 ctx.restore();
