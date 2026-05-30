@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.40a
+        Game version: v4.41
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4648,8 +4648,9 @@
                     this.size = 100;           // v4.33-alpha.6: 100x100
                     this.hFactor = 0.0;
                     this.cooldownEnd = -1;
-                    this.repairRequiredTime = 180; // 3s @ 60fps
-                    this.repairProgress = 0;
+                    this.repairTime = 3000; // ms, niezależne od FPS
+                    this._repairStart = null;
+                    this.repairProgress = 0; // 0.0–1.0
                     this.healAmount = 1;
                 }
                 update(player, isMoving) {
@@ -4658,17 +4659,18 @@
                     const dist = Math.hypot(player.x - cx, player.y - cy);
                     if(dist < 48 && player.hp < player.brawler.hp) {
                         if(!isMoving) {
-                            this.repairProgress++;
-                            if(this.repairProgress >= this.repairRequiredTime) {
+                            if(!this._repairStart) this._repairStart = Date.now();
+                            this.repairProgress = Math.min(1, (Date.now()-this._repairStart)/this.repairTime);
+                            if(this.repairProgress >= 1) {
                                 player.hp = Math.min(player.brawler.hp, player.hp + this.healAmount);
                                 this.cooldownEnd = Date.now() + 60000;
-                                this.repairProgress = 0;
+                                this.repairProgress = 0; this._repairStart = null;
                                 createExplosion(player.x, player.y, '#2ecc71', 15);
                                 addHudNotif('🔧 +1 HP', '#2ecc71');
                                 AudioSys.playGem(); updateHUD();
                             }
-                        } else { this.repairProgress = 0; }
-                    } else { this.repairProgress = 0; }
+                        } else { this.repairProgress = 0; this._repairStart = null; }
+                    } else { this.repairProgress = 0; this._repairStart = null; }
                 }
                 draw(ctx, camX, camY, time) {
                     if(this.x<camera.x-130||this.x>camera.x+screenW+130||
@@ -4743,7 +4745,7 @@
                         ctx.translate(this.size/2,-18);
                         ctx.fillStyle='rgba(0,0,0,0.7)';
                         ctx.beginPath(); ctx.roundRect(-40,-10,80,12,4); ctx.fill();
-                        const prog=this.repairProgress/this.repairRequiredTime;
+                        const prog = this.repairProgress; // już 0–1
                         ctx.fillStyle='#00ffff';
                         ctx.beginPath(); ctx.roundRect(-38,-8,76*prog,8,3); ctx.fill();
                         ctx.fillStyle='#fff'; ctx.font='bold 10px Courier New';
@@ -5683,7 +5685,6 @@
             // Cyberpunk buildings (Y-sorted, before entities)
             if(selectedMap.id==='city' && _cityBuildings.length) {
                 _cityBuildings.sort((a,b)=>(a.y+a.d)-(b.y+b.d));
-                _cityBuildings.forEach(b=>b.draw(ctx));
             }
             // Steam vents — update + draw (world space)
             if(selectedMap.id==='city') {
