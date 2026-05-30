@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.38
+        Game version: v4.39
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4713,9 +4713,7 @@
                     // Neonowe krawędzie
                     ctx.strokeStyle = isActive ? '#ff003c' : '#333333';
                     ctx.lineWidth = 4;
-                    if(isActive){ctx.shadowColor='#ff003c'; ctx.shadowBlur=15;}
                     ctx.beginPath(); ctx.roundRect(2,2,this.size-4,this.size-4,15); ctx.stroke();
-                    ctx.shadowBlur=0;
                     // Krzyż medyczny — mniejszy, grubszy, czerwony glow (v4.33-alpha.6)
                     ctx.save();
                     ctx.translate(this.size/2, this.size/2);
@@ -4738,7 +4736,7 @@
                             ctx.beginPath(); ctx.moveTo(cx2,cy2); ctx.lineTo(tx,ty); ctx.stroke();
                             ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx2,cy2,3,0,Math.PI*2); ctx.fill();
                         }
-                        ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
+                        ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
                     }
                     // Pasek postępu
                     if(isRepairing){
@@ -4843,8 +4841,7 @@
                     // Rotujące łuki energii gdy aktywny
                     if(isActive){
                         ctx.globalCompositeOperation='screen';
-                        ctx.strokeStyle=cNeonO; ctx.lineWidth=2;
-                        ctx.shadowColor=cNeonO; ctx.shadowBlur=8;
+                        ctx.strokeStyle=cNeonO; ctx.lineWidth=2; ctx.globalAlpha=0.7;
                         for(let i=0;i<4;i++){
                             ctx.beginPath();
                             ctx.arc(0,0,28,time*2+i*Math.PI/2,time*2+i*Math.PI/2+0.9);
@@ -4964,13 +4961,15 @@
                     // Koguty (syreny)
                     ctx.globalCompositeOperation='screen';
                     ctx.fillStyle='#ff0033';
-                    if(isRed){ ctx.shadowColor='#ff0033'; ctx.shadowBlur=15;
+                    if(isRed){ ctx.globalAlpha=0.95;
                         ctx.beginPath(); ctx.arc(-5,-7,5,0,Math.PI*2); ctx.fill();
-                    } else { ctx.shadowBlur=0; ctx.fillRect(-7,-7,4,4); }
+                    } else { ctx.globalAlpha=0.3; ctx.fillRect(-7,-7,4,4); }
+                    ctx.globalAlpha=1;
                     ctx.fillStyle='#0044ff';
-                    if(!isRed){ ctx.shadowColor='#0044ff'; ctx.shadowBlur=15;
+                    if(!isRed){ ctx.globalAlpha=0.95;
                         ctx.beginPath(); ctx.arc(-5,7,5,0,Math.PI*2); ctx.fill();
-                    } else { ctx.shadowBlur=0; ctx.fillRect(-7,3,4,4); }
+                    } else { ctx.globalAlpha=0.3; ctx.fillRect(-7,3,4,4); }
+                    ctx.globalAlpha=1;
                     ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
                     ctx.restore();
                     // Dynamiczne światło na asfalcie
@@ -6088,6 +6087,11 @@
             draw(ctx,time=0){
                 const pcx=camera.x+screenW/2,pcy=camera.y+screenH/2;
                 const ox=(this.x+this.w/2-pcx)*this.hF, oy=(this.y+this.d/2-pcy)*this.hF;
+                // Viewport culling — pomiń budynki poza ekranem
+                const _margin=Math.max(this.w,this.d)*1.5+80;
+                const _sx=this.x+ox, _sy=this.y+oy;
+                if(_sx>camera.x+screenW+_margin||_sx+this.w<camera.x-_margin||
+                   _sy>camera.y+screenH+_margin||_sy+this.d<camera.y-_margin) return;
                 const K=this._c, fa=(frames+this._fo)%220<9?0.12:1.0;
                 ctx.save();
                 ctx.fillStyle='rgba(0,0,0,0.38)';ctx.fillRect(this.x+10,this.y+10,this.w+6,this.d+6);
@@ -6124,9 +6128,9 @@
                 else if(this.type===3){this._NL(ctx,mx,my,mx+ox,my+oy,K.n1,4,0.85*fa);}
                 else if(this.type===4){for(let i=0.25;i<=0.75;i+=0.25)this._NL(ctx,bx1+(bx2-bx1)*i,by1+(by2-by1)*i,bx1+(bx2-bx1)*i+ox*0.8,by1+(by2-by1)*i+oy*0.8,K.n1,2,0.55*fa);}
                 else if(this.type===5){this._NL(ctx,bx1,by1,bx1+ox,by1+oy,K.n1,2,0.9*fa);this._NL(ctx,bx2,by2,bx2+ox,by2+oy,K.n2,2,0.7*fa);}
-                else if(this.type===6){ctx.shadowBlur=12;ctx.fillStyle=K.n1;ctx.shadowColor=K.n1;ctx.beginPath();ctx.arc(bx1+ox*0.8,by1+oy*0.8,5,0,Math.PI*2);ctx.fill();}
-                else if(this.type===7){ctx.shadowBlur=10;ctx.strokeStyle=K.n1;ctx.shadowColor=K.n1;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(mx,my);ctx.lineTo(mx+ox*0.5,my+oy*0.5);ctx.stroke();}
-                else if(this.type===8){ctx.shadowBlur=15;ctx.strokeStyle=K.n1;ctx.shadowColor=K.n1;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(bx1+ox*0.2,by1+oy*0.2);ctx.lineTo(bx2+ox*0.2,by2+oy*0.2);ctx.stroke();}
+                else if(this.type===6){this._NL(ctx,bx1,by1,bx1+ox*0.8,by1+oy*0.8,K.n1,3,0.7*fa);}
+                else if(this.type===7){this._NL(ctx,mx,my,mx+ox*0.5,my+oy*0.5,K.n1,2,0.6*fa);}
+                else if(this.type===8){this._NL(ctx,bx1+ox*0.2,by1+oy*0.2,bx2+ox*0.2,by2+oy*0.2,K.n1,3,0.65*fa);}
                 ctx.shadowBlur=0;ctx.restore();
             }
             _R(ctx,rX,rY,fa,time=0){
@@ -6185,8 +6189,8 @@
                         ctx.strokeStyle='#222';ctx.lineWidth=3;ctx.stroke();
                         ctx.save();ctx.globalCompositeOperation='screen';
                         const pulse=0.5+Math.abs(Math.sin(time*3))*0.4;
-                        ctx.shadowColor=K.n1;ctx.shadowBlur=12*pulse;ctx.fillStyle=K.n1;
-                        ctx.globalAlpha=0.7*pulse*fa;
+                        ctx.fillStyle=K.n1;
+                        ctx.globalAlpha=0.7*pulse*fa; // brak shadowBlur
                         ctx.beginPath();ctx.arc(vx,vy,r-4,0,Math.PI*2);ctx.fill();
                         ctx.globalAlpha=1;ctx.restore();
                     };
@@ -6235,9 +6239,9 @@
                 const x2=this.x+(this.w-w2)/2+ox*0.5,y2=this.y+(this.d-d2)/2+oy*0.5;
                 drawTier(x2,y2,w2,d2,ox*0.5,oy*0.5,'#1e0c26','#31143d','#3e1a4d');
                 ctx.save();ctx.globalCompositeOperation='screen';
-                ctx.shadowColor=K.n1;ctx.shadowBlur=15*fa;ctx.strokeStyle=K.n1;ctx.lineWidth=3;
+                ctx.strokeStyle=K.n1;ctx.lineWidth=3;ctx.globalAlpha=0.85*fa;
                 ctx.strokeRect(x2+ox*0.5+4,y2+oy*0.5+4,w2-8,d2-8);
-                ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';ctx.restore();
+                ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.restore();
             }
         }
 
@@ -6278,16 +6282,13 @@
                 }
                 // Para (screen blend)
                 ctx.globalCompositeOperation='screen';
+                ctx.fillStyle='#a0d0ff'; // Flat — brak createRadialGradient
                 this.particles.forEach(p=>{
                     const t=p.age/p.life;
-                    const a=t<0.2? (t/0.2)*0.20 : (1-t)*0.20;
-                    const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
-                    g.addColorStop(0,`rgba(160,210,255,${a})`);
-                    g.addColorStop(1,'rgba(80,140,255,0)');
-                    ctx.fillStyle=g;
+                    ctx.globalAlpha = t<0.2 ? (t/0.2)*0.16 : (1-t)*0.16;
                     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
                 });
-                ctx.globalCompositeOperation='source-over';
+                ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
                 ctx.restore();
             }
         }
