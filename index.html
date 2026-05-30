@@ -554,7 +554,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.44
+        Game version: v4.45
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -2691,12 +2691,15 @@
                 const drawETrack = (sy) => {
                     ctx.fillStyle='#1c1c1c'; ctx.strokeStyle='#2e2e2e'; ctx.lineWidth=0.8;
                     ctx.beginPath(); ctx.roundRect(-hhl,sy-TRK/2,HL,TRK,2); ctx.fill(); ctx.stroke();
-                    ctx.strokeStyle='#383838'; ctx.lineWidth=0.6;
-                    const step=7*sc, tOff=((age*0.9)%step+step)%step;
-                    for(let i=0;i<=Math.ceil(HL/step)+1;i++){
-                        const lx=-hhl+i*step-tOff;
-                        if(lx>-hhl+0.5&&lx<hhl-0.5){ctx.beginPath();ctx.moveTo(lx,sy-TRK/2+sc);ctx.lineTo(lx,sy+TRK/2-sc);ctx.stroke();}
-                    }
+                    // Ząbki gąsienicy — setLineDash zamiast pętli z lineTo (v4.45)
+                    ctx.strokeStyle='#383838'; ctx.lineWidth=Math.max(1, TRK-1.5*sc);
+                    ctx.setLineDash([1.5*sc, 5.5*sc]);
+                    ctx.lineDashOffset = -((age*0.9) % (7*sc));
+                    ctx.beginPath();
+                    ctx.moveTo(-hhl+2*sc, sy); ctx.lineTo(hhl-2*sc, sy);
+                    ctx.stroke();
+                    ctx.setLineDash([]); // KRYTYCZNE: reset, inaczej kolejne stroke są kropkowane
+                    ctx.lineWidth=0.6;
                     ctx.fillStyle='#252525'; ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=0.6;
                     [-hhl+3.5*sc,-hhl/2,0,hhl/2,hhl-3.5*sc].forEach(wx=>{
                         ctx.beginPath(); ctx.arc(wx,sy,3.2*sc,0,Math.PI*2); ctx.fill(); ctx.stroke();
@@ -3654,7 +3657,7 @@
                 // Selected glow border
                 if(isSelected&&!onCD){
                     ctx.save();
-                    ctx.shadowColor=p.col; ctx.shadowBlur=18;
+                    
                     ctx.strokeStyle=p.col; ctx.lineWidth=4;
                     ctx.globalAlpha=0.85+Math.sin(frames*0.09)*0.12;
                     ctx.beginPath(); ctx.roundRect(bx,by,SW,SH+LBL,8); ctx.stroke();
@@ -4729,7 +4732,7 @@
                     ctx.translate(this.size/2, this.size/2);
                     const cw=8, ch=22; // grubość i długość ramienia
                     ctx.fillStyle = isActive ? '#ff003c' : '#552233';
-                    if(isActive){ctx.shadowColor='#ff003c'; ctx.shadowBlur=14;}
+                    if(isActive){}
                     ctx.fillRect(-cw/2,-ch/2,cw,ch);  // pionowe
                     ctx.fillRect(-ch/2,-cw/2,ch,cw);  // poziome
                     ctx.shadowBlur=0;
@@ -4737,7 +4740,7 @@
                     // Lasery naprawcze
                     if(isRepairing) {
                         ctx.globalCompositeOperation='screen';
-                        ctx.shadowColor='#00ffff'; ctx.shadowBlur=10;
+                        
                         ctx.strokeStyle='rgba(200,255,255,0.8)';
                         ctx.lineWidth=1.5+Math.random();
                         const tx=this.size/2+(Math.random()-0.5)*5;
@@ -4834,7 +4837,7 @@
                     // Neonowe krawędzie — pomarańczowe
                     ctx.strokeStyle = isActive ? cNeonO : '#332200';
                     ctx.lineWidth = 5;
-                    if(isActive){ctx.shadowColor=cNeonO; ctx.shadowBlur=15;}
+                    if(isActive){}
                     ctx.beginPath(); ctx.roundRect(3,3,this.size-6,this.size-6,15); ctx.stroke();
                     ctx.shadowBlur=0;
                     // Symbol ⚡ — centralny
@@ -4843,7 +4846,7 @@
                     const sc = isActive ? 1+Math.sin(time*6)*0.08 : 0.85;
                     ctx.scale(sc,sc);
                     ctx.fillStyle = isActive ? cNeonY : '#554400';
-                    if(isActive){ctx.shadowColor=cNeonY; ctx.shadowBlur=18;}
+                    if(isActive){}
                     ctx.font='bold 32px sans-serif';
                     ctx.textAlign='center'; ctx.textBaseline='middle';
                     ctx.fillText('⚡',0,0);
@@ -5192,19 +5195,10 @@
                 });
                 // Steam vents
                 _cityVents = [];
-                // Wenty rozlokowane po całej mapie 3000×3000 (v4.42)
+                // 10 strategicznych wentów po całej mapie (v4.45 redukcja 21→10)
                 [
-                    // Centrum miasta — ulice
-                    [185,648],[895,638],[1815,642],
-                    [638,895],[1315,1195],[795,1348],[1595,1315],
-                    // Daleka północ
-                    [350,120],[1300,180],[2200,250],
-                    // Wschodnie przedmieścia
-                    [2100,520],[2450,950],[2300,1550],[2550,1900],
-                    // Południowe przedmieścia
-                    [420,2150],[1050,2350],[1750,2200],[2400,2400],
-                    // Zachodnia rubież
-                    [80,1200],[150,2500],
+                    [185,648],[1815,642],[638,895],[1315,1195],[1595,1315],
+                    [1300,180],[2300,1550],[1050,2350],[2400,2400],[150,2500],
                 ].forEach(([sx,sy])=>_cityVents.push(new SteamVent(sx,sy)));
                 _cityRain = new CityRain();
                 // MEDI STATION i PWR NODE na ulicach miasta (v4.33-alpha.3)
@@ -6179,10 +6173,13 @@
                     ctx.strokeStyle='#333';ctx.lineWidth=2;ctx.strokeRect(rX+this.w/2-14,rY+this.d/2-18,28,36);
                     if(Math.random()>0.82){
                         ctx.save();ctx.globalCompositeOperation='screen';
-                        ctx.shadowColor=K.n1;ctx.shadowBlur=12;ctx.strokeStyle='#fff';ctx.lineWidth=2;
-                        ctx.beginPath();ctx.moveTo(rX+this.w/2,rY+this.d/2-8);
-                        ctx.lineTo(rX+this.w/2+(Math.random()-0.5)*10,rY+this.d/2);
-                        ctx.lineTo(rX+this.w/2,rY+this.d/2+8);ctx.stroke();
+                        // Iskra z fake glow — gruba półprzezroczysta linia + cienka biała (v4.45)
+                        const _lx=rX+this.w/2, _ly=rY+this.d/2;
+                        const _rx=_lx+(Math.random()-0.5)*10;
+                        ctx.strokeStyle=K.n1; ctx.lineWidth=5; ctx.globalAlpha=0.4;
+                        ctx.beginPath();ctx.moveTo(_lx,_ly-8);ctx.lineTo(_rx,_ly);ctx.lineTo(_lx,_ly+8);ctx.stroke();
+                        ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.globalAlpha=1;
+                        ctx.beginPath();ctx.moveTo(_lx,_ly-8);ctx.lineTo(_rx,_ly);ctx.lineTo(_lx,_ly+8);ctx.stroke();
                         ctx.restore();
                     }
                 }
@@ -6247,6 +6244,9 @@
                 };
             }
             update() {
+                // Viewport culling — pomiń wenty poza ekranem (v4.45)
+                if(this.x < camera.x-80 || this.x > camera.x+screenW+80 ||
+                   this.y < camera.y-80 || this.y > camera.y+screenH+80) return;
                 for(let i=this.particles.length-1; i>=0; i--) {
                     const p=this.particles[i];
                     p.age++; p.x+=p.vx; p.y+=p.vy; p.r+=0.18;
@@ -6255,6 +6255,9 @@
                 }
             }
             draw(ctx) {
+                // Viewport culling (v4.45)
+                if(this.x < camera.x-80 || this.x > camera.x+screenW+80 ||
+                   this.y < camera.y-80 || this.y > camera.y+screenH+80) return;
                 // Kratka wentylacyjna
                 ctx.save();
                 ctx.strokeStyle='#2a2a40'; ctx.lineWidth=1.5;
