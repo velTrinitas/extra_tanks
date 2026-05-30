@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.40
+        Game version: v4.41
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -5681,7 +5681,6 @@
             // Cyberpunk buildings (Y-sorted, before entities)
             if(selectedMap.id==='city' && _cityBuildings.length) {
                 _cityBuildings.sort((a,b)=>(a.y+a.d)-(b.y+b.d));
-                _cityBuildings.forEach(b=>b.draw(ctx));
             }
             // Steam vents — update + draw (world space)
             if(selectedMap.id==='city') {
@@ -6214,6 +6213,8 @@
                         ctx.restore();
                     }
                 }
+                ctx.globalAlpha=1;
+                ctx.globalCompositeOperation='source-over';
                 ctx.restore();
             }
             _drawZiggurat7(ctx,ox,oy,fa){
