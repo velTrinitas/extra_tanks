@@ -546,7 +546,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.41
+        Game version: v4.39
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -4719,14 +4719,10 @@
                     ctx.translate(this.size/2, this.size/2);
                     const cw=8, ch=22; // grubość i długość ramienia
                     ctx.fillStyle = isActive ? '#ff003c' : '#552233';
-                    if(isActive){
-                        ctx.globalAlpha=0.25; // Fake glow — większy krzyż pod spodem
-                        ctx.fillRect(-cw/2-4,-ch/2-4,cw+8,ch+8);
-                        ctx.fillRect(-ch/2-4,-cw/2-4,ch+8,cw+8);
-                        ctx.globalAlpha=1;
-                    }
-                    ctx.fillRect(-cw/2,-ch/2,cw,ch);
-                    ctx.fillRect(-ch/2,-cw/2,ch,cw);
+                    if(isActive){ctx.shadowColor='#ff003c'; ctx.shadowBlur=14;}
+                    ctx.fillRect(-cw/2,-ch/2,cw,ch);  // pionowe
+                    ctx.fillRect(-ch/2,-cw/2,ch,cw);  // poziome
+                    ctx.shadowBlur=0;
                     ctx.restore();
                     // Lasery naprawcze
                     if(isRepairing) {
@@ -5665,7 +5661,13 @@
             ctx.save();
             ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
 
-            // Grid przeniesiony do offscreen canvasu (v4.40)
+            // Grid lines — only for non-desert (desert uses offscreen)
+            if(selectedMap.id !== 'desert') {
+                ctx.strokeStyle='rgba(0,0,0,0.05)'; ctx.lineWidth=2;
+                const startX=Math.floor(camera.x/100)*100, startY=Math.floor(camera.y/100)*100;
+                for(let x=startX;x<camera.x+screenW;x+=100){ctx.beginPath();ctx.moveTo(x,camera.y);ctx.lineTo(x,camera.y+screenH);ctx.stroke();}
+                for(let y=startY;y<camera.y+screenH;y+=100){ctx.beginPath();ctx.moveTo(camera.x,y);ctx.lineTo(camera.x+screenW,y);ctx.stroke();}
+            }
 
             // Rzeka Nil (przed env walls, po offscreen)
             if(selectedMap.id==='desert' && _nilRiver) {
@@ -5681,6 +5683,7 @@
             // Cyberpunk buildings (Y-sorted, before entities)
             if(selectedMap.id==='city' && _cityBuildings.length) {
                 _cityBuildings.sort((a,b)=>(a.y+a.d)-(b.y+b.d));
+                _cityBuildings.forEach(b=>b.draw(ctx));
             }
             // Steam vents — update + draw (world space)
             if(selectedMap.id==='city') {
@@ -6213,8 +6216,6 @@
                         ctx.restore();
                     }
                 }
-                ctx.globalAlpha=1;
-                ctx.globalCompositeOperation='source-over';
                 ctx.restore();
             }
             _drawZiggurat7(ctx,ox,oy,fa){
@@ -6281,10 +6282,11 @@
                 }
                 // Para (screen blend)
                 ctx.globalCompositeOperation='screen';
+                ctx.fillStyle='#a0d0ff'; // Flat — brak createRadialGradient
                 this.particles.forEach(p=>{
                     const t=p.age/p.life;
                     ctx.globalAlpha = t<0.2 ? (t/0.2)*0.16 : (1-t)*0.16;
-                    ctx.drawImage(_steamCache,p.x-p.r,p.y-p.r,p.r*2,p.r*2);
+                    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
                 });
                 ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
                 ctx.restore();
@@ -6308,25 +6310,23 @@
             }
             draw(ctx) {
                 ctx.save();
-                ctx.lineWidth=1.5; ctx.lineCap='round';
-                // BATCHING — cały deszcz jako jedna ścieżka
-                ctx.beginPath();
+                ctx.lineWidth=1; ctx.lineCap='round';
                 this.drops.forEach(d=>{
                     d.x+=2.2; d.y+=d.spd;
                     if(d.y>screenH+20){
                         if(Math.random()<0.4) this.splashes.push({x:d.x,y:screenH-4,r:0,a:0.28});
                         Object.assign(d,this._spawn());
                     }
-                    ctx.moveTo(d.x,d.y); ctx.lineTo(d.x+2,d.y+d.len);
+                    ctx.strokeStyle=`rgba(140,195,255,${d.a})`;
+                    ctx.beginPath(); ctx.moveTo(d.x,d.y); ctx.lineTo(d.x+2,d.y+d.len); ctx.stroke();
                 });
-                ctx.strokeStyle='rgba(140,195,255,0.18)'; ctx.stroke();
                 // Splashe
-                ctx.lineWidth=0.8;
                 for(let i=this.splashes.length-1;i>=0;i--){
                     const s=this.splashes[i];
                     s.r+=1.3; s.a-=0.055;
                     if(s.a<=0){this.splashes.splice(i,1);continue;}
                     ctx.strokeStyle=`rgba(120,180,255,${s.a})`;
+                    ctx.lineWidth=0.8;
                     ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.stroke();
                 }
                 ctx.restore();
@@ -6674,10 +6674,6 @@
 </body>
 </html
 
-            // Grid 100px — baked do tekstury tła (v4.40)
-            c.strokeStyle='rgba(0,0,0,0.06)'; c.lineWidth=2;
-            for(let x=0;x<WORLD_W;x+=100){c.beginPath();c.moveTo(x,0);c.lineTo(x,WORLD_H);c.stroke();}
-            for(let y=0;y<WORLD_H;y+=100){c.beginPath();c.moveTo(0,y);c.lineTo(WORLD_W,y);c.stroke();}
             // Lampy uliczne — krawędzie chodników (v4.38)
             {
                 const lampPositions = [
@@ -6704,15 +6700,4 @@
                     c.fillStyle=gl; c.fillRect(x-35,y-35,70,70);
                     c.globalCompositeOperation='source-over';
                 });
-            }
-            // Cache dymu — pre-rendered 40×40 (v4.40)
-            const _steamCache=(()=>{
-                const cv=document.createElement('canvas');cv.width=40;cv.height=40;
-                const cx=cv.getContext('2d');
-                const g=cx.createRadialGradient(20,20,0,20,20,20);
-                g.addColorStop(0,'rgba(160,208,255,1)');
-                g.addColorStop(0.5,'rgba(160,208,255,0.4)');
-                g.addColorStop(1,'rgba(0,0,0,0)');
-                cx.fillStyle=g; cx.fillRect(0,0,40,40);
-                return cv;
-            })();>
+            }>
