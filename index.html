@@ -554,7 +554,7 @@
     <div id="credits">
         Game Designers: <span class="credits-names">Michał &amp; Mariusz</span><br>
         Created with ❤️ in Bielsko-Biała, PL<br>
-        Game version: v4.47
+        Game version: v4.48
     </div>
 
     <div id="welcomeScreenWrapper"></div>
@@ -3513,26 +3513,8 @@
             ctx.globalAlpha=1;
         }
 
-                // OPT v4.47: Cache pre-rendered power icons (HUD) — eliminuje 2× createRadialGradient/klatkę
-        const _powerIconCache = {};
-        function _getPowerIcon(type, r) {
-            const key = type + '_' + r;
-            if(_powerIconCache[key]) return _powerIconCache[key];
-            const cv = document.createElement('canvas');
-            const SZ = r*2.4; // padding for full icon range
-            cv.width = SZ; cv.height = SZ;
-            const cx2 = cv.getContext('2d');
-            cx2.translate(SZ/2, SZ/2);
-            // Wywołaj oryginalny renderer ale z naszym kontekstem
-            _renderPowerIconRaw(cx2, type, r);
-            _powerIconCache[key] = cv;
-            return cv;
-        }
-
-        function _renderPowerIconRaw(ctx, type, r) {
-            // Oryginalny rendering — używany do pre-renderowania cache
-            const _origAlpha = ctx.globalAlpha;
-            // bez save/translate — wywoływane z ctx już translatedym
+        function drawPowerIcon(ctx, type, cx, cy, r, alpha) {
+            ctx.save(); ctx.globalAlpha=alpha; ctx.translate(cx,cy);
 
             if(type==='aura'){
                 // ── AURA: golden electromagnetic shield ──
@@ -3860,15 +3842,6 @@
                 const s=(0.5-t)*2;
                 return [Math.round(255+s*(231-255)), Math.round(165+s*(76-165)), Math.round(s*60)];
             }
-        }
-
-        function drawPowerIcon(ctx, type, cx, cy, r, alpha) {
-            // OPT v4.47: drawImage z cache zamiast pełnego renderingu
-            const iconCv = _getPowerIcon(type, r);
-            ctx.save();
-            ctx.globalAlpha = alpha;
-            ctx.drawImage(iconCv, cx - iconCv.width/2, cy - iconCv.height/2);
-            ctx.restore();
         }
 
         function drawHPPill(px, py, PW, PH, r) {
